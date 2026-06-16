@@ -51,6 +51,21 @@ data-free branch — **never push your vault to `upstream`**.
 Synapse's governance ethos: the actor that writes a change never approves it. Open a PR; a human reviews
 and merges. Agents propose; humans gate. The same applies to contributions — review is required.
 
+## Branch protection (how `main` is governed)
+
+`main` is protected by a GitHub ruleset. In practice this means:
+
+- **No direct pushes to `main`.** All changes land through a pull request.
+- **Maintainer review is mandatory.** Every PR requires approval from a code owner (see
+  [`.github/CODEOWNERS`](.github/CODEOWNERS)) before it can merge. As an outside contributor you cannot
+  self-merge.
+- **`main` cannot be deleted, and force-pushes are blocked.** History is append-only.
+- **Stale approvals are dismissed** when new commits are pushed to a PR, so the approved diff is the
+  merged diff.
+
+Because this is a personal (non-org) public repo, outside contributors don't have push access at all —
+**fork the repo, push to your fork, and open a PR from there.** The maintainer reviews, and merges.
+
 ## PR flow
 
 1. Fork (or branch off `main`) from a clean, data-free state.

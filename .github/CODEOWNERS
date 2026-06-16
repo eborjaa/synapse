@@ -1,0 +1,9 @@
+# Code owners for Synapse.
+# Every PR that touches a matching path requires review/approval from the
+# listed owner(s). Combined with the `main` ruleset's "require code owner
+# review", this makes maintainer review mandatory before any merge.
+#
+# Syntax: <path-pattern> <@owner>...  (last matching line wins)
+
+# Default owner for everything in the repo.
+* @eborjaa
