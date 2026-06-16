@@ -175,18 +175,52 @@ __mx_launch() {
   # your opencode.json permission posture — see decision-0004 / doc-runtime-wiring).
   briefing="$(cat "$tmp")"
   rm -f "$tmp"
+
+  # Local reasoning models stream hidden reasoning tokens before any visible content and are slow to
+  # process a multi-thousand-token briefing — so the screen looks frozen for the first 30–90s+. Surface
+  # the reasoning as proof-of-life by default; silence it with SYNAPSE_THINKING=0 for clean final output.
+  _mx_oc=(run -m "$SYNAPSE_MODEL" --dir "$SYNAPSE_VAULT")
+  case "${SYNAPSE_THINKING:-1}" in
+    0|off|false|no) ;;
+    *) _mx_oc+=(--thinking)
+       echo "[synapse] local model — first tokens can take 30–90s on a large briefing; showing reasoning as proof-of-life (SYNAPSE_THINKING=0 to hide)." >&2 ;;
+  esac
+
   if [ -n "$task" ]; then
-    opencode run -m "$SYNAPSE_MODEL" --dir "$SYNAPSE_VAULT" "$briefing
+    opencode "${_mx_oc[@]}" "$briefing
 
 ---
 TASK: $task"
   else
-    opencode run -m "$SYNAPSE_MODEL" --dir "$SYNAPSE_VAULT" "$briefing"
+    opencode "${_mx_oc[@]}" "$briefing"
   fi
 }
 
 # ── auto-generate one function per agent-*.md ─────────────────────────────────
 _mx_field() { sed -n "s/^$2:[[:space:]]*//p" "$1" | tr -d '"' | head -1; }
+
+# Word-wrap $2 to the terminal width with a hanging indent of $1 columns.
+# The caller has already printed a $1-wide prefix on the current line, so the
+# FIRST wrapped line is emitted with no leading pad (it continues that line);
+# continuation lines are padded to align under the description column.
+_mx_wrap() {
+  local indent="$1" text="$2" width
+  width="${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}"
+  case "$width" in ''|*[!0-9]*) width=80 ;; esac
+  awk -v ind="$indent" -v width="$width" -v text="$text" '
+    BEGIN {
+      avail = width - ind; if (avail < 24) avail = 24
+      pad = sprintf("%*s", ind, "")
+      n = split(text, w, /[ \t]+/); line = ""; first = 1
+      for (i = 1; i <= n; i++) {
+        cand = (line == "" ? w[i] : line " " w[i])
+        if (length(cand) > avail && line != "") {
+          print (first ? "" : pad) line; first = 0; line = w[i]
+        } else line = cand
+      }
+      if (line != "") print (first ? "" : pad) line
+    }'
+}
 
 for _mx_f in "$SYNAPSE_VAULT"/agents/agent-*.md; do
   [ -e "$_mx_f" ] || continue
@@ -211,7 +245,8 @@ vault-agents() {
     name="${id#agent-}"
     prof="$(_mx_field "$f" profile)"; prof="${prof:-lean}"
     purpose="$(_mx_field "$f" purpose)"
-    printf '  %-14s [%-8s] %s\n' "$name" "$prof" "$purpose"
+    printf '  %-14s [%-8s] ' "$name" "$prof"   # 28-col prefix; no newline
+    _mx_wrap 28 "$purpose"                      # wraps purpose under the prefix
   done
   echo ""
   echo "  Also: vault-mocs  vault-profiles"
