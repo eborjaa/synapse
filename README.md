@@ -203,6 +203,10 @@ Everything runnable, in one place. Two front-ends over the same `_meta/tools/` s
 > Model is one env var: `export SYNAPSE_MODEL=ollama/<your-model>` (default `ollama/qwen3.6-256k`). Endpoint
 > + key (there is none) live in `~/.config/opencode/opencode.json`. That single line is what keeps Synapse
 > LLM-agnostic.
+>
+> Reasoning models on a local backend can sit silent for 30–90s while they process a multi-thousand-token
+> briefing, so agents show the model's reasoning by default as proof-of-life. Set `SYNAPSE_THINKING=0` to
+> hide it and print only the final answer.
 
 **B. Direct `node`** (no shell setup) — drive the engine scripts yourself:
 
