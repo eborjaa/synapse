@@ -64,11 +64,14 @@ cp _meta/tools/vault-privacy-gate.sh ~/.claude/hooks/ && chmod +x ~/.claude/hook
 
 The hook matches on **path fields** (so naming the vault inside a framework note is fine — only paths
 *into* the vault are blocked), derives its marker from the sealed dir's **basename** (give your vault a
-distinctive name), and **fails closed**. Toggle it with the host sentinel (default ON):
+distinctive name), and **fails closed**. Toggle it with the shipped `vault-gate` command (from `agents.sh`;
+default ON):
 
 ```bash
-: > ~/.claude/vault-gate-off      # OFF — agent may enter the vault for a scoped task
-rm -f ~/.claude/vault-gate-off    # ON  — re-seal (default; a forgotten toggle fails closed)
+vault-gate off      # agent may enter the vault for a scoped task
+vault-gate on       # re-seal (default; a forgotten toggle fails closed)
+vault-gate status   # show current state
+# under the hood it's just a host sentinel: `: > ~/.claude/vault-gate-off` (off) / `rm` it (on)
 ```
 
 The framework now ships the **mechanism**; the *wiring and the protected path* still live in host config you

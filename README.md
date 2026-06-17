@@ -371,9 +371,11 @@ cp _meta/tools/vault-privacy-gate.sh ~/.claude/hooks/ && chmod +x ~/.claude/hook
 #        "hooks": [ { "type": "command",
 #          "command": "SYNAPSE_VAULT_GATE_PATH=/abs/path/to/your-vault bash ~/.claude/hooks/vault-privacy-gate.sh" } ] } ] }
 
-# Toggle anytime (default ON — no restart; the hook reads the sentinel each call):
-: > ~/.claude/vault-gate-off      # OFF — let the agent into the vault for a scoped task
-rm -f ~/.claude/vault-gate-off    # ON  — re-seal (default)
+# Toggle anytime (default ON, no restart) — ships as a command once you've sourced the CLI (agents.sh):
+vault-gate off      # let the agent into the vault for a scoped task
+vault-gate on       # re-seal (default)
+vault-gate status   # show current state
+# (under the hood it's just a host sentinel — `: > ~/.claude/vault-gate-off` to disable, `rm` it to re-enable)
 ```
 
 → Full detail: [`doc-deployment-gate`](docs/doc-deployment-gate.md) · [`doc-runtime-wiring`](docs/doc-runtime-wiring.md).

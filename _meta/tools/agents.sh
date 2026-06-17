@@ -330,3 +330,16 @@ vault-profiles() {
   echo "  Rule of thumb: agents → their declared profile; MOCs → standard (auto-applied when target is moc-*)."
   echo "  --dry-run previews the closure without rendering bodies."
 }
+
+# ── privacy gate toggle (host-level; the external-agent gate — see docs/doc-deployment-gate.md) ──
+# vault-gate on|off|status — flips the host sentinel the `vault-privacy-gate.sh` PreToolUse hook reads.
+#   off → external coding agent may enter the vault (scoped task) · on → vault sealed (default) · status.
+# No restart needed — the hook checks the sentinel on every call. Default is ON (sentinel absent).
+vault-gate() {
+  case "${1:-status}" in
+    off)    : > "$HOME/.claude/vault-gate-off" && echo "🔓 vault gate OFF — external agent may access the vault" ;;
+    on)     rm -f "$HOME/.claude/vault-gate-off" && echo "🔒 vault gate ON — vault sealed (default)" ;;
+    status) [ -f "$HOME/.claude/vault-gate-off" ] && echo "🔓 vault gate: OFF" || echo "🔒 vault gate: ON" ;;
+    *)      echo "usage: vault-gate on|off|status" >&2; return 2 ;;
+  esac
+}

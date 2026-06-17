@@ -15,9 +15,9 @@
 #            "command": "SYNAPSE_VAULT_GATE_PATH=/abs/path/to/your/private-vault bash ~/.claude/hooks/vault-privacy-gate.sh" } ] } ] }
 #      (tip: give the vault a DISTINCTIVE basename — matching is by basename substring.)
 #
-# ── Toggle (host sentinel; default ON) ──────────────────────────────────────────
-#   : > ~/.claude/vault-gate-off      # OFF — agent may enter the vault (scoped task)
-#   rm -f ~/.claude/vault-gate-off    # ON  — vault sealed (default)
+# ── Toggle (default ON) ────────────────────────────────────────────────────────
+#   vault-gate off | on | status      # friendly command (ships in _meta/tools/agents.sh)
+#   …or the raw host sentinel:  `: > ~/.claude/vault-gate-off` (OFF) · `rm` it (ON)
 #
 # The gate is the OWNER's switch: an external agent can't disable its own gate (the sentinel
 # lives in host config + the CLI's safety classifier refuses agent self-disable). Fails CLOSED.
