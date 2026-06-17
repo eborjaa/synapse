@@ -15,14 +15,17 @@ node _meta/tools/render.mjs <agent-id> [<target-id>] --profile <lean|standard|fa
 
 The briefing walks the role closure of the agent (and any target) and concatenates the linked bodies —
 its rules, tools, skills, and conventions — into one context blob. `moc-*` targets auto-upgrade to
-`standard`. The short shell commands `curator` / `reconciler` / `ingester` (from `_meta/tools/agents.sh`)
-do this and launch the session for you.
+`standard`. The short shell commands `curator` / `reconciler` / `ingester` (the three writers) and
+`oracle` (the read-only Q&A front door) — all from `_meta/tools/agents.sh` — do this and launch the
+session for you.
 
-Invoking an agent **with a task** (e.g. `curator moc-finances "did I note anything about budgeting?"`)
+Invoking an agent **with a task** (e.g. `oracle moc-finances "did I note anything about budgeting?"`)
 auto-routes through `_meta/tools/augment.mjs`, which appends a labeled `## Semantically related (not yet
 linked)` section of embedding-similar notes the typed graph missed. These hits are **suggestions to verify,
 not authoritative** — never act on one as if it were a typed link; if a hit is genuinely relevant, propose
-promoting it to a typed `related:` link. See `docs/doc-semantic-recall.md`.
+promoting it to a typed `related:` link. The `oracle` is built for exactly this query path: it answers
+grounded in a MOC's closure + recall, cites its sources, and never writes — it only proposes a
+consent-gated handoff to a writer. See `docs/doc-semantic-recall.md` and `agents/agent-oracle.md`.
 
 ## Runtime
 

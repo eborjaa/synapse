@@ -57,7 +57,7 @@ curator                                          # run the steward at its defaul
 curator moc-finances                             # steward, scoped to one domain hub (moc-* → auto-standard)
 reconciler moc-contacts                          # fix one drifted domain's notes/views
 curator moc-finances "regenerate the Q2 summary view"   # seed a concrete task
-curator moc-finances "did I note anything about budgeting?"   # a task auto-adds semantic recall
+oracle moc-finances "did I note anything about budgeting?"   # ask the vault — read-only, cited, +semantic recall
 ```
 
 > Supplying a **task** auto-routes the command through the semantic augment (when the embedding index
@@ -76,7 +76,7 @@ clipboard). Same shape every time:
 
 | You pick… | = | What it is | Examples |
 |---|:--:|---|---|
-| **① an Agent** | the **method** (what *job*) | mission + rules + skills + tools | `curator` · `reconciler` · `ingester` |
+| **① an Agent** | the **method** (what *job*) | mission + rules + skills + tools | `curator` · `reconciler` · `ingester` · `oracle` |
 | **② a Target** | the **what** (which *domain/unit*) | the knowledge to act on | `moc-finances` · `moc-contacts` · a note `id` |
 | **③ a Profile** | the **dial** (how *much* context) | which relationship roles to pull | `lean` · `standard` · `fat` |
 
@@ -110,8 +110,10 @@ Profiles are presets of relationship **roles** to traverse (not raw hop counts):
 | 🧹 Steward — detect drift, heal the unambiguous, dispatch + verify, open one human-gated PR | [`agent-curator`](agents/agent-curator.md) | standard | `loop-maintain-synapse` / a `moc-<domain>` |
 | 🔧 Scoped doer — reconcile ONE drifted unit against its canonical source (no PR, no DB write) | [`agent-reconciler`](agents/agent-reconciler.md) | standard | a `moc-<domain>` |
 | 📥 Capture ingester — atomize one `inbox/` dump into typed notes + proposed migration rows | [`agent-ingester`](agents/agent-ingester.md) | standard | an `inbox/` item |
+| 🔮 Oracle — read-only Q&A: answer grounded in a MOC's closure + semantic recall, cite sources, propose consent-gated handoffs | [`agent-oracle`](agents/agent-oracle.md) | standard | a `moc-<domain>` + a question |
 
-A planning **lead** (decompose a multi-step goal, delegate to the three) can be added later; the core loop
+The first three **write** (maker ≠ checker, every change a human-gated diff); the oracle only **reads**. A
+planning **lead** (decompose a multi-step goal, delegate to the writers) can be added later; the core loop
 needs only curator + reconciler + ingester. See [`doc-agent-architecture`](docs/doc-agent-architecture.md).
 
 ---

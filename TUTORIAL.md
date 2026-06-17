@@ -98,7 +98,7 @@ wiki/                              ← THE VAULT ROOT
 ├── places/                        ← summary-places-*      (generated aggregates)
 │
 │   ── METHOD / REFERENCE / MAP / PROCESS (Markdown) ──────────────
-├── agents/                        ← agent-*  — job briefings (curator, reconciler, ingester)
+├── agents/                        ← agent-*  — job briefings (curator, reconciler, ingester, oracle)
 ├── rules/                         ← rule-*   — hard constraints with a "why"
 ├── skills/                        ← skill-*  — pointer notes → .opencode executable playbooks
 ├── tools/                         ← tool-*   — external instruments (git, gh, sqlite, render, lint, opencode)
@@ -255,7 +255,7 @@ they're for, with a real example of each:
 
 | Type | What it is | One-liner test | Real example |
 |---|---|---|---|
-| **agent** | a job briefing: mission + linked rules/skills/tools | "who do I want to *be* for this task?" | [[agent-curator]], [[agent-reconciler]], [[agent-ingester]] |
+| **agent** | a job briefing: mission + linked rules/skills/tools | "who do I want to *be* for this task?" | [[agent-curator]], [[agent-reconciler]], [[agent-ingester]], [[agent-oracle]] |
 | **rule** | a hard constraint with a *why* | "could violating this corrupt data, lose trust, or break a briefing?" | [[rule-derived-views-are-generated]], [[rule-synapse-human-gated-push]] |
 | **skill** | a *pointer note* — a thin Goal/Steps/Related summary linking the real playbook | "is there an executable playbook behind this?" | [[skill-maintain-synapse]] |
 
@@ -317,9 +317,9 @@ An agent note is ~30–55 lines. The power is in what its frontmatter links. Dis
 `invokes_skills` is **mandatory** on an agent (it may be `[]`, as the reconciler and ingester have it — a
 scoped doer needs no skill of its own). The curator declares `invokes_skills: ["[[skill-maintain-synapse]]"]`.
 
-### The trio — maker ≠ checker
+### The roster — three writers + one reader (maker ≠ checker)
 
-Synapse's core loop runs on **three agents, one rule: the agent that writes an edit never approves it**
+Synapse's core loop runs on **three writers, one rule: the agent that writes an edit never approves it**
 ([[doc-agent-architecture]]):
 
 - **[[agent-curator]]** — the *steward*. Owns [[loop-maintain-synapse]]: orient on the inbox, detect drift
@@ -335,6 +335,14 @@ Synapse's core loop runs on **three agents, one rule: the agent that writes an e
 The **reconciler (maker)** writes; the **curator (checker)** reviews the diff — in scope? single-sourced?
 schema-clean? no stray edits? — repairs the unambiguous, escalates the rest, and is the only one that
 opens the PR. A human merges. From-scratch authoring is escalated, never auto-run.
+
+Alongside the writers sits one **reader**:
+
+- **[[agent-oracle]]** — the *read front door*. Point it at a `moc-<domain>` and ask: it answers grounded in
+  that domain's typed closure plus query-driven semantic recall, **cites every claim**, and abstains when
+  the context is silent ([[rule-answer-grounded]]). It never edits, migrates, or opens a PR — its one
+  action is to **propose a consent-gated handoff** to a writer when it spots a gap (e.g. `oracle
+  moc-finances "did I note anything about budgeting?"`).
 
 **Why this design works:** the agent file stays tiny and stable, while the rules/skills/tools it links
 evolve independently. Tighten a constraint in [[rule-derived-views-are-generated]] once, and every agent
