@@ -57,13 +57,17 @@ and merges. Agents propose; humans gate. The same applies to contributions — r
 
 - **No direct pushes to `main`** — for anyone, the maintainer included. Every change lands through a PR.
 - **`main` cannot be deleted, and force-pushes are blocked.** History is append-only.
-- **The lint gate is the bar — not a second approver.** Every PR must be `lint --strict` clean (also
-  enforced by the optional pre-commit hook). That automated guardrail is what protects `main`, so the
-  ruleset doesn't require a separate human approval.
+- **A review is required, and the lint gate is the automated bar.** Every PR must be `lint --strict` clean
+  (also enforced by the optional pre-commit hook), and the ruleset requires one approving review — so no
+  change merges without a human reading the diff.
 
 Because this is a personal (non-org) public repo, outside contributors have **no push access** —
 **fork the repo, push to your fork, and open a PR.** The maintainer reviews it and merges; you can't
-self-merge. The maintainer self-merges their *own* PRs behind that same lint gate.
+self-merge.
+
+For the maintainer's *own* (and agent-authored) PRs, GitHub won't let an author approve their own PR, so
+the maintainer **reviews the diff in the PR UI and merges via admin bypass** — a deliberate "reviewed it,
+now overriding the approval requirement" step, never an automerge. Nothing lands unreviewed.
 
 ## PR flow
 
