@@ -44,6 +44,11 @@ where unattended change is dangerous, so record/DB mutations stay human-gated mi
   a PR with base `main`. Never merge it yourself. If a PR comes back CONFLICTING, do **not** force-push or
   rebase-and-force — **escalate** to `inbox/attention/` ([[rule-synapse-fail-loudly]]); a clean next-pass
   branch off the new HEAD is the normal recovery.
+- **Branch ownership — parent creates, subagents reuse.** Creating the fresh branch and opening the PR are
+  the **top-level (parent) session's** responsibility — it branches **once** and owns the PR. A **dispatched
+  subagent / reconciler does NOT create its own branch**: it works on the branch the parent already checked
+  out and commits there. A subagent that spins up a second branch forks the parent's work into a dangling
+  line — so "branch fresh" applies to the parent run, never to a worker it dispatches.
 - **Vault, Markdown/knowledge:** commit only the files you changed (never `git add -A`) and push directly;
   no PR. Still escalate anything ambiguous, destructive, or authoring-shaped instead of guessing
   ([[rule-synapse-fail-loudly]], [[rule-no-unprompted-actions]]).
