@@ -42,15 +42,17 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ```bash
 cd /path/to/your-vault
-node _meta/tools/install.mjs            # dry-run: prints exactly what it WOULD add, changes nothing
+node _meta/tools/install.mjs            # dry-run: print what it WOULD add, changes nothing
 node _meta/tools/install.mjs --write    # apply (idempotent — safe to re-run)
-exec $SHELL                             # reload your shell
-vault-agents                            # ← you now have one command per agent
+# open a new terminal (or 'exec $SHELL') to pick up the new PATH
+vault-agents                            # ← verify all commands are on PATH
 ```
 
-> The installer bakes the absolute vault path into the source line and appends a short Synapse pointer to
-> your OpenCode instructions. It never touches your model config or any secret. No `opencode` on PATH? a
-> briefing lands on your clipboard instead, paste-ready for any tool.
+> The installer is **shell-agnostic**: detects fish, bash, or zsh and writes the correct PATH line to your
+> shell config. It generates standalone launcher scripts in `_meta/tools/bin/` — each a tiny bash wrapper
+> around the core `agents.sh` logic — so the commands work from any shell without sourcing anything. It also
+> appends a short Synapse pointer to your OpenCode instructions. It never touches your model config or any
+> secret. No `opencode` on PATH? a briefing lands on your clipboard instead, paste-ready for any tool.
 
 ## ⚡ Your first commands
 
@@ -201,7 +203,7 @@ Synapse is a GitHub **Template repo** — you don't fork it, you *instantiate* i
    - **OpenCode** (`opencode-ai`) on PATH — the agent runtime.
    - **Ollama** reachable (local or over Tailscale) — the model + embedding server.
    - `ollama pull mxbai-embed-large` — the default embedding model for semantic recall.
-3. **Wire the CLI.** `node _meta/tools/install.mjs` (dry-run), then `--write` (idempotent). `exec $SHELL`.
+3. **Wire the CLI.** `node _meta/tools/install.mjs` (dry-run), then `--write` (idempotent). Open a new terminal (or `exec $SHELL`) to pick up the new PATH.
 4. **Create the records DB.** `node _meta/tools/apply-migrations.mjs` applies `0001-init-schema.sql` →
    a fresh `db/synapse.db` (gitignored, replayable from migrations).
 5. **Make it yours.** Set your name for the nightly canary (`export VAULT_USER="Your Name"`), and record

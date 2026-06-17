@@ -6,37 +6,52 @@
 //   node _meta/tools/install.mjs           # dry-run: print what it WOULD add (safe, prints only)
 //   node _meta/tools/install.mjs --write    # apply it (idempotent — safe to re-run)
 //
-// --write does two idempotent things:
-//   1) sources _meta/tools/agents.sh in your shell rc, baking in the absolute vault path
-//      → short agent commands (curator, reconciler, ingester, …)
-//   2) appends a short Synapse pointer to your OpenCode global instructions
+// --write does three things:
+//   1) generates standalone launcher scripts in _meta/tools/bin/ (shell-agnostic)
+//   2) adds that bin/ dir to your PATH via the correct shell rc file
+//   3) appends a short Synapse pointer to your OpenCode global instructions
 //      (~/.config/opencode/AGENTS.md if that dir exists, else the repo-root AGENTS.md),
 //      telling the runtime to render a briefing on demand instead of reading files ad-hoc.
 //
 // Zero dependencies. Does NOT touch any model config or secrets — your endpoint/model/key live in
 // ~/.config/opencode/opencode.json, which this script never reads or writes. No API key anywhere.
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync, chmodSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
 import { homedir } from "node:os";
 
 const here  = dirname(fileURLToPath(import.meta.url));
 const VAULT = resolve(here, "..", "..");              // _meta/tools -> vault root
+const BIN   = join(VAULT, "_meta", "tools", "bin");
 const write = process.argv.includes("--write");
 
-const agentsSh   = join(VAULT, "_meta", "tools", "agents.sh");
-const SH_MARKER  = "# Synapse vault agent commands";
-// Bake the absolute vault path into the source line so agents.sh never has to self-detect
-// (robust against zsh/direnv where %x / BASH_SOURCE come back empty).
-const sourceLine = `export SYNAPSE_VAULT="${VAULT}"; source "${agentsSh}"  ${SH_MARKER}`;
+// Shell detection — $SHELL is the login shell; fallback to $0 if needed.
+function detectShell() {
+  const shell = (process.env.SHELL || process.argv[0] || "").split("/").pop();
+  if (shell === "fish") return "fish";
+  if (shell === "bash") return "bash";
+  if (shell === "zsh")  return "zsh";
+  return null;
+}
 
-// OpenCode reads ~/.config/opencode/AGENTS.md (global) and the repo-root AGENTS.md (project).
-// Prefer the global one if its dir exists; otherwise fall back to the in-repo project file.
-const ocDir         = join(homedir(), ".config", "opencode");
-const ocAgentsMd    = join(ocDir, "AGENTS.md");
-const repoAgentsMd  = join(VAULT, "AGENTS.md");
-const agentsMdPath  = existsSync(ocDir) ? ocAgentsMd : repoAgentsMd;
+const SHELL_CONFIGS = {
+  fish: {
+    rcFile:     () => join(homedir(), ".config/fish/config.fish"),
+    pathLine:   `set -gx PATH $PATH ${BIN}  # Synapse vault PATH`,
+    pathMarker: "# Synapse vault PATH",
+  },
+  bash: {
+    rcFile:     () => join(homedir(), ".bashrc"),
+    pathLine:   `export PATH="$PATH:${BIN}"  # Synapse vault PATH`,
+    pathMarker: "# Synapse vault PATH",
+  },
+  zsh: {
+    rcFile:     () => join(homedir(), ".zshrc"),
+    pathLine:   `export PATH="$PATH:${BIN}"  # Synapse vault PATH`,
+    pathMarker: "# Synapse vault PATH",
+  },
+};
 
 const POINTER_MARKER = "# Synapse context vault";
 const POINTER = `${POINTER_MARKER}
@@ -45,25 +60,61 @@ render its bundled briefing instead of reading files ad-hoc:
     node "${VAULT}/_meta/tools/render.mjs" <agent-id> [<target-id>] --profile <lean|standard|fat>
 The briefing carries the agent's rules, tools, skills, and conventions. Launch agents with:
     opencode run -m <model> --dir "${VAULT}" "<rendered briefing>"
-Model + endpoint come from ~/.config/opencode/opencode.json (local Ollama over Tailscale — no API key).
+Model and endpoint come from ~/.config/opencode/opencode.json (local Ollama over Tailscale — no API key).
 Canary: address the user by name at least once every turn.`;
 
-function rcFile() {
-  const shell = process.env.SHELL || "";
-  if (shell.includes("bash")) {
-    const bp = join(homedir(), ".bash_profile");
-    return process.platform === "darwin" && existsSync(bp) ? bp : join(homedir(), ".bashrc");
+const ocDir         = join(homedir(), ".config", "opencode");
+const ocAgentsMd    = join(ocDir, "AGENTS.md");
+const repoAgentsMd  = join(VAULT, "AGENTS.md");
+const agentsMdPath  = existsSync(ocDir) ? ocAgentsMd : repoAgentsMd;
+
+// Generate launcher scripts from .tmpl files, substituting the vault path.
+// Idempotent: only writes if the content would change.
+function generateLaunchers() {
+  const tmplDir = BIN;
+  if (!existsSync(tmplDir)) mkdirSync(tmplDir, { recursive: true });
+
+  const templates = readdirSync(tmplDir).filter((f) => f.endsWith(".tmpl"));
+  if (templates.length === 0) return [];
+
+  const results = [];
+  for (const tmpl of templates) {
+    const name  = tmpl.replace(/\.tmpl$/, "");
+    const path  = join(tmplDir, name);
+    const text  = readFileSync(join(tmplDir, tmpl), "utf8")
+                    .replace(/@@VAULT_PATH@@/g, VAULT);
+    const existing = existsSync(path) ? readFileSync(path, "utf8") : null;
+    if (existing !== text) {
+      if (write) {
+        writeFileSync(path, text);
+        chmodSync(path, 0o755);
+      }
+      results.push({ name, action: existing === null ? "created" : "updated" });
+    } else {
+      results.push({ name, action: "current" });
+    }
   }
-  return join(homedir(), ".zshrc"); // zsh default (macOS)
+  return results;
 }
 
-console.log(`\nSynapse context vault\n   vault: ${VAULT}\n`);
+// ── main ──────────────────────────────────────────────────────────────────────
+
+const shell = detectShell();
+const shellCfg = shell ? SHELL_CONFIGS[shell] : null;
+
+console.log(`\nSynapse context vault\n   vault: ${VAULT}\n   shell: ${shell || "(unknown)"}\n`);
 
 if (!write) {
-  console.log("Dry-run — re-run with --write to apply both:\n");
-  console.log(`1) Shell commands — source agents.sh in ${rcFile()}:`);
-  console.log(`     ${sourceLine}\n`);
-  console.log(`2) OpenCode pointer — append to ${agentsMdPath}:\n`);
+  console.log("Dry-run — re-run with --write to apply:\n");
+  if (shellCfg) {
+    console.log(`1) Shell PATH — add to ${shellCfg.rcFile()}:`);
+    console.log(`     ${shellCfg.pathLine}\n`);
+  } else {
+    console.log("1) Shell PATH — could not detect your shell ($SHELL="
+      + `${process.env.SHELL}). Manually add to your shell rc:`);
+    console.log(`     export PATH="$PATH:${BIN}"\n`);
+  }
+  console.log(`2) OpenCode pointer — append to ${agentsMdPath}:`);
   console.log(POINTER.split("\n").map((l) => "   " + l).join("\n"));
   console.log(`\n-> Re-run with --write to apply.\n`);
   process.exit(0);
@@ -71,22 +122,35 @@ if (!write) {
 
 // --- apply (idempotent) ---
 
-// 1) shell rc
-const rc = rcFile();
-const rcText = existsSync(rc) ? readFileSync(rc, "utf8") : "";
-if (rcText.includes(sourceLine)) {
-  console.log(`ok  ${rc} already sources the agent commands (current) — no change`);
-} else if (rcText.includes(SH_MARKER)) {
-  // an outdated agent-commands line exists — replace it in place (self-heal)
-  const updated = rcText.split("\n").map((l) => (l.includes(SH_MARKER) ? sourceLine : l)).join("\n");
-  writeFileSync(rc, updated);
-  console.log(`ok  updated the (outdated) agent-commands line in ${rc}`);
+// 1) generate launcher scripts
+const tmplDir = BIN;
+if (!existsSync(tmplDir)) mkdirSync(tmplDir, { recursive: true });
+const templates = readdirSync(tmplDir).filter((f) => f.endsWith(".tmpl"));
+if (templates.length > 0) {
+  const results = generateLaunchers();
+  for (const { name, action } of results) {
+    console.log(`ok  bin/${name} ${action}`);
+  }
 } else {
-  appendFileSync(rc, (rcText && !rcText.endsWith("\n") ? "\n" : "") + "\n" + sourceLine + "\n");
-  console.log(`ok  added agent commands to ${rc} (sources agents.sh)`);
+  console.log(`ok  no bin/*.tmpl found — skipping launcher generation`);
 }
 
-// 2) OpenCode AGENTS.md pointer
+// 2) shell rc — PATH line
+if (shellCfg) {
+  const rc = shellCfg.rcFile();
+  const rcText = existsSync(rc) ? readFileSync(rc, "utf8") : "";
+  if (rcText.includes(shellCfg.pathMarker)) {
+    console.log(`ok  ${rc} already has the PATH line — no change`);
+  } else {
+    appendFileSync(rc, (rcText && !rcText.endsWith("\n") ? "\n" : "") + "\n" + shellCfg.pathLine + "\n");
+    console.log(`ok  added PATH line to ${rc}`);
+  }
+} else {
+  console.log(`warn could not detect shell — skipped rc update. Manually add to your shell rc:`);
+  console.log(`     export PATH="$PATH:${BIN}"`);
+}
+
+// 3) OpenCode AGENTS.md pointer
 if (agentsMdPath === ocAgentsMd && !existsSync(ocDir)) mkdirSync(ocDir, { recursive: true });
 const md = existsSync(agentsMdPath) ? readFileSync(agentsMdPath, "utf8") : "";
 if (md.includes(POINTER_MARKER)) {
@@ -96,4 +160,4 @@ if (md.includes(POINTER_MARKER)) {
   console.log(`ok  appended the Synapse pointer to ${agentsMdPath}`);
 }
 
-console.log(`\nDone. Run 'exec $SHELL' (or open a new terminal), then 'vault-agents' to see your commands.\n`);
+console.log(`\nDone. ${templates.length > 0 ? `Open a new terminal (or 'exec $SHELL'), then:\n\n  vault-agents   # verify all commands are on PATH\n  curator        # try the curator agent\n` : ""}`);

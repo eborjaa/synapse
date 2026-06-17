@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Standalone launcher for the curator agent
+export SYNAPSE_VAULT="/home/chamito/dev/cerebro"
+source "$SYNAPSE_VAULT/_meta/tools/agents.sh"
+__mx_launch "agent-curator" "lean" "$@"
