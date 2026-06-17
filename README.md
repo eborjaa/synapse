@@ -350,7 +350,8 @@ incapable* of touching the vault.
 
 - **A single, fail-closed, path-based `PreToolUse` hook** — configured at the host level (e.g. in
   `~/.claude/settings.json`), outside either repo — denies any read/edit/write/search whose path resolves
-  inside the vault, and any shell command that references the vault path.
+  inside the vault, and any shell command that references the vault path. The framework **ships** it as a
+  ready reference: [`_meta/tools/vault-privacy-gate.sh`](_meta/tools/vault-privacy-gate.sh).
 - **Default ON.** The hook checks a **host sentinel** (a file outside either repo); with no sentinel, the
   gate is live and the vault is sealed. The owner can deliberately toggle it off for a scoped task — e.g. to
   let a more capable CLI maintain the vault directly via `--cli claude` — then re-seal. Default ON means a
@@ -359,6 +360,21 @@ incapable* of touching the vault.
   `pull … upstream` — so the framework can pull upstream updates *into* the vault without ever exposing its
   contents. The gate constrains **only** the external agent; your local model, Obsidian, and the engine
   scripts touch the vault at full fidelity.
+
+**Install + toggle (Claude Code), ~30 seconds:**
+
+```bash
+# 1. install the shipped reference hook at the host level
+cp _meta/tools/vault-privacy-gate.sh ~/.claude/hooks/ && chmod +x ~/.claude/hooks/vault-privacy-gate.sh
+# 2. wire it as a PreToolUse hook in ~/.claude/settings.json (point it at the dir to seal):
+#      "hooks": { "PreToolUse": [ { "matcher": "Read|Edit|Write|Glob|Grep|NotebookEdit|Bash",
+#        "hooks": [ { "type": "command",
+#          "command": "SYNAPSE_VAULT_GATE_PATH=/abs/path/to/your-vault bash ~/.claude/hooks/vault-privacy-gate.sh" } ] } ] }
+
+# Toggle anytime (default ON — no restart; the hook reads the sentinel each call):
+: > ~/.claude/vault-gate-off      # OFF — let the agent into the vault for a scoped task
+rm -f ~/.claude/vault-gate-off    # ON  — re-seal (default)
+```
 
 → Full detail: [`doc-deployment-gate`](docs/doc-deployment-gate.md) · [`doc-runtime-wiring`](docs/doc-runtime-wiring.md).
 

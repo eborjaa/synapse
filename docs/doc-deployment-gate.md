@@ -51,12 +51,28 @@ The gate allows **exactly one** exception: a clean `git fetch` / `git merge` / `
 the framework can still pull upstream updates *into* the vault, without ever exposing the vault's contents.
 Compound or redirected commands are rejected; only the bare upstream-pull form passes.
 
-**Reference implementation.** This boundary lives in the host's AI-agent config, not in either repo: a
-single fail-closed `PreToolUse` hook script (e.g. `~/.claude/hooks/vault-privacy-gate.sh`) wired in
-`~/.claude/settings.json`. The hook matches on **path fields**, so naming the vault inside a framework
-note is fine — only paths *into* the vault are blocked. The hook filename is deliberately marker-free, so
-the external agent can maintain the hook script itself without the name leaking the boundary it enforces.
-Being host-level, the gate is the user's to own; neither the framework nor the vault encodes it.
+**Reference implementation (shipped).** The framework ships a ready hook — `_meta/tools/vault-privacy-gate.sh`
+— so anyone can wire the gate in ~30 seconds. You install it at the **host** level (not in either repo):
+copy it to `~/.claude/hooks/`, point it at the directory to seal via the `SYNAPSE_VAULT_GATE_PATH` env var,
+and register it as a `PreToolUse` hook in `~/.claude/settings.json`:
+
+```bash
+cp _meta/tools/vault-privacy-gate.sh ~/.claude/hooks/ && chmod +x ~/.claude/hooks/vault-privacy-gate.sh
+# settings.json → hooks.PreToolUse[].hooks[].command:
+#   "SYNAPSE_VAULT_GATE_PATH=/abs/path/to/your-vault bash ~/.claude/hooks/vault-privacy-gate.sh"
+```
+
+The hook matches on **path fields** (so naming the vault inside a framework note is fine — only paths
+*into* the vault are blocked), derives its marker from the sealed dir's **basename** (give your vault a
+distinctive name), and **fails closed**. Toggle it with the host sentinel (default ON):
+
+```bash
+: > ~/.claude/vault-gate-off      # OFF — agent may enter the vault for a scoped task
+rm -f ~/.claude/vault-gate-off    # ON  — re-seal (default; a forgotten toggle fails closed)
+```
+
+The framework now ships the **mechanism**; the *wiring and the protected path* still live in host config you
+own (the vault never encodes its own gate). Other CLIs: adapt the same idea to their pre-tool hook surface.
 
 The result: the agent sees the framework as a normal working tree, and the vault as a wall. Reads, edits,
 writes, and searches that would reach the vault's contents are blocked; only the one-way upstream pull is
