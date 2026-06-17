@@ -170,28 +170,40 @@ __mx_launch() {
     echo "[synapse] ⚠ briefing is large (~${tok} tok) — 'fat' pulls the transitive graph. Try 'standard' for a tighter, faster prompt on a local model." >&2
   fi
 
-  # Build the briefing into the prompt: render output + (optional) task text. OpenCode `run` takes the
-  # prompt as a positional arg; --dir scopes the session to the vault (read freely; edits/bash gated by
-  # your opencode.json permission posture — see decision-0004 / doc-runtime-wiring).
+  # Assemble the prompt: render output + (optional) task text. The vault scopes the session (read freely;
+  # edits/bash gated by your opencode.json permission posture — see decision-0004 / doc-runtime-wiring).
   briefing="$(cat "$tmp")"
   rm -f "$tmp"
-
-  # Local reasoning models stream hidden reasoning tokens before any visible content and are slow to
-  # process a multi-thousand-token briefing — so the screen looks frozen for the first 30–90s+. Surface
-  # the reasoning as proof-of-life by default; silence it with SYNAPSE_THINKING=0 for clean final output.
-  _mx_oc=(run -m "$SYNAPSE_MODEL" --dir "$SYNAPSE_VAULT")
-  case "${SYNAPSE_THINKING:-1}" in
-    0|off|false|no) ;;
-    *) _mx_oc+=(--thinking)
-       echo "[synapse] local model — first tokens can take 30–90s on a large briefing; showing reasoning as proof-of-life (SYNAPSE_THINKING=0 to hide)." >&2 ;;
-  esac
-
-  if [ -n "$task" ]; then
-    opencode "${_mx_oc[@]}" "$briefing
+  [ -n "$task" ] && briefing="$briefing
 
 ---
 TASK: $task"
+
+  # Two ways to hand the briefing to OpenCode:
+  #   • TUI (default in an interactive terminal): `opencode <vault> --prompt <briefing>` opens the
+  #     full-screen app seeded with the briefing — native spinner + token counter for visual progress,
+  #     and you STAY in a live session to keep working with the agent. This is what you usually want.
+  #   • one-shot (`opencode run`): no UI, prints the response and exits. Auto-selected when there's no
+  #     TTY (cron/pipes, where the TUI would garble); there we stream reasoning as proof-of-life.
+  # Override the auto-detection with SYNAPSE_TUI=1 (force TUI) or SYNAPSE_TUI=0 (force one-shot).
+  _mx_tui="${SYNAPSE_TUI:-auto}"
+  case "$_mx_tui" in
+    auto)        { [ -t 0 ] && [ -t 1 ]; } && _mx_tui=1 || _mx_tui=0 ;;
+    1|on|true|yes)  _mx_tui=1 ;;
+    *)              _mx_tui=0 ;;
+  esac
+
+  if [ "$_mx_tui" = "1" ]; then
+    echo "[synapse] opening the OpenCode TUI — native progress; you'll stay in a live session (SYNAPSE_TUI=0 for one-shot output)." >&2
+    opencode "$SYNAPSE_VAULT" -m "$SYNAPSE_MODEL" --prompt "$briefing"
   else
+    # Local reasoning models stream hidden reasoning before any visible content and are slow on a big
+    # briefing, so a non-TTY run looks frozen for the first 30–90s+. Show reasoning as proof-of-life.
+    _mx_oc=(run -m "$SYNAPSE_MODEL" --dir "$SYNAPSE_VAULT")
+    case "${SYNAPSE_THINKING:-1}" in
+      0|off|false|no) ;;
+      *) _mx_oc+=(--thinking) ;;
+    esac
     opencode "${_mx_oc[@]}" "$briefing"
   fi
 }

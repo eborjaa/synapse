@@ -195,7 +195,7 @@ Everything runnable, in one place. Two front-ends over the same `_meta/tools/` s
 
 | Command | Does |
 |---|---|
-| `<agent> [<target>] [--profile lean\|standard\|fat] ["task"]` | render the agent (+ optional target) briefing → **launch OpenCode** (`opencode run -m <model> --dir .`); clipboard if `opencode` not in PATH. e.g. `curator moc-finances standard "rebuild summaries"` |
+| `<agent> [<target>] [--profile lean\|standard\|fat] ["task"]` | render the agent (+ optional target) briefing → **launch OpenCode** seeded with it; clipboard if `opencode` not in PATH. e.g. `curator moc-finances standard "rebuild summaries"` |
 | `vault-agents` | list all agents + purpose + default profile |
 | `vault-mocs` | list all MOC targets (the master + 6 domain hubs) |
 | `vault-profiles` | explain `lean` / `standard` / `fat` (the context dial) |
@@ -204,9 +204,12 @@ Everything runnable, in one place. Two front-ends over the same `_meta/tools/` s
 > + key (there is none) live in `~/.config/opencode/opencode.json`. That single line is what keeps Synapse
 > LLM-agnostic.
 >
-> Reasoning models on a local backend can sit silent for 30–90s while they process a multi-thousand-token
-> briefing, so agents show the model's reasoning by default as proof-of-life. Set `SYNAPSE_THINKING=0` to
-> hide it and print only the final answer.
+> In an interactive terminal, an agent opens the **OpenCode TUI** seeded with the briefing — you get its
+> native progress spinner + token counter and stay in a live session to keep working with the agent. With
+> no TTY (cron/pipes) it falls back to one-shot `opencode run`. Override with `SYNAPSE_TUI=1` (force TUI) or
+> `SYNAPSE_TUI=0` (force one-shot). In one-shot mode, a local reasoning model can sit silent for 30–90s
+> while it processes a multi-thousand-token briefing, so reasoning is streamed as proof-of-life; set
+> `SYNAPSE_THINKING=0` to hide it and print only the final answer.
 
 **B. Direct `node`** (no shell setup) — drive the engine scripts yourself:
 
