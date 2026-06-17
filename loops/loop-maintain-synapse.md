@@ -38,7 +38,9 @@ loop self-orients from `inbox/curator/` and the last-marker commit. A manual run
    any human-resolved escalation; skim the latest run-log.
 2. **Detect** — `lint.mjs --strict`; **DB ↔ derived-view divergence** (compare each generated view against a
    fresh render of its canonical row; flag hand-edited generated files); orphans / broken links; `inbox/`
-   items. (No code-drift detection — this vault is its own source of truth.)
+   items; **stale top-level overview docs** (`README.md` / `TUTORIAL.md` / `AGENTS.md` lagging a
+   framework-wide change — [[rule-framework-docs-current]]). (No code-drift detection — this vault is its
+   own source of truth.)
 3. **Dry gate** — lint `errors=0` AND no divergence AND nothing in the inbox → append `no-op — dry` to
    `logs/LOG.md` and **stop**. The common case; treat as success.
 4. **Heal — reconcile, don't regenerate** ([[rule-synapse-incremental-reconcile]]) — mechanical lint autofixes
@@ -71,4 +73,4 @@ last-maintenance commit + `inbox/curator/logs/` = external memory. The pass also
 ([[doc-semantic-recall]]); if Ollama is unreachable it skips with a clear message and never blocks the pass.
 
 ## Related
-[[agent-curator]] · [[agent-reconciler]] · [[skill-maintain-synapse]] · [[doc-maintainer-loop]] · [[rule-synapse-fail-loudly]] · [[rule-synapse-incremental-reconcile]] · [[rule-synapse-human-gated-push]] · [[decision-0003-human-gated-mutation]] · [[decision-0006-self-healing-vault]] · [[decision-0004-opencode-local-ollama-runtime]] · [[tool-render]] · [[tool-lint]] · [[tool-git]] · [[tool-gh]]
+[[agent-curator]] · [[agent-reconciler]] · [[skill-maintain-synapse]] · [[doc-maintainer-loop]] · [[rule-synapse-fail-loudly]] · [[rule-synapse-incremental-reconcile]] · [[rule-synapse-human-gated-push]] · [[rule-framework-docs-current]] · [[decision-0003-human-gated-mutation]] · [[decision-0006-self-healing-vault]] · [[decision-0004-opencode-local-ollama-runtime]] · [[tool-render]] · [[tool-lint]] · [[tool-git]] · [[tool-gh]]

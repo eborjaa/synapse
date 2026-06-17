@@ -7,7 +7,7 @@ tags:
   - area/meta
   - status/active
 references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]"]
-related: ["[[moc-finances]]", "[[moc-contacts]]", "[[moc-health]]", "[[moc-places]]", "[[moc-journal]]", "[[moc-projects]]"]
+related: ["[[moc-finances]]", "[[moc-contacts]]", "[[moc-health]]", "[[moc-places]]", "[[moc-journal]]", "[[moc-projects]]", "[[moc-social-media]]"]
 ---
 
 # Synapse — master hub
@@ -43,7 +43,7 @@ declares the hub in its `related:` field rolls up as a member of that hub). They
 near-empty until data lands.
 
 **Knowledge (Markdown-canonical):**
-[[moc-journal]] (dated entries) · [[moc-projects]] (projects + plans)
+[[moc-journal]] (dated entries) · [[moc-projects]] (projects + plans) · [[moc-social-media]] (posts, drafts)
 
 **Records (SQL-canonical, surfaced as generated views + summaries):**
 [[moc-finances]] (accounts, transactions) · [[moc-contacts]] (people) · [[moc-health]] (metrics,
@@ -52,8 +52,10 @@ workouts) · [[moc-places]] (gazetteer + visits)
 ## Method — how it runs
 The HOW layer the agents obey and the engine that briefs them:
 
-- **Agents:** [[agent-curator]] (steward) · [[agent-reconciler]] (scoped doer) · [[agent-ingester]]
-  (capture). Maker ≠ checker — the agent that writes an edit never approves it.
+- **Agents:** three writers — [[agent-curator]] (steward) · [[agent-reconciler]] (scoped doer) ·
+  [[agent-ingester]] (capture) — plus one reader, [[agent-oracle]] (ask the vault). Maker ≠ checker — the
+  agent that writes an edit never approves it; the oracle never writes at all, only answers and proposes
+  consent-gated handoffs.
 - **Loop:** [[loop-maintain-synapse]] — the standing, run-until-dry maintenance process the curator owns.
 - **Schema:** [[conventions]] — the type taxonomy, frontmatter, and typed-edge rules every note follows.
 - **Engine:** [[context-engine-guide]] — how `render.mjs` walks the manifest's role-closure to compile a

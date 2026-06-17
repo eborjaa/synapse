@@ -1,7 +1,7 @@
 ---
 id: doc-agent-architecture
 type: doc
-title: Agent architecture — three roles on a local OpenCode runtime
+title: Agent architecture — three writers + one reader on a local OpenCode runtime
 tags:
   - type/doc
   - area/architecture
@@ -12,9 +12,10 @@ related: ["[[moc-synapse]]", "[[tool-opencode]]"]
 
 # Agent architecture
 
-Three agents, one runtime, one rule: **the agent that writes an edit never approves it.**
+Four agents, one runtime. **Three writers** on one rule — *the agent that writes an edit never approves it* —
+plus **one reader** that never writes at all.
 
-## The three roles
+## The three writers
 - **[[agent-curator]]** — the *steward*. Owns the maintenance loop ([[loop-maintain-synapse]]): orient on the
   inbox, detect drift (lint + DB↔view divergence + orphans + pending captures), heal the unambiguous,
   dispatch a reconciler per drifted unit, **verify each diff**, escalate the rest, open one human-gated PR,
@@ -25,11 +26,31 @@ Three agents, one runtime, one rule: **the agent that writes an edit never appro
 - **[[agent-ingester]]** — the *capture ingester*. Atomizes a freeform `inbox/` dump into one-idea-per-file
   notes (or proposes record rows as a migration), carrying `provenance:`, then clears the inbox entry.
 
+## The reader
+- **[[agent-oracle]]** — the *read front door*. You point it at a `moc-<domain>` and ask a question; it
+  answers grounded in that domain's typed closure plus query-driven semantic recall ([[doc-semantic-recall]]),
+  citing every claim and abstaining when the context is silent ([[rule-answer-grounded]]). It never edits,
+  migrates, or opens a PR — its one action is to **propose a consent-gated handoff** to a writer
+  (ingester/reconciler/curator) when it spots a gap, triggered only on explicit human approval.
+
 ## Maker ≠ checker
 The reconciler (maker) writes; the curator (checker) reviews the diff — in scope? single-sourced?
 schema-clean? no stray edits? — repairs the unambiguous, escalates the rest, and is the only one that
 opens the PR. A human merges ([[doc-governance-model]]). From-scratch authoring is escalated, never
 auto-run.
+
+## Which agent for which task
+Route any prompt by three axes: **read vs write**, **new input vs existing drift**, **one unit vs
+sweep + PR**.
+
+- a question / retrieve / explain → **[[agent-oracle]]** (read-only): a grounded, cited answer over the
+  `moc-<domain>` closure + semantic recall; it never writes, and proposes a consent-gated handoff if it
+  spots a gap.
+- new raw input to file / atomize → **[[agent-ingester]]** (and if it fits no existing domain, the
+  ingester proposes a new `moc-<domain>`).
+- one existing note / view drifted from its source → **[[agent-reconciler]]** (scoped; no PR; never
+  authors from scratch).
+- whole-vault sweep / verify others' diffs / open the PR → **[[agent-curator]]** (steward).
 
 ## The runtime — local OpenCode + Ollama over Tailscale
 Agents run on **OpenCode** (`opencode-ai`), pointed at **Ollama** over **Tailscale** — local models, no API
@@ -51,8 +72,8 @@ opencode run -m ollama/qwen3.6-256k --dir . \
   `.md` it touched.
 
 ## Optional lead
-A planning `lead` (decompose a multi-step goal, delegate to the three) can be added later; the core loop
-needs only curator + reconciler + ingester.
+A planning `lead` (decompose a multi-step goal, delegate to the writers) can be added later; the core loop
+needs only curator + reconciler + ingester, and the oracle answers on demand alongside them.
 
 ## Related
-[[doc-governance-model]] · [[doc-maintainer-loop]] · [[doc-runtime-wiring]] · [[decision-0004-opencode-local-ollama-runtime]] · [[agent-curator]] · [[agent-reconciler]] · [[agent-ingester]] · [[moc-synapse]]
+[[doc-governance-model]] · [[doc-maintainer-loop]] · [[doc-runtime-wiring]] · [[decision-0004-opencode-local-ollama-runtime]] · [[agent-curator]] · [[agent-reconciler]] · [[agent-ingester]] · [[agent-oracle]] · [[moc-synapse]]

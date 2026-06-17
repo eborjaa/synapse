@@ -11,7 +11,7 @@ profile: standard
 inputs: ["the vault", "lint.mjs findings", "DB ↔ derived-view divergence", "inbox/ items awaiting ingestion or human-resolved escalations"]
 outputs: ["applied safe .md fixes", "regenerated derived views (via the reconciler)", "inbox/attention/ escalations with Options", "a human-gated PR to main", "a logs/ heartbeat"]
 uses_tools: ["[[tool-lint]]", "[[tool-render]]", "[[tool-git]]", "[[tool-gh]]", "[[tool-sqlite]]", "[[tool-ollama-embeddings]]"]
-applies_rules: ["[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-human-gated-push]]", "[[rule-derived-views-are-generated]]", "[[rule-no-unprompted-actions]]", "[[rule-context-handover]]", "[[rule-canary]]", "[[rule-semantic-suggests-links-decide]]"]
+applies_rules: ["[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-human-gated-push]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-no-unprompted-actions]]", "[[rule-context-handover]]", "[[rule-canary]]", "[[rule-semantic-suggests-links-decide]]"]
 delegates_to: ["[[agent-reconciler]]"]
 references_docs: ["[[conventions]]", "[[context-engine-guide]]", "[[doc-maintainer-loop]]", "[[doc-governance-model]]"]
 related: ["[[decision-0003-human-gated-mutation]]", "[[decision-0006-self-healing-vault]]", "[[decision-0004-opencode-local-ollama-runtime]]"]
@@ -26,8 +26,10 @@ heal → verify → escalate → re-lint → PR → log); this note is the missi
 
 ## Detect — the drift signals
 `lint.mjs --strict` findings · **DB ↔ derived-view divergence** (a canonical row changed so its view is
-stale, or a generated view was hand-edited) · orphans / broken links · `inbox/` items awaiting ingestion.
-There is **no code-drift detection** — this vault is its own source of truth ([[doc-maintainer-loop]]).
+stale, or a generated view was hand-edited) · orphans / broken links · `inbox/` items awaiting ingestion ·
+**stale top-level overview docs** (`README.md` / `TUTORIAL.md` / `AGENTS.md` describing an old reality after
+a framework-wide change — [[rule-framework-docs-current]]). There is **no code-drift detection** — this
+vault is its own source of truth ([[doc-maintainer-loop]]).
 
 ## Autofix — do directly (unambiguous & reversible)
 Malformed `related:` YAML · a link in the wrong role-field · a single-candidate typo'd wikilink · a missing

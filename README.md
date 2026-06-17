@@ -13,7 +13,9 @@
 Synapse is **LLM-agnostic and data-agnostic**: nothing here is tied to a particular model vendor or a
 particular person's data. The engine and conventions describe a *shape* you fill with your own. The
 reference runtime is **[OpenCode](https://opencode.ai) pointed at a local Ollama model over Tailscale** —
-no API key, no cloud, no subscription in the core loop.
+no API key, no cloud, no subscription in the core loop. The runtime is **pluggable**: the same briefing can
+be handed to OpenCode (default), Claude Code, your clipboard, or stdout via `--cli` (see below), so you can
+maintain the public framework with one CLI and a private vault with another.
 
 ---
 
@@ -50,14 +52,14 @@ copy-paste:
 
 ```bash
 vault-agents                                    # list every agent command + what it's for
-vault-mocs                                       # list all MOC targets (the master + 6 domain hubs)
+vault-mocs                                       # list all MOC targets (the master + 7 domain hubs)
 vault-profiles                                   # explain the context dial
 
 curator                                          # run the steward at its default profile
 curator moc-finances                             # steward, scoped to one domain hub (moc-* → auto-standard)
 reconciler moc-contacts                          # fix one drifted domain's notes/views
 curator moc-finances "regenerate the Q2 summary view"   # seed a concrete task
-curator moc-finances "did I note anything about budgeting?"   # a task auto-adds semantic recall
+oracle moc-finances "did I note anything about budgeting?"   # ask the vault — read-only, cited, +semantic recall
 ```
 
 > Supplying a **task** auto-routes the command through the semantic augment (when the embedding index
@@ -76,7 +78,7 @@ clipboard). Same shape every time:
 
 | You pick… | = | What it is | Examples |
 |---|:--:|---|---|
-| **① an Agent** | the **method** (what *job*) | mission + rules + skills + tools | `curator` · `reconciler` · `ingester` |
+| **① an Agent** | the **method** (what *job*) | mission + rules + skills + tools | `curator` · `reconciler` · `ingester` · `oracle` |
 | **② a Target** | the **what** (which *domain/unit*) | the knowledge to act on | `moc-finances` · `moc-contacts` · a note `id` |
 | **③ a Profile** | the **dial** (how *much* context) | which relationship roles to pull | `lean` · `standard` · `fat` |
 
@@ -99,7 +101,7 @@ Profiles are presets of relationship **roles** to traverse (not raw hop counts):
 
 ---
 
-## 🤖 ① Agents — pick the job (3, plus an optional lead)
+## 🤖 ① Agents — pick the job (4: three writers + one reader)
 
 > **Click an agent name to open its file** (`agents/agent-*.md`) — `purpose`, `applies_rules`,
 > `invokes_skills`, `profile`, `delegates_to`. That's where you tune behavior. **Maker ≠ checker:** the
@@ -110,9 +112,25 @@ Profiles are presets of relationship **roles** to traverse (not raw hop counts):
 | 🧹 Steward — detect drift, heal the unambiguous, dispatch + verify, open one human-gated PR | [`agent-curator`](agents/agent-curator.md) | standard | `loop-maintain-synapse` / a `moc-<domain>` |
 | 🔧 Scoped doer — reconcile ONE drifted unit against its canonical source (no PR, no DB write) | [`agent-reconciler`](agents/agent-reconciler.md) | standard | a `moc-<domain>` |
 | 📥 Capture ingester — atomize one `inbox/` dump into typed notes + proposed migration rows | [`agent-ingester`](agents/agent-ingester.md) | standard | an `inbox/` item |
+| 🔮 Oracle — read-only Q&A: answer grounded in a MOC's closure + semantic recall, cite sources, propose consent-gated handoffs | [`agent-oracle`](agents/agent-oracle.md) | standard | a `moc-<domain>` + a question |
 
-A planning **lead** (decompose a multi-step goal, delegate to the three) can be added later; the core loop
-needs only curator + reconciler + ingester. See [`doc-agent-architecture`](docs/doc-agent-architecture.md).
+The first three **write** (maker ≠ checker, every change a human-gated diff); the oracle only **reads**.
+
+**Which agent for which task** — route by three axes: *read vs write*, *new input vs existing drift*, *one
+unit vs sweep + PR*:
+
+- **A question — retrieve / explain** → **oracle** (read-only): a grounded, cited answer over the
+  `moc-<domain>` closure + semantic recall; never writes, and proposes a consent-gated handoff if it spots
+  a gap.
+- **New raw input to file / atomize** → **ingester**: atomizes an `inbox/` dump into typed notes + proposed
+  rows; if no existing domain fits, it **proposes a new `moc-<domain>`** hub in the same human-gated proposal.
+- **One existing note/view drifted from its source** → **reconciler** (scoped; no PR; never authors from
+  scratch).
+- **Whole-vault sweep / verify others' diffs / open the PR** → **curator** (steward).
+
+A planning **lead** (decompose a multi-step goal, delegate to the writers) can be added later; the core loop
+needs only curator + reconciler + ingester, with the oracle answering on demand alongside them. See
+[`doc-agent-architecture`](docs/doc-agent-architecture.md).
 
 ---
 
@@ -122,21 +140,22 @@ Synapse is organized as one **master hub** that links out to **domain hubs**, ea
 notes and records as *members*. You navigate down through hubs; members roll up automatically.
 
 ```
-                          [[moc-synapse]]   ← master hub: architecture · domains · method
-                               │
-        ┌──────────┬───────────┼───────────┬───────────┬──────────┐
-   moc-finances moc-contacts moc-health moc-places moc-journal moc-projects
-        │            │           │           │          │           │
-   (accounts,   (contact      (health    (places,   (journal-*  (project-*,
-    summaries)   views,        summaries) visits,     entries)   plan-*)
-                 person notes)            geo summaries)
+                              [[moc-synapse]]   ← master hub: architecture · domains · method
+                                   │
+   ┌──────────┬───────────┬────────┼────────┬───────────┬────────────┬──────────────┐
+moc-finances moc-contacts moc-health moc-places moc-journal moc-projects moc-social-media
+   │            │           │           │          │            │              │
+(accounts,  (contact     (health    (places,   (journal-*   (project-*,   (post drafts,
+ summaries)  views,       summaries) visits,     entries)    plan-*)       published notes,
+             person notes)           geo summaries)                        engagement summaries)
 ```
 
-- **Master hub — [`moc-synapse`](moc-synapse.md):** the front door. Links the architecture docs, the six
+- **Master hub — [`moc-synapse`](moc-synapse.md):** the front door. Links the architecture docs, the seven
   domain hubs, and the method layer (agents, loop, schema, engine).
-- **Six domain hubs (`moc/moc-*.md`):** one map per domain —
-  [[moc-finances]] · [[moc-contacts]] · [[moc-health]] · [[moc-places]] · [[moc-journal]] · [[moc-projects]].
-  Each domain hub itself declares `related: ["[[moc-synapse]]"]`, so it *navigates* up to the master.
+- **Seven domain hubs (`moc/moc-*.md`):** one map per domain —
+  [[moc-finances]] · [[moc-contacts]] · [[moc-health]] · [[moc-places]] · [[moc-journal]] · [[moc-projects]] ·
+  [[moc-social-media]]. Each domain hub itself declares `related: ["[[moc-synapse]]"]`, so it *navigates* up
+  to the master.
 
 ### How membership works — reverse-BINDS
 
@@ -195,11 +214,19 @@ Everything runnable, in one place. Two front-ends over the same `_meta/tools/` s
 
 | Command | Does |
 |---|---|
-| `<agent> [<target>] [--profile lean\|standard\|fat] ["task"]` | render the agent (+ optional target) briefing → **launch OpenCode** seeded with it; clipboard if `opencode` not in PATH. e.g. `curator moc-finances standard "rebuild summaries"` |
+| `<agent> [<target>] [--profile lean\|standard\|fat] [--cli opencode\|claude\|clip\|print] ["task"]` | render the agent (+ optional target) briefing → hand it to the chosen runtime seeded with it. e.g. `curator moc-finances standard "rebuild summaries"` |
 | `vault-agents` | list all agents + purpose + default profile |
-| `vault-mocs` | list all MOC targets (the master + 6 domain hubs) |
+| `vault-mocs` | list all MOC targets (the master + 7 domain hubs) |
 | `vault-profiles` | explain `lean` / `standard` / `fat` (the context dial) |
 
+> **The runtime is pluggable (`--cli`).** The same rendered briefing can be handed to a swappable sink:
+> **`opencode`** (default — local Ollama over Tailscale), **`claude`** (Claude Code, scoped to the repo dir,
+> its own model/keys/config), or **`clip`** / **`print`** (copy to clipboard / write to stdout, paste or
+> pipe into any tool). The render + semantic pipeline is identical for every sink — so you can maintain the
+> **public framework** with a powerful cloud CLI while a **private vault** stays on local OpenCode, using the
+> same commands (set a default with `export SYNAPSE_CLI=…`). Any host privacy gate still applies to whichever
+> CLI you launch.
+>
 > Model is one env var: `export SYNAPSE_MODEL=ollama/<your-model>` (default `ollama/qwen3.6-256k`). Endpoint
 > + key (there is none) live in `~/.config/opencode/opencode.json`. That single line is what keeps Synapse
 > LLM-agnostic.
@@ -288,8 +315,8 @@ node _meta/tools/render.mjs agent-curator loop-maintain-synapse --profile standa
 
 ## 🧩 The two substrates + the gate (in brief)
 
-Synapse stores knowledge and records in **two substrates joined by one ontology**, and **no write ever
-applies unattended**:
+Synapse stores knowledge and records in **two substrates joined by one ontology**, and **records never
+mutate unattended**:
 
 - **Markdown-in-Git** — canonical for *knowledge* (notes, journal, plans, projects, people-narrative,
   decisions). Human-readable, linkable, versioned.
@@ -297,10 +324,43 @@ applies unattended**:
   **read-only**; the file is gitignored (derived, sensitive, binary).
 - **Where they meet,** one side is canonical and the other is a *generated, never-hand-edited* projection:
   SQL rows project to read-only Markdown views; Markdown notes project to a SQL link-index.
-- **Human-gated mutation:** reads are free; every change becomes a reviewable diff a human merges —
-  Markdown rides git's PR diff, SQL rides **migration files** through the *same* gate. Maker ≠ checker.
+
+**Governance is per-repo and per-content** — the agent detects which repo and what content type, then
+applies the matching gate ([`decision-0006-self-healing-vault`](_meta/decisions/decision-0006-self-healing-vault.md)):
+
+- **Framework repo — fully PR-gated.** Every change rides a PR; the agent opens a fresh branch and **never**
+  pushes to `main` directly, **never** force-pushes, and **never** self-merges. A maintainer reviews and
+  (with approvals required) admin-bypasses to merge. Maker ≠ checker holds.
+- **Private vault, Markdown/knowledge — self-healing.** The steward commits and pushes verified
+  Markdown/knowledge **directly**, no PR — git history is the audit trail and revert path.
+- **Records/DB — human-gated everywhere, including the vault.** SQLite changes ride **migration files**
+  through the human gate on every repo; a runner applies them on merge. The self-healing autonomy never
+  extends to the records DB, because finances are in scope.
 
 → Full detail: [`doc-storage-model`](docs/doc-storage-model.md) · [`doc-governance-model`](docs/doc-governance-model.md) · [`doc-agent-architecture`](docs/doc-agent-architecture.md).
+
+---
+
+## 🔐 The privacy gate — framework readable, vault sealed
+
+Synapse's intended deployment is **one parent directory holding two repos as siblings** — the public
+`synapse-framework/` and your private `synapse-vault/`. The whole point: you can point a capable **external
+coding agent** (e.g. Claude Code) at the parent to read and maintain the framework while it is *structurally
+incapable* of touching the vault.
+
+- **A single, fail-closed, path-based `PreToolUse` hook** — configured at the host level (e.g. in
+  `~/.claude/settings.json`), outside either repo — denies any read/edit/write/search whose path resolves
+  inside the vault, and any shell command that references the vault path.
+- **Default ON.** The hook checks a **host sentinel** (a file outside either repo); with no sentinel, the
+  gate is live and the vault is sealed. The owner can deliberately toggle it off for a scoped task — e.g. to
+  let a more capable CLI maintain the vault directly via `--cli claude` — then re-seal. Default ON means a
+  forgotten step fails *closed*.
+- **The only seam** that crosses into the sealed vault is a clean, one-directional `git fetch` / `merge` /
+  `pull … upstream` — so the framework can pull upstream updates *into* the vault without ever exposing its
+  contents. The gate constrains **only** the external agent; your local model, Obsidian, and the engine
+  scripts touch the vault at full fidelity.
+
+→ Full detail: [`doc-deployment-gate`](docs/doc-deployment-gate.md) · [`doc-runtime-wiring`](docs/doc-runtime-wiring.md).
 
 ---
 

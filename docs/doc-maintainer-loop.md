@@ -36,6 +36,10 @@ external code** — so there is no code-drift detection. Its drift signals are:
    generated view (or the `.md` index) was hand-edited.
 3. Orphans / broken links.
 4. `inbox/` items awaiting ingestion.
+5. **Stale top-level overview docs** — `README.md` / `TUTORIAL.md` / `AGENTS.md` left describing an old
+   reality after a framework-wide change ([[rule-framework-docs-current]]). They carry no frontmatter, so
+   nothing mechanical guards them; the curator treats lagging overviews as a reconcile target, not an
+   out-of-scope file.
 
 The reconcile mapping is **row → view** (not "code → doc"): when a canonical row changed, regenerate its
 derived view; when a generated artifact was hand-edited, escalate it. The **migration gate** handles the

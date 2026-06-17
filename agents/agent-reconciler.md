@@ -11,7 +11,7 @@ profile: standard
 inputs: ["the steward's plan (which unit, what drifted)", "the unit's moc-<domain> scoped briefing", "the canonical rows (read-only) behind a stale view"]
 outputs: ["a regenerated derived view, or minimal .md edits to that unit's notes", "a short report to the steward: what changed, what it could not safely resolve"]
 uses_tools: ["[[tool-render]]", "[[tool-lint]]", "[[tool-sqlite]]", "[[tool-git]]"]
-applies_rules: ["[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-derived-views-are-generated]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-synapse-fail-loudly]]", "[[rule-no-unprompted-actions]]"]
+applies_rules: ["[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-derived-views-are-generated]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-framework-docs-current]]", "[[rule-synapse-fail-loudly]]", "[[rule-no-unprompted-actions]]"]
 references_docs: ["[[conventions]]", "[[doc-storage-model]]"]
 invokes_skills: []
 ---

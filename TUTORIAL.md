@@ -98,7 +98,7 @@ wiki/                              ← THE VAULT ROOT
 ├── places/                        ← summary-places-*      (generated aggregates)
 │
 │   ── METHOD / REFERENCE / MAP / PROCESS (Markdown) ──────────────
-├── agents/                        ← agent-*  — job briefings (curator, reconciler, ingester)
+├── agents/                        ← agent-*  — job briefings (curator, reconciler, ingester, oracle)
 ├── rules/                         ← rule-*   — hard constraints with a "why"
 ├── skills/                        ← skill-*  — pointer notes → .opencode executable playbooks
 ├── tools/                         ← tool-*   — external instruments (git, gh, sqlite, render, lint, opencode)
@@ -255,7 +255,7 @@ they're for, with a real example of each:
 
 | Type | What it is | One-liner test | Real example |
 |---|---|---|---|
-| **agent** | a job briefing: mission + linked rules/skills/tools | "who do I want to *be* for this task?" | [[agent-curator]], [[agent-reconciler]], [[agent-ingester]] |
+| **agent** | a job briefing: mission + linked rules/skills/tools | "who do I want to *be* for this task?" | [[agent-curator]], [[agent-reconciler]], [[agent-ingester]], [[agent-oracle]] |
 | **rule** | a hard constraint with a *why* | "could violating this corrupt data, lose trust, or break a briefing?" | [[rule-derived-views-are-generated]], [[rule-synapse-human-gated-push]] |
 | **skill** | a *pointer note* — a thin Goal/Steps/Related summary linking the real playbook | "is there an executable playbook behind this?" | [[skill-maintain-synapse]] |
 
@@ -275,7 +275,7 @@ they're for, with a real example of each:
 
 | Type | What it is | Real example |
 |---|---|---|
-| **moc** | map of content — a hub that indexes a domain | [[moc-finances]], [[moc-contacts]], [[moc-synapse]] (root) |
+| **moc** | map of content — a hub that indexes a domain | [[moc-finances]], [[moc-contacts]], [[moc-social-media]], [[moc-synapse]] (root) |
 | **loop** | a standing, autonomous *process* (detect → heal → verify, run until dry, with an exit condition) | [[loop-maintain-synapse]] |
 
 How the method types differ *in practice*: a **rule** says *don't / always* (`rule-synapse-human-gated-push`:
@@ -317,9 +317,9 @@ An agent note is ~30–55 lines. The power is in what its frontmatter links. Dis
 `invokes_skills` is **mandatory** on an agent (it may be `[]`, as the reconciler and ingester have it — a
 scoped doer needs no skill of its own). The curator declares `invokes_skills: ["[[skill-maintain-synapse]]"]`.
 
-### The trio — maker ≠ checker
+### The roster — three writers + one reader (maker ≠ checker)
 
-Synapse's core loop runs on **three agents, one rule: the agent that writes an edit never approves it**
+Synapse's core loop runs on **three writers, one rule: the agent that writes an edit never approves it**
 ([[doc-agent-architecture]]):
 
 - **[[agent-curator]]** — the *steward*. Owns [[loop-maintain-synapse]]: orient on the inbox, detect drift
@@ -330,11 +330,21 @@ Synapse's core loop runs on **three agents, one rule: the agent that writes an e
   makes the minimal edit (regenerate a stale view, fix a unit's notes) and reports back. Never detects,
   never opens a PR, never writes the DB.
 - **[[agent-ingester]]** — the *capture ingester*. Atomizes a freeform `inbox/` dump into one-idea-per-file
-  notes (or proposes record rows as a migration), carrying `provenance:`, then clears the entry.
+  notes (or proposes record rows as a migration), carrying `provenance:`, then clears the entry. Each note
+  is wired into the right `moc-<domain>`; when a capture fits **no** existing domain, the ingester
+  **proposes a new `moc-<domain>`** hub in the same human-gated proposal rather than forcing a wrong fit.
 
 The **reconciler (maker)** writes; the **curator (checker)** reviews the diff — in scope? single-sourced?
 schema-clean? no stray edits? — repairs the unambiguous, escalates the rest, and is the only one that
 opens the PR. A human merges. From-scratch authoring is escalated, never auto-run.
+
+Alongside the writers sits one **reader**:
+
+- **[[agent-oracle]]** — the *read front door*. Point it at a `moc-<domain>` and ask: it answers grounded in
+  that domain's typed closure plus query-driven semantic recall, **cites every claim**, and abstains when
+  the context is silent ([[rule-answer-grounded]]). It never edits, migrates, or opens a PR — its one
+  action is to **propose a consent-gated handoff** to a writer when it spots a gap (e.g. `oracle
+  moc-finances "did I note anything about budgeting?"`).
 
 **Why this design works:** the agent file stays tiny and stable, while the rules/skills/tools it links
 evolve independently. Tighten a constraint in [[rule-derived-views-are-generated]] once, and every agent
@@ -505,15 +515,20 @@ curator moc-finances --profile fat            # override the profile (the contex
 curator moc-finances "regenerate the Q2 summary view"   # seed a task
 ```
 
-Syntax: `<agent> [<target>] [--profile lean|standard|fat] ["task"]`. Under the hood each command runs:
+Syntax: `<agent> [<target>] [--profile lean|standard|fat] [--cli opencode|claude|clip|print] ["task"]`. Under
+the hood the default sink runs:
 
 ```bash
 opencode run -m ollama/qwen3.6-256k --dir . "<rendered briefing>"
 ```
 
 — OpenCode against **local Ollama over Tailscale**, no API key, no cloud (`SYNAPSE_MODEL` overrides the
-model). No `opencode` in PATH? the briefing lands on your clipboard instead, so you can paste it into any
-tool.
+model). The runtime is **pluggable**: `--cli` (or `export SYNAPSE_CLI=…`) swaps the sink the same briefing is
+handed to — **`opencode`** (default), **`claude`** (Claude Code, its own model/keys/config), or
+**`clip`** / **`print`** (clipboard / stdout, to paste or pipe into any tool). The render + semantic pipeline
+is identical for every sink, so you can maintain the **public framework** with a powerful cloud CLI while a
+**private vault** stays on local OpenCode. No `opencode` in PATH? the briefing lands on your clipboard
+anyway. Any host privacy gate still applies to whichever CLI you launch ([[doc-deployment-gate]]).
 
 When you pass a **task**, the launcher routes through `augment.mjs` instead of `render.mjs` (when a
 non-empty `note_vectors` index exists), so the briefing gains the labeled "semantically related" section
@@ -554,7 +569,8 @@ stays in the loop. No chat history required.
 - **`inbox/handovers/`** — clean session handovers ([[rule-context-handover]]).
 
 Raw captures (a phone dump, pasted text, a quick thought) also land in `inbox/`; [[agent-ingester]]
-atomizes each into typed notes (or proposed record rows), records `provenance:`, then clears it.
+atomizes each into typed notes (or proposed record rows), wires each into the right `moc-<domain>` (proposing
+a new hub when none fits), records `provenance:`, then clears it.
 
 ### The maintenance loop — one pass of [[loop-maintain-synapse]]
 
@@ -563,7 +579,9 @@ the vault is its own source of truth** ([[doc-maintainer-loop]]). One pass:
 
 1. **Orient** — read `inbox/attention/` + `inbox/curator/logs/` first; action any human-resolved escalation.
 2. **Detect** — `lint.mjs --strict`; **DB ↔ derived-view divergence** (a canonical row changed so its view
-   is stale, or a generated view was hand-edited); orphans / broken links; `inbox/` items.
+   is stale, or a generated view was hand-edited); orphans / broken links; `inbox/` items; **stale top-level
+   overview docs** (`README.md` / `TUTORIAL.md` / `AGENTS.md` lagging a framework-wide change —
+   [[rule-framework-docs-current]]).
 3. **Dry gate** — lint `errors=0` AND no divergence AND nothing in the inbox → append `no-op — dry` to
    `LOG.md` and **stop**. The common case; treat as success.
 4. **Heal** — mechanical lint autofixes in place; for each drifted unit, dispatch [[agent-reconciler]] to
@@ -575,8 +593,11 @@ the vault is its own source of truth** ([[doc-maintainer-loop]]). One pass:
 7. **Re-lint** to `errors=0`; surface any unresolved error loudly. (The pass also refreshes the derived
    projections — `gen-index.mjs`, `gen-views.mjs`, and `gen-embeddings.mjs` for `note_vectors` — so the
    semantic index keeps pace with the notes.)
-8. **PR (only if something changed)** — a fresh `synapse/curator-<date>` branch off latest, open a PR. Never
-   force-push, never push to the shared branch, never self-merge ([[rule-synapse-human-gated-push]]).
+8. **Hand off (only if something changed)** — by the per-repo/per-content policy
+   ([[rule-synapse-human-gated-push]], [[decision-0006-self-healing-vault]]): on the **framework**, a fresh
+   `synapse/curator-<date>` branch off latest + a PR (never force-push, never push to the shared branch,
+   never self-merge); on the **private vault**, verified Markdown/knowledge is pushed **directly** (no PR),
+   while a record change is still proposed as a **migration** through the human gate everywhere.
 9. **Log** — a heartbeat line.
 
 ### The two generators — the substrate projections
@@ -606,6 +627,14 @@ The vault is in-repo and versioned; the `.md` (knowledge + generated views), the
 and the **migration files** all live in git. `db/synapse.db` is **gitignored** — it's derived (replayable
 from migrations), sensitive, and binary; back it up by file copy. The privacy boundary is the private repo
 reachable only over Tailscale — there is no public endpoint.
+
+**Governance is per-repo and per-content** ([[decision-0006-self-healing-vault]]): the **framework** repo is
+fully PR-gated (the agent opens a branch + PR, never pushes to `main`, never self-merges — a maintainer
+reviews and merges); the **private vault** self-heals Markdown/knowledge via **direct push** (git history is
+the audit trail); **records/DB** stay human-gated as **migrations** everywhere, because finances are in
+scope. And the **deployment-time privacy gate** ([[doc-deployment-gate]]) lets an external coding agent
+maintain the public framework while a single, fail-closed, default-ON host hook keeps the private vault
+sealed — only a one-directional `git … upstream` pull crosses the boundary.
 
 > 🤖 **Ask your agent:** *"TUTORIAL.md Lesson 6: open `inbox/attention/README.md` and `loops/loop-maintain-synapse.md`,
 > walk me through one maintenance pass, and show me exactly where a record change (a new contact) becomes a
@@ -675,8 +704,8 @@ From the vault root:
 - **Author well:** [[conventions]] (naming, edges, the type taxonomy) and the role table in
   [[rule-synapse-edges-by-role]].
 - **Understand the architecture:** [[doc-storage-model]] (two substrates, two projections) ·
-  [[doc-governance-model]] (read freely, write through one gate) · [[doc-agent-architecture]] (the three
-  agents) · [[doc-maintainer-loop]] (the standing loop) · [[doc-sql-schema]] (the records substrate).
+  [[doc-governance-model]] (per-repo, per-content gate) · [[doc-agent-architecture]] (three writers + one
+  reader) · [[doc-maintainer-loop]] (the standing loop) · [[doc-sql-schema]] (the records substrate).
 - **Understand the why:** the ADRs — [[decision-0003-human-gated-mutation]],
   [[decision-0004-opencode-local-ollama-runtime]] — short records of every structural choice.
 - **See it run:** [[loop-maintain-synapse]] owned by [[agent-curator]], on the OpenCode + local Ollama
