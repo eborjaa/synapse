@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 # Standalone launcher for the reconciler agent
-export SYNAPSE_VAULT="/home/chamito/dev/cerebro"
+export SYNAPSE_VAULT="@@VAULT_PATH@@"
 source "$SYNAPSE_VAULT/_meta/tools/agents.sh"
 __mx_launch "agent-reconciler" "lean" "$@"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 # Privacy gate: vault-gate on|off|status
-export SYNAPSE_VAULT="/home/chamito/dev/cerebro"
+export SYNAPSE_VAULT="@@VAULT_PATH@@"
 source "$SYNAPSE_VAULT/_meta/tools/agents.sh"
 vault-gate "$@"
