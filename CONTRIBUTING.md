@@ -55,16 +55,15 @@ and merges. Agents propose; humans gate. The same applies to contributions — r
 
 `main` is protected by a GitHub ruleset. In practice this means:
 
-- **No direct pushes to `main`.** All changes land through a pull request.
-- **Maintainer review is mandatory.** Every PR requires approval from a code owner (see
-  [`.github/CODEOWNERS`](.github/CODEOWNERS)) before it can merge. As an outside contributor you cannot
-  self-merge.
+- **No direct pushes to `main`** — for anyone, the maintainer included. Every change lands through a PR.
 - **`main` cannot be deleted, and force-pushes are blocked.** History is append-only.
-- **Stale approvals are dismissed** when new commits are pushed to a PR, so the approved diff is the
-  merged diff.
+- **The lint gate is the bar — not a second approver.** Every PR must be `lint --strict` clean (also
+  enforced by the optional pre-commit hook). That automated guardrail is what protects `main`, so the
+  ruleset doesn't require a separate human approval.
 
-Because this is a personal (non-org) public repo, outside contributors don't have push access at all —
-**fork the repo, push to your fork, and open a PR from there.** The maintainer reviews, and merges.
+Because this is a personal (non-org) public repo, outside contributors have **no push access** —
+**fork the repo, push to your fork, and open a PR.** The maintainer reviews it and merges; you can't
+self-merge. The maintainer self-merges their *own* PRs behind that same lint gate.
 
 ## PR flow
 
