@@ -6,7 +6,7 @@ tags:
   - type/moc
   - area/meta
   - status/active
-references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]"]
+references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]", "[[doc-cli-reference]]"]
 related: ["[[moc-finances]]", "[[moc-contacts]]", "[[moc-health]]", "[[moc-places]]", "[[moc-journal]]", "[[moc-projects]]", "[[moc-social-media]]"]
 ---
 
@@ -60,6 +60,8 @@ The HOW layer the agents obey and the engine that briefs them:
 - **Schema:** [[conventions]] — the type taxonomy, frontmatter, and typed-edge rules every note follows.
 - **Engine:** [[context-engine-guide]] — how `render.mjs` walks the manifest's role-closure to compile a
   deterministic `agent × target × profile` briefing.
+- **CLI & commands:** [[doc-cli-reference]] — the canonical cheat-sheet: every shell command, `node`
+  script, runtime env var, and the pluggable `--cli` sinks (opencode · claude · clip · print).
 - **Semantic recall:** [[doc-semantic-recall]] — an opt-in second phase (`augment.mjs`) that appends
   embedding-similar notes the typed graph missed. The boundary ([[rule-semantic-suggests-links-decide]]):
   additive, labeled, non-authoritative — a good hit is promoted to a typed `related:` link, so semantic

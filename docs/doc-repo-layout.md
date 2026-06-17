@@ -49,5 +49,13 @@ synapse/
   are regenerated ([[rule-derived-views-are-generated]]).
 - **`migrations/` is the only path that writes the DB** ([[doc-governance-model]]).
 
+## Browse the graph in Obsidian
+Open the **repo root** as an Obsidian vault (`node_modules`, `db/`, `_meta/logs/` are excluded via
+`.obsidian/app.json`). Nodes are color-coded by `#type/<type>` (configured in `.obsidian/graph.json`):
+
+| 🟡 moc | 🔴 agent | 🟠 loop | 🔵 rule | 🟣 skill | ⚪ tool | 🩶 doc |
+|---|---|---|---|---|---|---|
+| 🫒 decision | 🟢 note | 🩵 journal | 🌊 plan | 🌿 project | 🌸 person | 🧡 contact / account | 🟨 summary |
+
 ## Related
 [[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[moc-synapse]]
