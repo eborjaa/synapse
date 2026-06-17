@@ -31,6 +31,18 @@ schema-clean? no stray edits? — repairs the unambiguous, escalates the rest, a
 opens the PR. A human merges ([[doc-governance-model]]). From-scratch authoring is escalated, never
 auto-run.
 
+## Which agent for which task
+Route any prompt by three axes: **read vs write**, **new input vs existing drift**, **one unit vs
+sweep + PR**.
+
+- a question / retrieve / explain → a **read-only render** of the relevant `moc-<domain>` (the
+  briefing engine, [[context-engine-guide]]); none of the three writers is invoked for a pure read.
+- new raw input to file / atomize → **[[agent-ingester]]** (and if it fits no existing domain, the
+  ingester proposes a new `moc-<domain>`).
+- one existing note / view drifted from its source → **[[agent-reconciler]]** (scoped; no PR; never
+  authors from scratch).
+- whole-vault sweep / verify others' diffs / open the PR → **[[agent-curator]]** (steward).
+
 ## The runtime — local OpenCode + Ollama over Tailscale
 Agents run on **OpenCode** (`opencode-ai`), pointed at **Ollama** over **Tailscale** — local models, no API
 key, no cloud ([[decision-0004-opencode-local-ollama-runtime]]). A briefing is compiled deterministically

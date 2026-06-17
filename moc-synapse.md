@@ -7,7 +7,7 @@ tags:
   - area/meta
   - status/active
 references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]"]
-related: ["[[moc-finances]]", "[[moc-contacts]]", "[[moc-health]]", "[[moc-places]]", "[[moc-journal]]", "[[moc-projects]]"]
+related: ["[[moc-finances]]", "[[moc-contacts]]", "[[moc-health]]", "[[moc-places]]", "[[moc-journal]]", "[[moc-projects]]", "[[moc-social-media]]"]
 ---
 
 # Synapse — master hub
@@ -43,7 +43,7 @@ declares the hub in its `related:` field rolls up as a member of that hub). They
 near-empty until data lands.
 
 **Knowledge (Markdown-canonical):**
-[[moc-journal]] (dated entries) · [[moc-projects]] (projects + plans)
+[[moc-journal]] (dated entries) · [[moc-projects]] (projects + plans) · [[moc-social-media]] (posts, drafts)
 
 **Records (SQL-canonical, surfaced as generated views + summaries):**
 [[moc-finances]] (accounts, transactions) · [[moc-contacts]] (people) · [[moc-health]] (metrics,
