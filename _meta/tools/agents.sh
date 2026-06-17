@@ -19,20 +19,30 @@
 #   vault-profiles  # explain the three profiles (context dials)
 #
 # ── Syntax ────────────────────────────────────────────────────────────────────
-#   <agent-name> [<target-id>] [--profile lean|standard|fat] ["task text"]
+#   <agent-name> [<target-id>] [--profile lean|standard|fat] [--cli opencode|claude|clip|print] ["task text"]
 #
 #   <agent-name>   = agent id minus the `agent-` prefix  (e.g. curator, reconciler, ingester)
 #   <target-id>    = any vault id: moc-*, project-*, plan-*, note-*, contact-*, account-*, …
 #   --profile      = lean | standard | fat; auto-upgrades to standard when a MOC target is given
 #
-# Runtime: OpenCode (`opencode run -m <model> --dir <vault> "<briefing>"`) against local Ollama over
-# Tailscale — NO API key, NO cloud. The model + endpoint live in YOUR ~/.config/opencode/opencode.json;
-# this file hardcodes neither a hostname nor a key. Default model below is overridable via SYNAPSE_MODEL.
+# Runtime is PLUGGABLE via --cli (or `export SYNAPSE_CLI=…`), default `opencode`:
+#   • opencode — OpenCode + local Ollama over Tailscale (NO API key, NO cloud); model from SYNAPSE_MODEL,
+#                endpoint/key in YOUR ~/.config/opencode/opencode.json (this file hardcodes neither).
+#   • claude   — Claude Code, scoped to the repo dir + seeded with the briefing (its own model/keys/config).
+#   • clip     — copy the briefing to the clipboard; print (or -) — write it to stdout, pipe into anything.
+# The render + semantic pipeline is IDENTICAL for every sink; only the final hand-off differs. So you can
+# maintain the public framework with Claude Code and a private vault with local OpenCode, same commands.
+#
+# ROADMAP (out of full scope here): first-class multi-CLI + external-API-key support — per-CLI model and
+# permission config, and an installer that wires more than OpenCode. This selector is the minimal wiring
+# toward that goal; see docs/doc-runtime-wiring.md. Contributions welcome.
 #
 # Must be SOURCED, not executed. zsh + bash (+ POSIX sh) supported.
 
 # ── default model (override in your env: export SYNAPSE_MODEL=ollama/<your-model>) ──
 : "${SYNAPSE_MODEL:=ollama/qwen3.6-256k}"
+# ── default CLI sink (override per-call with --cli, or globally: export SYNAPSE_CLI=claude) ──
+: "${SYNAPSE_CLI:=opencode}"
 
 # ── locate the vault ──────────────────────────────────────────────────────────
 # Prefer a pre-set SYNAPSE_VAULT — the installer bakes the absolute path into the source
@@ -50,7 +60,7 @@ if [ -z "${SYNAPSE_VAULT:-}" ] || [ ! -d "${SYNAPSE_VAULT:-}/agents" ]; then
   SYNAPSE_VAULT="$(cd "$(dirname "$_mx_self")/../.." 2>/dev/null && pwd)"
   unset _mx_self
 fi
-export SYNAPSE_VAULT SYNAPSE_MODEL
+export SYNAPSE_VAULT SYNAPSE_MODEL SYNAPSE_CLI
 
 if [ -z "$SYNAPSE_VAULT" ] || [ ! -d "$SYNAPSE_VAULT/agents" ]; then
   echo "agents.sh: could not locate the vault (SYNAPSE_VAULT=$SYNAPSE_VAULT)" >&2
@@ -88,14 +98,26 @@ __mx_launch() {
   # --no-semantic escape: a flag anywhere in the remaining args forces the deterministic-only path.
   # Strip it out of the positional args (POSIX-safe: rebuild $@ without it) so it never leaks into the task.
   no_semantic=0
+  cli="${SYNAPSE_CLI:-opencode}"   # where to send the briefing; --cli overrides (opencode|claude|clip|print)
   __mx_kept=""
+  __mx_want_cli=0
   for __mx_a in "$@"; do
-    if [ "$__mx_a" = "--no-semantic" ]; then no_semantic=1; continue; fi
+    if [ "$__mx_want_cli" = "1" ]; then cli="$__mx_a"; __mx_want_cli=0; continue; fi
+    case "$__mx_a" in
+      --no-semantic) no_semantic=1; continue ;;
+      --cli)         __mx_want_cli=1; continue ;;
+    esac
     __mx_kept="${__mx_kept:+$__mx_kept }$__mx_a"
   done
 
-  # remaining args = task text passed through to OpenCode as the positional prompt suffix
+  # remaining args = task text passed through to the chosen CLI as the positional prompt suffix
   task="$__mx_kept"
+
+  # validate the CLI selector (a typo falls back to opencode rather than failing)
+  case "$cli" in
+    opencode|claude|clip|clipboard|print|-) ;;
+    *) echo "[synapse] unknown --cli '$cli' (use opencode|claude|clip|print) — using opencode" >&2; cli=opencode ;;
+  esac
 
   if ! command -v node >/dev/null 2>&1; then
     echo "node not found — install Node.js to render briefings." >&2; return 127
@@ -153,9 +175,15 @@ __mx_launch() {
     fi
   }
 
-  if ! command -v opencode >/dev/null 2>&1; then
-    # fallback: copy the briefing to the clipboard so you can paste it into any tool
-    echo "[synapse] opencode not found — copying briefing to clipboard. (npm i -g opencode-ai)" >&2
+  # ── sinks that need no external CLI ─────────────────────────────────────────────
+  case "$cli" in
+    clip|clipboard) _mx_render "" --copy; return $? ;;   # render → clipboard, paste into any tool
+    print|-)        _mx_render "";          return $? ;;  # render → stdout, pipe into anything
+  esac
+
+  # ── CLI sinks (opencode | claude) — require the binary, else fall back to clipboard ──
+  if ! command -v "$cli" >/dev/null 2>&1; then
+    echo "[synapse] '$cli' not found in PATH — copying briefing to clipboard instead. (install $cli, or use --cli print)" >&2
     _mx_render "" --copy
     return $?
   fi
@@ -165,13 +193,14 @@ __mx_launch() {
     rm -f "$tmp"; return 1
   fi
   tok="$(( $(wc -c < "$tmp" | tr -d ' ') / 4 ))"
-  echo "[synapse] ${agent#agent-}${target:+ + $target} (${profile}, ~${tok} tok$([ "$__mx_semantic" = "1" ] && echo ', +semantic'), $SYNAPSE_MODEL) → launching OpenCode" >&2
+  echo "[synapse] ${agent#agent-}${target:+ + $target} (${profile}, ~${tok} tok$([ "$__mx_semantic" = "1" ] && echo ', +semantic')) → launching ${cli}" >&2
   if [ "$tok" -gt 60000 ]; then
-    echo "[synapse] ⚠ briefing is large (~${tok} tok) — 'fat' pulls the transitive graph. Try 'standard' for a tighter, faster prompt on a local model." >&2
+    echo "[synapse] ⚠ briefing is large (~${tok} tok) — 'fat' pulls the transitive graph. Try 'standard' for a tighter, faster prompt." >&2
   fi
 
-  # Assemble the prompt: render output + (optional) task text. The vault scopes the session (read freely;
-  # edits/bash gated by your opencode.json permission posture — see decision-0004 / doc-runtime-wiring).
+  # Assemble the prompt: render output + (optional) task text. The repo dir scopes the session; the
+  # edit/bash permission posture is your CLI's OWN config (opencode.json / Claude Code settings + any
+  # host gate, e.g. a private-vault PreToolUse gate — see decision-0004 / doc-runtime-wiring).
   briefing="$(cat "$tmp")"
   rm -f "$tmp"
   [ -n "$task" ] && briefing="$briefing
@@ -179,33 +208,41 @@ __mx_launch() {
 ---
 TASK: $task"
 
-  # Two ways to hand the briefing to OpenCode:
-  #   • TUI (default in an interactive terminal): `opencode <vault> --prompt <briefing>` opens the
-  #     full-screen app seeded with the briefing — native spinner + token counter for visual progress,
-  #     and you STAY in a live session to keep working with the agent. This is what you usually want.
-  #   • one-shot (`opencode run`): no UI, prints the response and exits. Auto-selected when there's no
-  #     TTY (cron/pipes, where the TUI would garble); there we stream reasoning as proof-of-life.
-  # Override the auto-detection with SYNAPSE_TUI=1 (force TUI) or SYNAPSE_TUI=0 (force one-shot).
+  # TUI (interactive, seeded — default in a terminal; you stay in a live session) vs one-shot (no UI,
+  # auto-selected with no TTY: cron/pipes). Override with SYNAPSE_TUI=1 (force TUI) / SYNAPSE_TUI=0.
   _mx_tui="${SYNAPSE_TUI:-auto}"
   case "$_mx_tui" in
-    auto)        { [ -t 0 ] && [ -t 1 ]; } && _mx_tui=1 || _mx_tui=0 ;;
+    auto)           { [ -t 0 ] && [ -t 1 ]; } && _mx_tui=1 || _mx_tui=0 ;;
     1|on|true|yes)  _mx_tui=1 ;;
     *)              _mx_tui=0 ;;
   esac
 
-  if [ "$_mx_tui" = "1" ]; then
-    echo "[synapse] opening the OpenCode TUI — native progress; you'll stay in a live session (SYNAPSE_TUI=0 for one-shot output)." >&2
-    opencode "$SYNAPSE_VAULT" -m "$SYNAPSE_MODEL" --prompt "$briefing"
-  else
-    # Local reasoning models stream hidden reasoning before any visible content and are slow on a big
-    # briefing, so a non-TTY run looks frozen for the first 30–90s+. Show reasoning as proof-of-life.
-    _mx_oc=(run -m "$SYNAPSE_MODEL" --dir "$SYNAPSE_VAULT")
-    case "${SYNAPSE_THINKING:-1}" in
-      0|off|false|no) ;;
-      *) _mx_oc+=(--thinking) ;;
-    esac
-    opencode "${_mx_oc[@]}" "$briefing"
-  fi
+  case "$cli" in
+    opencode)
+      # OpenCode + local Ollama over Tailscale (model from SYNAPSE_MODEL; endpoint/key live in opencode.json).
+      if [ "$_mx_tui" = "1" ]; then
+        echo "[synapse] opening the OpenCode TUI — native progress; live session (SYNAPSE_TUI=0 for one-shot)." >&2
+        opencode "$SYNAPSE_VAULT" -m "$SYNAPSE_MODEL" --prompt "$briefing"
+      else
+        # Local reasoning models look frozen for the first 30–90s on a big briefing; stream reasoning.
+        _mx_oc=(run -m "$SYNAPSE_MODEL" --dir "$SYNAPSE_VAULT")
+        case "${SYNAPSE_THINKING:-1}" in
+          0|off|false|no) ;;
+          *) _mx_oc+=(--thinking) ;;
+        esac
+        opencode "${_mx_oc[@]}" "$briefing"
+      fi ;;
+    claude)
+      # Claude Code: scoped to the repo via cwd, seeded with the briefing. Model + permissions are
+      # Claude Code's own config; SYNAPSE_MODEL (an Ollama id) does NOT apply. Any host privacy gate
+      # (e.g. the private-vault PreToolUse gate) still applies — disable it to use Claude on the vault.
+      if [ "$_mx_tui" = "1" ]; then
+        echo "[synapse] launching Claude Code (interactive, seeded) in $SYNAPSE_VAULT (SYNAPSE_TUI=0 for one-shot)." >&2
+        ( cd "$SYNAPSE_VAULT" && claude "$briefing" )
+      else
+        ( cd "$SYNAPSE_VAULT" && claude -p "$briefing" )
+      fi ;;
+  esac
 }
 
 # ── auto-generate one function per agent-*.md ─────────────────────────────────
@@ -249,7 +286,7 @@ unset _mx_f _mx_id _mx_name _mx_prof
 
 vault-agents() {
   echo "Synapse vault agent commands:"
-  echo "  Usage: <name> [<target-id>] [--profile lean|standard|fat] [\"task\"]"
+  echo "  Usage: <name> [<target-id>] [--profile lean|standard|fat] [--cli opencode|claude|clip|print] [\"task\"]"
   echo ""
   for f in "$SYNAPSE_VAULT"/agents/agent-*.md; do
     [ -e "$f" ] || continue
@@ -262,7 +299,9 @@ vault-agents() {
   done
   echo ""
   echo "  Also: vault-mocs  vault-profiles"
-  echo "  Runtime: opencode run -m $SYNAPSE_MODEL --dir \$SYNAPSE_VAULT  (local Ollama over Tailscale — no API key)"
+  echo "  Runtime (--cli, default ${SYNAPSE_CLI:-opencode}):  opencode | claude | clip | print"
+  echo "    opencode → local Ollama over Tailscale (no API key, model $SYNAPSE_MODEL); claude → Claude Code in \$SYNAPSE_VAULT."
+  echo "    e.g.  curator moc-finances --cli claude \"rebuild summaries\"   (maintain via Claude Code instead of OpenCode)"
 }
 
 vault-mocs() {

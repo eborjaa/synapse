@@ -25,6 +25,22 @@ behind this is [[decision-0004-opencode-local-ollama-runtime]]; the schema it re
         └─ read-only query ─▶ SQLite db/synapse.db  (records: contacts, accounts, finances, …)
 ```
 
+## The CLI is pluggable (`--cli`)
+
+OpenCode is the **default** sink, not the only one. The shell CLI (`_meta/tools/agents.sh`) renders the
+same role-based briefing and then hands it to whichever runtime you pick with `--cli` (or
+`export SYNAPSE_CLI=…`): **`opencode`** (local Ollama, below), **`claude`** (Claude Code, scoped to the repo
+dir and seeded with the briefing — its own model, keys, and config), or **`clip`/`print`** (copy to
+clipboard / write to stdout, to paste or pipe into any tool). The render + semantic pipeline is identical
+for every sink; only the final hand-off differs — so you can maintain the **public framework** with a
+powerful cloud CLI while a **private vault** stays on local OpenCode, using the same commands. Any host
+privacy gate still applies to whichever CLI you launch ([[doc-deployment-gate]]).
+
+> **Roadmap — out of scope for now.** First-class multi-CLI and external-API-key support — per-CLI model
+> and permission config, an installer that wires more than OpenCode, and a connector for hosted APIs — is a
+> documented future direction that would make Synapse a truly runtime-agnostic open template. The `--cli`
+> selector is the minimal wiring toward it; the sections below describe the reference OpenCode runtime.
+
 ## OpenCode ↔ Ollama (over Tailscale)
 
 The model and endpoint are **not** committed here — they live in the user's own
