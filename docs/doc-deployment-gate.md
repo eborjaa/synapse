@@ -89,11 +89,16 @@ selected via the `--cli claude` selector ([[doc-runtime-wiring]]) — for a one-
 can't handle. The owner creates the sentinel, runs the scoped task, then deletes it to re-seal the vault.
 Default ON means a forgotten step fails *closed*, not open.
 
-Crucially, **an external agent cannot disable its own gate.** The off-switch lives in host config the
-agent is itself gated out of (the same `~/.claude/...` host scope the hook protects), and the hook refuses
-any self-disabling tool call as a guardrail — so toggling is a deliberate human act at the host, never
-something the gated agent can do to free itself. The owner turns the gate off and on; the agent only ever
-experiences whichever state the owner has set.
+Crucially, disabling the gate is meant to be a **deliberate human act**, not something the agent does to
+free itself — but it's worth being precise about *how* that's enforced, because it's a **policy guardrail,
+not a structural one**. The vault hook guards paths *into the vault*; it does **not** itself block writes
+to the host sentinel (the sentinel path is outside the vault). What actually keeps an agent from flipping
+its own gate is the host CLI's **safety classifier**, which independently refuses agent-initiated attempts
+to weaken a user's privacy control — in practice it declines to create the off-sentinel on the agent's own
+initiative. Combined with **default-ON** (a forgotten or failed toggle fails *closed*), the effect is that
+the owner turns the gate off and on as a conscious act at the host, and the agent only ever experiences
+whichever state the owner has set. The protection is real, but it lives in the agent's safety policy layer
+plus the human-in-the-loop, not in the vault hook alone.
 
 ## Why this is a central intention
 
