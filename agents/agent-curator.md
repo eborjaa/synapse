@@ -14,7 +14,7 @@ uses_tools: ["[[tool-lint]]", "[[tool-render]]", "[[tool-git]]", "[[tool-gh]]", 
 applies_rules: ["[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-human-gated-push]]", "[[rule-derived-views-are-generated]]", "[[rule-no-unprompted-actions]]", "[[rule-context-handover]]", "[[rule-canary]]", "[[rule-semantic-suggests-links-decide]]"]
 delegates_to: ["[[agent-reconciler]]"]
 references_docs: ["[[conventions]]", "[[context-engine-guide]]", "[[doc-maintainer-loop]]", "[[doc-governance-model]]"]
-related: ["[[decision-0003-human-gated-mutation]]", "[[decision-0004-opencode-local-ollama-runtime]]"]
+related: ["[[decision-0003-human-gated-mutation]]", "[[decision-0006-self-healing-vault]]", "[[decision-0004-opencode-local-ollama-runtime]]"]
 invokes_skills: ["[[skill-maintain-synapse]]"]
 ---
 
@@ -47,8 +47,11 @@ the unambiguous, escalate over-reach. The doer never approves its own edit
 
 ## Boundaries
 `.md` + migration files only — never write the DB directly ([[decision-0003-human-gated-mutation]]); never
-edit a `generated: true` view by hand ([[rule-derived-views-are-generated]]); the PR is the handoff —
-never force-push, never self-merge ([[rule-synapse-human-gated-push]]).
+edit a `generated: true` view by hand ([[rule-derived-views-are-generated]]). The handoff follows the
+per-repo/per-content policy ([[rule-synapse-human-gated-push]], [[decision-0006-self-healing-vault]]):
+**detect the repo and the change type, then apply the right gate** — a human-gated PR on the framework
+(never force-push, never self-merge), a direct push for vault Markdown/knowledge, and the human migration
+gate for record/DB changes everywhere (the records DB is never self-healed — finances are in scope).
 
 ## Related
 [[loop-maintain-synapse]] · [[doc-maintainer-loop]] · [[doc-governance-model]] · [[agent-reconciler]] · [[agent-ingester]] · [[skill-maintain-synapse]]

@@ -12,7 +12,7 @@ goal: "Keep the whole Synapse vault schema-clean and its derived views current w
 exit_condition: "lint.mjs --strict = errors=0 AND no DB↔view divergence AND no inbox item awaiting action (dry). A pass that changed nothing opens NO PR. Hard budget cap per pass."
 signal: "Per pass: (a) lint errors/warnings; (b) DB↔derived-view divergence (a canonical row changed, or a generated view was hand-edited); (c) orphans/broken links; (d) inbox/ items awaiting ingestion or human-resolved escalations."
 pattern: "event-driven, loop-until-dry (detect → heal → verify)"
-guardrails: "Edit ONLY .md + migration files under the vault — never write db/synapse.db directly, never edit a generated view by hand. Autofix only the unambiguous; escalate every judgment call to inbox/attention/ (rule-synapse-fail-loudly). Stage only what you touched (never git add -A). Surface unresolved lint errors loudly in the PR body. Human reviews/merges the PR. NO-SPIN: the trigger skips the curator's own synapse/curator-* maintenance commits."
+guardrails: "Edit ONLY .md + migration files under the vault — never write db/synapse.db directly, never edit a generated view by hand. Autofix only the unambiguous; escalate every judgment call to inbox/attention/ (rule-synapse-fail-loudly). Stage only what you touched (never git add -A); never force-push or rewrite shared history. Hand off by the per-repo/per-content policy (rule-synapse-human-gated-push, decision-0006-self-healing-vault): framework = human-gated PR (surface unresolved lint loudly in the PR body, never self-merge); vault Markdown/knowledge = direct push (self-healing); record/DB/migration changes = human-gated migration EVERYWHERE (the records DB is never self-healed). NO-SPIN: the trigger skips the curator's own synapse/curator-* maintenance commits."
 owner_agent: "[[agent-curator]]"
 skill: "[[skill-maintain-synapse]]"
 delegates_to: "[[agent-reconciler]] — one scoped doer per drifted unit, seeded with moc-<domain>"
@@ -50,10 +50,13 @@ loop self-orients from `inbox/curator/` and the last-marker commit. A manual run
    note with Options, then stop on it ([[rule-no-unprompted-actions]]). A record change is proposed as a
    **migration** in the PR, never applied directly ([[decision-0003-human-gated-mutation]]).
 7. **Re-lint** to `errors=0`; surface any unresolved error loudly.
-8. **PR (only if something changed)** — fresh `synapse/curator-<YYYY-MM-DD>` off latest `main`, commit subject
-   `curator: synapse maintenance <YYYY-MM-DD>` (the next marker), stage only what you touched (never
-   `git add -A`), open a PR to `main`. Never force-push, never push to `main`, never self-merge
-   ([[rule-synapse-human-gated-push]]). A dry pass opens NO PR.
+8. **Hand off (only if something changed)** — by the per-repo/per-content policy
+   ([[rule-synapse-human-gated-push]], [[decision-0006-self-healing-vault]]). **Framework:** fresh
+   `synapse/curator-<YYYY-MM-DD>` off latest `main`, commit subject `curator: synapse maintenance
+   <YYYY-MM-DD>` (the next marker), stage only what you touched (never `git add -A`), open a PR to `main`;
+   never force-push, never push to `main`, never self-merge. **Vault:** push verified Markdown/knowledge
+   directly (no PR); a record change is still proposed as a **migration** through the human gate, never
+   applied directly ([[decision-0003-human-gated-mutation]]). A dry pass hands off nothing.
 9. **Log** — a heartbeat line in `logs/LOG.md` (every pass); a per-pass note when the pass did something.
 
 ## Exit condition
@@ -68,4 +71,4 @@ last-maintenance commit + `inbox/curator/logs/` = external memory. The pass also
 ([[doc-semantic-recall]]); if Ollama is unreachable it skips with a clear message and never blocks the pass.
 
 ## Related
-[[agent-curator]] · [[agent-reconciler]] · [[skill-maintain-synapse]] · [[doc-maintainer-loop]] · [[rule-synapse-fail-loudly]] · [[rule-synapse-incremental-reconcile]] · [[rule-synapse-human-gated-push]] · [[decision-0003-human-gated-mutation]] · [[decision-0004-opencode-local-ollama-runtime]] · [[tool-render]] · [[tool-lint]] · [[tool-git]] · [[tool-gh]]
+[[agent-curator]] · [[agent-reconciler]] · [[skill-maintain-synapse]] · [[doc-maintainer-loop]] · [[rule-synapse-fail-loudly]] · [[rule-synapse-incremental-reconcile]] · [[rule-synapse-human-gated-push]] · [[decision-0003-human-gated-mutation]] · [[decision-0006-self-healing-vault]] · [[decision-0004-opencode-local-ollama-runtime]] · [[tool-render]] · [[tool-lint]] · [[tool-git]] · [[tool-gh]]

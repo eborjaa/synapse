@@ -10,6 +10,10 @@ related: ["[[doc-governance-model]]"]
 ---
 
 **Status:** Accepted — 2026-06-15
+Amended by [[decision-0006-self-healing-vault]] — the gate is now scoped per repo and per content type
+(framework stays fully PR-gated; the private vault self-heals Markdown directly). **Record/DB mutations
+still ride `migrations/` through the human gate everywhere, including the vault** — this record governs
+them unchanged.
 
 ## Context
 The agent is the write path, and updates and deletes are allowed (correct a figure, fix a contact, revise
@@ -31,4 +35,4 @@ stops. **Every DELETE and bulk-UPDATE escalates**, always.
 - (↔) A deliberate delay between propose and apply — the chosen feature, not a cost.
 
 ## Related
-[[doc-governance-model]] · [[rule-synapse-human-gated-push]] · [[rule-synapse-fail-loudly]] · [[rule-no-unprompted-actions]]
+[[doc-governance-model]] · [[decision-0006-self-healing-vault]] · [[rule-synapse-human-gated-push]] · [[rule-synapse-fail-loudly]] · [[rule-no-unprompted-actions]]

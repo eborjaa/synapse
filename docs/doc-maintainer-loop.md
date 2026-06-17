@@ -21,8 +21,11 @@ Synapse ports the source pattern's maintenance spine wholesale, then changes the
 `no-op — dry` heartbeat and stop; the common case, and it counts as success) → **heal** (mechanical
 autofix directly + dispatch a scoped [[agent-reconciler]] per drifted unit + **maker ≠ checker** verify of
 its diff + escalate from-scratch authoring) → **escalate** the rest to `inbox/attention/` with Options and
-stop → **re-lint** to `errors=0` → **human-gated PR** (fresh branch off latest, never force-push, never
-push to the shared branch, never self-merge) → **log** a heartbeat.
+stop → **re-lint** to `errors=0` → **hand off by the policy that fits the repo and content type**
+([[rule-synapse-human-gated-push]]) → **log** a heartbeat. On the framework, the handoff is a human-gated
+PR (fresh branch off latest, never force-push, never push to the shared branch, never self-merge); on the
+private vault, verified Markdown is pushed directly while record changes still ride the human migration
+gate ([[decision-0006-self-healing-vault]]).
 
 ## What changed — the detect signal and the reconcile target
 The source pattern detects **code merged to a branch** and reconciles **docs → code**. Synapse has **no
@@ -48,7 +51,10 @@ exits.
 
 ## Unchanged guardrails
 Dry-gate-as-success · fail-loudly · autofix-only-the-unambiguous · escalate-with-Options-and-stop ·
-maker ≠ checker · never `git add -A` (stage only what you changed) · the human-gated PR is the handoff.
+maker ≠ checker · never `git add -A` (stage only what you changed) · never force-push or rewrite shared
+history. The **handoff** follows the per-repo/per-content policy ([[rule-synapse-human-gated-push]]): a
+human-gated PR on the framework; a direct push for vault Markdown; the human migration gate for record/DB
+changes everywhere.
 
 ## Related
-[[loop-maintain-synapse]] · [[doc-governance-model]] · [[agent-curator]] · [[agent-reconciler]] · [[decision-0003-human-gated-mutation]] · [[decision-0004-opencode-local-ollama-runtime]] · [[moc-synapse]]
+[[loop-maintain-synapse]] · [[doc-governance-model]] · [[agent-curator]] · [[agent-reconciler]] · [[rule-synapse-human-gated-push]] · [[decision-0003-human-gated-mutation]] · [[decision-0006-self-healing-vault]] · [[decision-0004-opencode-local-ollama-runtime]] · [[moc-synapse]]

@@ -20,8 +20,9 @@ files. The local SQLite DB is gitignored — it is derived and replayable from t
 as the records' audit log and revert path ([[doc-storage-model]]).
 
 ## How it is used in Synapse
-Agents propose; a human merges. The maintenance loop ([[loop-maintain-synapse]]) commits its work on a
-dated branch and never touches `main` directly:
+How the loop ([[loop-maintain-synapse]]) commits and pushes depends on the repo and the content type
+([[rule-synapse-human-gated-push]], [[decision-0006-self-healing-vault]]). On the **framework**, the agent
+proposes and a human merges: it commits on a dated branch and never touches `main` directly:
 
 ```sh
 git switch -c synapse/curator-2026-06-15        # branch off latest main, never edit main
@@ -29,10 +30,12 @@ git add <only the files you touched>          # never `git add -A`
 git commit -m "curator: synapse maintenance 2026-06-15"
 ```
 
-Discipline the agents follow ([[rule-synapse-human-gated-push]]): branch off the latest `main`, stage only
-what was touched (never `git add -A`), commit with the marker subject the loop uses to find its last run,
-and **never force-push, push to `main`, or self-merge**. The pull request is the handoff — opening it is
-[[tool-gh]]'s job.
+On the **private vault**, verified Markdown/knowledge is committed and pushed **directly** (self-healing,
+no PR). In every case: stage only what was touched (**never `git add -A`**), and **never force-push or
+rewrite shared history**; on the framework, never push to `main` or self-merge — the pull request is the
+handoff ([[tool-gh]]'s job). Record/DB changes are the exception that stays gated **everywhere**: they ride
+`migrations/NNNN-*.sql` files through the human gate, never a direct write to `db/synapse.db`
+([[decision-0003-human-gated-mutation]]).
 
 ## Related
-[[tool-gh]] · [[doc-governance-model]] · [[rule-synapse-human-gated-push]] · [[loop-maintain-synapse]]
+[[tool-gh]] · [[doc-governance-model]] · [[rule-synapse-human-gated-push]] · [[decision-0006-self-healing-vault]] · [[decision-0003-human-gated-mutation]] · [[loop-maintain-synapse]]
