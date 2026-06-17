@@ -32,6 +32,9 @@ The design notes, in reading order:
 - [[doc-security-privacy]] — the privacy boundary (private repo, no public endpoint).
 - [[doc-fork-and-extend]] — framework vs. your vault: the two-repo model (`origin` private, `upstream`
   the framework) and the by-directory boundary.
+- [[doc-deployment-gate]] — the intended one-parent layout and the host-level privacy gate: an external
+  coding agent maintains the framework while the vault stays sealed (local-only, data never leaves your
+  hardware).
 - [[doc-repo-layout]] — where everything lives. · [[doc-roadmap]] — what's next.
 
 ## Domains — what's inside
