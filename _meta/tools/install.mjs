@@ -27,8 +27,11 @@ const write = process.argv.includes("--write");
 
 const agentsSh   = join(VAULT, "_meta", "tools", "agents.sh");
 const SH_MARKER  = "# Synapse vault agent commands";
-// Bake the absolute vault path into the source line so agents.sh never has to self-detect
-// (robust against zsh/direnv where %x / BASH_SOURCE come back empty).
+// agents.sh resolves the vault per-call from $PWD (directory-agnostic) and self-detects its
+// own "home" vault at source time, so no path is hardcoded in normal use. We still bake the
+// absolute SYNAPSE_VAULT here as a SAFETY NET — the fallback for shells / direnv setups where
+// self-detection (%x / BASH_SOURCE) comes back empty. (The `source "<abs path>"` is mandatory:
+// a shell rc can't source a relative path reliably at startup.)
 const sourceLine = `export SYNAPSE_VAULT="${VAULT}"; source "${agentsSh}"  ${SH_MARKER}`;
 
 // OpenCode reads ~/.config/opencode/AGENTS.md (global) and the repo-root AGENTS.md (project).

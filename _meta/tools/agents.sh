@@ -44,21 +44,27 @@
 # ── default CLI sink (override per-call with --cli, or globally: export SYNAPSE_CLI=claude) ──
 : "${SYNAPSE_CLI:=opencode}"
 
-# ── locate the vault ──────────────────────────────────────────────────────────
-# Prefer a pre-set SYNAPSE_VAULT — the installer bakes the absolute path into the source
-# line, which is robust against shells / direnv where sourced-script self-detection
-# (%x / BASH_SOURCE) comes back empty. Fall back to self-detection (2 levels up from
-# _meta/tools/) only when SYNAPSE_VAULT isn't already a valid vault.
-if [ -z "${SYNAPSE_VAULT:-}" ] || [ ! -d "${SYNAPSE_VAULT:-}/agents" ]; then
-  if [ -n "${ZSH_VERSION:-}" ]; then
-    _mx_self="${(%):-%x}"
-  elif [ -n "${BASH_VERSION:-}" ]; then
-    _mx_self="${BASH_SOURCE[0]}"
-  else
-    _mx_self="$0"
-  fi
-  SYNAPSE_VAULT="$(cd "$(dirname "$_mx_self")/../.." 2>/dev/null && pwd)"
-  unset _mx_self
+# ── locate the HOME vault (portable, no hardcoded path) ─────────────────────────
+# Self-detect the vault that OWNS this script (2 levels up from _meta/tools/) at SOURCE
+# time, when %x / BASH_SOURCE is still reliable. This is the "home" vault: it seeds the
+# command set below and is the fallback when a command is run from OUTSIDE any vault.
+# Self-detection follows the repo wherever it moves — no baked path. The pre-set
+# SYNAPSE_VAULT (installer-baked) is only a SAFETY NET for shells / direnv where
+# self-detection comes back empty. Per call, __mx_vault walks up from $PWD first, so a
+# command always acts on the vault you run it in (fully directory-agnostic).
+if [ -n "${ZSH_VERSION:-}" ]; then
+  _mx_self="${(%):-%x}"
+elif [ -n "${BASH_VERSION:-}" ]; then
+  _mx_self="${BASH_SOURCE[0]}"
+else
+  _mx_self="$0"
+fi
+_MX_SELF_VAULT="$(cd "$(dirname "$_mx_self")/../.." 2>/dev/null && pwd)"
+unset _mx_self
+
+# Home vault precedence: self-detected (portable) → baked SYNAPSE_VAULT (safety net).
+if [ -n "$_MX_SELF_VAULT" ] && [ -d "$_MX_SELF_VAULT/agents" ]; then
+  SYNAPSE_VAULT="$_MX_SELF_VAULT"
 fi
 export SYNAPSE_VAULT SYNAPSE_MODEL SYNAPSE_CLI
 
@@ -67,12 +73,42 @@ if [ -z "$SYNAPSE_VAULT" ] || [ ! -d "$SYNAPSE_VAULT/agents" ]; then
   return 0 2>/dev/null || exit 0
 fi
 
+# ── resolve the EFFECTIVE vault for a single invocation ─────────────────────────
+# Walk up from $PWD to the nearest synapse vault root, so a command targets the vault
+# you RUN it IN — not whichever path the installer baked into SYNAPSE_VAULT at setup.
+# This is what you expect when you keep more than one vault side by side (e.g. the
+# public framework + a private vault): `cd synapse-vault && ingester` must drive the
+# vault, `cd synapse-framework && ingester` the framework — same command set either way.
+# A directory is a vault root when it holds both agents/ and _meta/tools/render.mjs.
+# No match (you're standing outside any vault) → fall back to the baked SYNAPSE_VAULT.
+__mx_vault() {
+  _mx_d="$PWD"
+  while [ -n "$_mx_d" ] && [ "$_mx_d" != "/" ]; do
+    if [ -d "$_mx_d/agents" ] && [ -f "$_mx_d/_meta/tools/render.mjs" ]; then
+      printf '%s\n' "$_mx_d"; return 0
+    fi
+    _mx_d="$(dirname "$_mx_d")"
+  done
+  # outside any vault → home vault: self-detected (portable) first, baked env as last resort
+  if [ -n "${_MX_SELF_VAULT:-}" ] && [ -d "${_MX_SELF_VAULT}/agents" ]; then
+    printf '%s\n' "$_MX_SELF_VAULT"
+  else
+    printf '%s\n' "$SYNAPSE_VAULT"
+  fi
+}
+
 # ── core launcher ──────────────────────────────────────────────────────────────
 # $1 = agent-id (full, e.g. agent-curator)
 # $2 = default profile (from the agent's `profile:` frontmatter)
 # rest = optional [<target-id>] [--profile P] ["task"]
 __mx_launch() {
   agent="$1"; profile="$2"; shift 2
+
+  # Re-resolve the vault from the current directory on EVERY call (see __mx_vault):
+  # this is what makes the command relative to where you run it. Re-export so the
+  # rendered engine ($SYNAPSE_VAULT/_meta/tools/render.mjs, which self-locates its
+  # ROOT) and the launched CLI (--dir / cd) all bind to the SAME vault.
+  SYNAPSE_VAULT="$(__mx_vault)"; export SYNAPSE_VAULT
 
   # helper: is $1 a bare profile word?
   __mx_is_profile() { case "$1" in lean|standard|fat) return 0;; *) return 1;; esac; }
@@ -285,6 +321,7 @@ unset _mx_f _mx_id _mx_name _mx_prof
 # ── discovery commands ────────────────────────────────────────────────────────
 
 vault-agents() {
+  SYNAPSE_VAULT="$(__mx_vault)"   # reflect the vault you're standing in, not the baked path
   echo "Synapse vault agent commands:"
   echo "  Usage: <name> [<target-id>] [--profile lean|standard|fat] [--cli opencode|claude|clip|print] [\"task\"]"
   echo ""
@@ -305,6 +342,7 @@ vault-agents() {
 }
 
 vault-mocs() {
+  SYNAPSE_VAULT="$(__mx_vault)"   # reflect the vault you're standing in, not the baked path
   echo "Synapse vault MOC targets (pass as the second arg to any agent):"
   echo "  Usage: <agent> <moc-id> [--profile standard]"
   echo ""
