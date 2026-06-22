@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Discovery: list all MOC targets
+export SYNAPSE_VAULT="@@VAULT_PATH@@"
+source "$SYNAPSE_VAULT/_meta/tools/agents.sh"
+vault-mocs
