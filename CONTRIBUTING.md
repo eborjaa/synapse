@@ -1,6 +1,6 @@
 # Contributing to Synapse
 
-Synapse is distributed as the **`@eborjaa/synapse` npm package** (engine) plus optional **reference vault
+Synapse is distributed as the **`@eborja/synapse` npm package** (engine) plus optional **reference vault
 content** in this repo. Contributions improve the *engine* and the *reference ontology* (conventions,
 rules, agents, docs) — never anyone's personal data. Thanks for helping.
 

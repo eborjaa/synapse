@@ -2,7 +2,7 @@
 
 This repo is **Synapse**, a local-first personal knowledge vault: Markdown-in-Git for knowledge + local
 SQLite for records, joined by one ontology (`_meta/tools/context.manifest.json`). The **engine** is the
-`@eborjaa/synapse` npm package (`synapse` CLI + `agents.sh`). All mutation is human-gated via PR. Read
+`@eborja/synapse` npm package (`synapse` CLI + `agents.sh`). All mutation is human-gated via PR. Read
 `_meta/conventions.md` before authoring or migrating notes.
 
 ## Render a briefing on demand — don't read files ad-hoc

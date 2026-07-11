@@ -44,14 +44,14 @@ entirely local ([[decision-0005-hybrid-retrieval]], [[doc-semantic-recall]]):
 
 ## Phase 5 — Open-source release (framework)
 Released as a public GitHub repo others can **template or clone**, then pin the engine as
-`@eborjaa/synapse` ([[doc-fork-and-extend]]):
+`@eborja/synapse` ([[doc-fork-and-extend]]):
 - MIT license, `CONTRIBUTING.md`, and issue/PR templates; the lint gate as the contribution bar.
 - Engine package vs private vault: npm dependency for tooling; optional `upstream` for reference notes.
 - Ownership recorded generically in `vault_meta` (seeded by the user via `0002-owner.sql`), no personal
   data in the framework.
 
 ## Phase 6 — Engine as npm package (done)
-The tooling ships as **`@eborjaa/synapse`** — `bin/synapse`, `lib/*`, `agents.sh`,
+The tooling ships as **`@eborja/synapse`** — `bin/synapse`, `lib/*`, `agents.sh`,
 `schema/context.manifest.example.json`. Consumers keep vault content + a local
 `context.manifest.json`; the engine resolves the vault via `$SYNAPSE_VAULT` or an ancestor walk
 (flat or nested layout). SQL helpers (`migrate` / `index` / `views`) stay in-package for the

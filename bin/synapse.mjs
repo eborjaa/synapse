@@ -38,7 +38,7 @@ const CMDS = {
 const [cmd, ...rest] = process.argv.slice(2);
 
 if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
-  console.log(`synapse — context-vault engine (@eborjaa/synapse)
+  console.log(`synapse — context-vault engine (@eborja/synapse)
 
 usage: synapse <command> [args…]
 

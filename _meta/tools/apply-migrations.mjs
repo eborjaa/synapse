@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Backward-compat shim — engine lives in @eborjaa/synapse (lib/apply-migrations.mjs). Prefer: `synapse <cmd>`
+// Backward-compat shim — engine lives in @eborja/synapse (lib/apply-migrations.mjs). Prefer: `synapse <cmd>`
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 const lib = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "lib", "apply-migrations.mjs");

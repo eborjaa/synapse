@@ -10,7 +10,7 @@ provenance: ["the framework's top-level docs are its public face; stale overview
 ---
 
 **Rule:** The framework's overview and how-to docs must be brought current in the **same change** as any
-framework-wide modification: engine/`@eborjaa/synapse` package behavior, CLI (`synapse <sub>` / `vault-*`),
+framework-wide modification: engine/`@eborja/synapse` package behavior, CLI (`synapse <sub>` / `vault-*`),
 agents, rules, domain hubs, runtime, governance, the privacy gate, or anything else that alters how the
 system is described to a reader. A framework-wide change that leaves these docs describing the *old*
 reality is **drift** — and the curator's detection pass ([[loop-maintain-synapse]]) should flag it,

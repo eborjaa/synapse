@@ -12,7 +12,7 @@ related: ["[[hub-synapse]]"]
 
 # How the context engine works
 
-A plain-language tour of the briefing engine in **`@eborjaa/synapse`**: how `synapse render` reads your
+A plain-language tour of the briefing engine in **`@eborja/synapse`**: how `synapse render` reads your
 vault's `context.manifest.json`, the three profiles, and how a deterministic briefing is assembled. The
 companion to [[conventions]] (the schema) and [[tool-render]] (the command). Examples here are illustrative
 — this note lives under `_meta/`, which the linter excludes from link checks.
