@@ -10,7 +10,7 @@ tags:
 
 # tool-render (`synapse render`)
 
-The **briefing engine** (shipped in `@eborjaa/synapse`). Given one or more note ids, it walks the ontology
+The **briefing engine** (shipped in `@eborja/synapse`). Given one or more note ids, it walks the ontology
 defined in `_meta/tools/context.manifest.json` and concatenates the linked note bodies into a single
 context blob — exactly the rules, skills, tools, docs, and neighborhood an agent needs, and nothing else.
 

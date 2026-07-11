@@ -50,7 +50,7 @@ synapse agents                             # ← list agents (or: vault-agents)
 synapse hubs                               # ← list hub targets (or: vault-hubs)
 ```
 
-> The engine is the **`@eborjaa/synapse` npm package** (`bin/synapse`, `lib/*`, `agents.sh`). Your vault
+> The engine is the **`@eborja/synapse` npm package** (`bin/synapse`, `lib/*`, `agents.sh`). Your vault
 > keeps only content + `_meta/tools/context.manifest.json`. After install, `synapse <sub>` is the unified
 > front door (engine + shell). Legacy `node _meta/tools/<tool>.mjs` shims still work in this template.
 
@@ -196,7 +196,7 @@ framework is fully PR-gated, vault Markdown self-heals, and the records DB is ga
 
 Synapse ships **two layers**:
 
-1. **`@eborjaa/synapse`** — the publishable tooling package (`bin/`, `lib/`, `agents.sh`, `schema/`).
+1. **`@eborja/synapse`** — the publishable tooling package (`bin/`, `lib/`, `agents.sh`, `schema/`).
 2. **Reference vault content** in this repo — agents, rules, docs, starter hubs, `migrations/0001-*.sql`
    (not in the npm tarball; kept so you can copy a private vault).
 
@@ -208,7 +208,7 @@ npm init -y
 npm install github:eborjaa/synapse#v0.1.0
 # copy schema example → your ontology dial
 mkdir -p _meta/tools
-cp node_modules/@eborjaa/synapse/schema/context.manifest.example.json \
+cp node_modules/@eborja/synapse/schema/context.manifest.example.json \
    _meta/tools/context.manifest.json
 # copy starter agents/rules/hubs from the template repo if you want them, or author your own
 npx synapse setup --write      # Ollama + embed model (optional)
@@ -222,7 +222,7 @@ synapse agents && synapse hubs
 
 1. Click **"Use this template"** (or clone), keep it **private**, and treat it as your vault.
 2. **Prerequisites:** Node 22+ (`.nvmrc` pins `22`), OpenCode (or Claude/Cursor via `--cli`), Ollama.
-3. From the vault root: `npm install` (links `@eborjaa/synapse` if present) → `npx synapse install --write`
+3. From the vault root: `npm install` (links `@eborja/synapse` if present) → `npx synapse install --write`
    → `npx synapse migrate` → `exec $SHELL`.
 4. Set `export VAULT_USER="Your Name"`, fill `migrations/0002-owner.sql` from the example, migrate again.
 5. Capture into `inbox/`, then `ingester …`.
@@ -239,7 +239,7 @@ Distribute and update the **engine** without forking vault content:
 ```jsonc
 {
   "dependencies": {
-    "@eborjaa/synapse": "github:eborjaa/synapse#v0.1.0"
+    "@eborja/synapse": "github:eborjaa/synapse#v0.1.0"
   },
   "scripts": {
     "vault:render": "synapse render",
@@ -279,7 +279,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 - **Browse the graph in Obsidian** (color-coded by type) → [`doc-repo-layout`](docs/doc-repo-layout.md)
 - **The privacy gate** (framework readable, vault sealed; `vault-gate on|off`) → [`doc-deployment-gate`](docs/doc-deployment-gate.md)
 - **Staying healthy** (lint, pre-commit hook, the nightly curator loop) → [`doc-maintainer-loop`](docs/doc-maintainer-loop.md) · [`loop-maintain-synapse`](loops/loop-maintain-synapse.md)
-- **Engine package** (`@eborjaa/synapse` vs your private vault; npm bump to update tooling) → [`doc-fork-and-extend`](docs/doc-fork-and-extend.md)
+- **Engine package** (`@eborja/synapse` vs your private vault; npm bump to update tooling) → [`doc-fork-and-extend`](docs/doc-fork-and-extend.md)
 - **Extending** (new note / rule / agent / domain / migration) → [`_meta/conventions.md`](_meta/conventions.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **The vision & full architecture** → [`doc-vision`](docs/doc-vision.md) · [`hub-synapse`](hub-synapse.md)
 

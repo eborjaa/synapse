@@ -13,7 +13,7 @@ Any change to the Synapse **engine or how it is used** must update the matching 
 - CLI surface: subcommands, flags, shell wrappers (`synapse …` / `vault-*`), install/setup
 - Manifest dialect, roles/profiles, lint rules, SQL tooling (`migrate` / `index` / `views`)
 - Agents, rules, loops, governance, privacy gate, or ontology types (e.g. `hub`)
-- Package boundary: what ships in `@eborjaa/synapse` vs what stays in a consumer vault
+- Package boundary: what ships in `@eborja/synapse` vs what stays in a consumer vault
 
 ## Docs to bring current (pick what the change touches)
 

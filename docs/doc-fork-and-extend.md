@@ -17,7 +17,7 @@ your knowledge and records stay in a private vault that *consumes* the package.
 
 ## Two layers
 
-- **The engine (`@eborjaa/synapse`).** Published from this repo's `bin/`, `lib/`, `agents.sh`, and
+- **The engine (`@eborja/synapse`).** Published from this repo's `bin/`, `lib/`, `agents.sh`, and
   `schema/`. Manifest-driven render / augment / lint / embeddings / SQL helpers / install. **No personal
   data.** Pin a tag: `github:eborjaa/synapse#v0.1.0`.
 - **Your vault (a private repo).** Agents, rules, hubs, notes, `migrations/0002+`, `db/`. Depends on the

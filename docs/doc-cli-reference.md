@@ -13,7 +13,7 @@ related: ["[[hub-synapse]]"]
 # CLI & command reference
 
 Everything runnable, in one place — the canonical cheat-sheet the [README](../README.md) links to.
-There are **two front-ends over the same engine** (`@eborjaa/synapse`): the **`synapse` CLI** /
+There are **two front-ends over the same engine** (`@eborja/synapse`): the **`synapse` CLI** /
 shell agent commands (after `synapse install`), and direct `node lib/<tool>.mjs` during package
 development. Vault resolves from `$SYNAPSE_VAULT` or `$PWD` (flat or nested layout — see
 [[doc-fork-and-extend]]).

@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
-# agents.sh — Synapse context-vault CLI (sourced shell library for @eborjaa/synapse)
+# agents.sh — Synapse context-vault CLI (sourced shell library for @eborja/synapse)
 #
 # Source from your shell rc (one-time setup via `synapse install --write`). Since the engine
-# ships as an npm package, this file lives at the package root (or node_modules/@eborjaa/synapse/):
-#     export SYNAPSE_VAULT="/path/to/vault"; source ".../node_modules/@eborjaa/synapse/agents.sh"
+# ships as an npm package, this file lives at the package root (or node_modules/@eborja/synapse/):
+#     export SYNAPSE_VAULT="/path/to/vault"; source ".../node_modules/@eborja/synapse/agents.sh"
 #
 # One-time setup:
 #     npx synapse install --write
@@ -35,7 +35,7 @@
 #     [--cli opencode|claude|cursor|clip|print]
 #     [--model <id>] [--auto|--bypass|--manual] [--no-semantic] [--clipboard] ["task text"]
 #
-# Engine tools resolve via: `synapse` bin on PATH → package lib/ → node_modules/@eborjaa/synapse
+# Engine tools resolve via: `synapse` bin on PATH → package lib/ → node_modules/@eborja/synapse
 # → legacy _meta/tools/*.mjs shims.
 #
 # Must be SOURCED, not executed. zsh + bash (+ POSIX sh) supported.
@@ -49,7 +49,7 @@
 # Semantic-recall Ollama endpoint (augment.mjs/gen-embeddings.mjs only; NOT opencode's runtime).
 : "${SYNAPSE_OLLAMA_URL:=http://localhost:11434}"
 
-# ── locate THIS script (package-aware — may live in node_modules/@eborjaa/synapse/) ──
+# ── locate THIS script (package-aware — may live in node_modules/@eborja/synapse/) ──
 if [ -n "${ZSH_VERSION:-}" ]; then
   _mx_self="${(%):-%x}"
 elif [ -n "${BASH_VERSION:-}" ]; then
@@ -117,8 +117,8 @@ __mx_tool() {
   for _mx_base in "$_mx_start" "$PWD"; do
     _mx_d="$_mx_base"
     while [ -n "$_mx_d" ] && [ "$_mx_d" != "/" ]; do
-      if [ -f "$_mx_d/node_modules/@eborjaa/synapse/lib/$_mx_file" ]; then
-        printf '%s\n' "$_mx_d/node_modules/@eborjaa/synapse/lib/$_mx_file"
+      if [ -f "$_mx_d/node_modules/@eborja/synapse/lib/$_mx_file" ]; then
+        printf '%s\n' "$_mx_d/node_modules/@eborja/synapse/lib/$_mx_file"
         unset _mx_name _mx_file _mx_start _mx_base _mx_d
         return 0
       fi
@@ -133,7 +133,7 @@ __mx_tool() {
   done
 
   case "$_mx_name" in
-    render|augment) _mx_sub="@eborjaa/synapse/$_mx_name" ;;
+    render|augment) _mx_sub="@eborja/synapse/$_mx_name" ;;
     *)              _mx_sub="" ;;
   esac
   if [ -n "$_mx_sub" ]; then
@@ -159,7 +159,7 @@ __mx_run() {
   else
     _mx_toolpath="$(__mx_tool "$_mx_cmd")"
     if [ -z "$_mx_toolpath" ]; then
-      echo "agents.sh: could not resolve synapse '$_mx_cmd' (no 'synapse' bin and no @eborjaa/synapse install)." >&2
+      echo "agents.sh: could not resolve synapse '$_mx_cmd' (no 'synapse' bin and no @eborja/synapse install)." >&2
       unset _mx_cmd _mx_toolpath
       return 127
     fi
@@ -941,7 +941,7 @@ vault-gate() {
 # The vault-* functions above remain first-class synonyms.
 __syn_help() {
   cat <<'EOF'
-synapse — Synapse context-vault CLI (@eborjaa/synapse)
+synapse — Synapse context-vault CLI (@eborja/synapse)
 
 Engine (delegates to the packaged binary):
   synapse render <id> … [--profile lean|standard|fat] [--dry-run] [--copy]
