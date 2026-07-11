@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # CLI & command reference
@@ -20,33 +20,36 @@ development. Vault resolves from `$SYNAPSE_VAULT` or `$PWD` (flat or nested layo
 
 ## A. Shell CLI
 
-Source once (`synapse install --write` → `agents.sh`), then call agents by name:
+Source once (`synapse install --write` → `agents.sh`). Everything is reachable as `synapse <sub>`;
+the `vault-*` names are maintained equals. Agent launchers stay top-level.
 
 | Command | Does |
 |---|---|
-| `<agent> [<target>] [--profile lean\|standard\|fat] [--cli opencode\|claude\|cursor\|clip\|print] [--model <id>] [--auto\|bypass\|manual] ["task"]` | render briefing → hand to chosen runtime as **system context**; task is separate user prompt. e.g. `curator moc-finances --cli cursor --model claude-opus-4-8-thinking-high "rebuild summaries"` |
-| `vault-agents` | list all agents + purpose + default profile |
-| `vault-mocs` | list all MOC targets (the master + 7 domain hubs) |
-| `vault-profiles` | explain `lean` / `standard` / `fat` (the context dial) |
-| `vault-models [--cli opencode\|claude\|cursor] [--refresh]` | list models for a CLI (`--model` TAB-completes per `--cli`) |
-| `vault-reload` | force re-source `agents.sh` (also auto-reloads when the file is edited) |
-| `vault-bedrock on\|off\|status` | enable/disable AWS Bedrock via Cursor team-role; `status` lists raw `us.anthropic.*` IDs |
+| `<agent> [<target>] [--profile lean\|standard\|fat] [--cli opencode\|claude\|cursor\|clip\|print] [--model <id>] [--auto\|bypass\|manual] ["task"]` | render briefing → hand to chosen runtime as **system context**; task is separate user prompt. e.g. `curator hub-finances --cli cursor --model claude-opus-4-8-thinking-high "rebuild summaries"` |
+| `synapse agents` / `vault-agents` | list all agents + purpose + default profile |
+| `synapse hubs` / `vault-hubs` | list all hub targets (the master + domain hubs) |
+| `synapse profiles` / `vault-profiles` | explain `lean` / `standard` / `fat` (the context dial) |
+| `synapse models` / `vault-models [--cli …] [--refresh]` | list models for a CLI (`--model` TAB-completes per `--cli`) |
+| `synapse reload` / `vault-reload` | force re-source `agents.sh` (also auto-reloads when the file is edited) |
+| `synapse bedrock` / `vault-bedrock on\|off\|status` | enable/disable AWS Bedrock via Cursor team-role |
+| `synapse gate` / `vault-gate on\|off\|status` | host privacy gate (seal / unseal the vault) |
+| `synapse help` | combined engine + shell cheat-sheet |
 
-**Syntax:** `<agent> [<target>] [--profile lean|standard|fat] ["task"]`. A `moc-*` target auto-upgrades a
-`lean` agent to `standard`; a bare profile word also works (`curator moc-finances fat`). Supplying a
+**Syntax:** `<agent> [<target>] [--profile lean|standard|fat] ["task"]`. A `hub-*` target auto-upgrades a
+`lean` agent to `standard`; a bare profile word also works (`curator hub-finances fat`). Supplying a
 **task** auto-routes through the semantic augment when the embedding index exists.
 
 ## B. `synapse` CLI (npm package)
 
 ```bash
-synapse render agent-curator moc-finances --profile standard
+synapse render agent-curator hub-finances --profile standard
 synapse render --lint
 synapse lint [--strict]
 synapse migrate [--status]
 synapse index
 synapse views
 synapse embeddings [--all]
-synapse augment agent-curator moc-finances --profile standard --task "…"
+synapse augment agent-curator hub-finances --profile standard --task "…"
 synapse setup [--write]
 synapse install [--write]
 ```
@@ -70,4 +73,4 @@ Legacy shims under `_meta/tools/*.mjs` in this template forward to `lib/` — pr
 Full sink table and TUI notes: [[doc-runtime-wiring]].
 
 ## Related
-[[doc-runtime-wiring]] · [[doc-semantic-recall]] · [[doc-deployment-gate]] · [[doc-fork-and-extend]] · [[conventions]] · [[context-engine-guide]] · [[moc-synapse]]
+[[doc-runtime-wiring]] · [[doc-semantic-recall]] · [[doc-deployment-gate]] · [[doc-fork-and-extend]] · [[conventions]] · [[context-engine-guide]] · [[hub-synapse]]

@@ -1,13 +1,13 @@
 ---
-id: moc-contacts
-type: moc
+id: hub-contacts
+type: hub
 title: Contacts & people — domain hub
 tags:
-  - type/moc
+  - type/hub
   - area/contacts
   - status/active
 references_docs: ["[[doc-sql-schema]]", "[[doc-storage-model]]"]
-related: ["[[moc-synapse]]", "[[decision-0002-contact-record-plus-narrative]]"]
+related: ["[[hub-synapse]]", "[[decision-0002-contact-record-plus-narrative]]"]
 ---
 
 # Contacts & people — domain hub
@@ -27,12 +27,12 @@ The map for **people**. A person is modelled as two linked halves: a structured 
   regenerates its `contacts/<slug>.md` view.
 - **Add narrative:** author a `person` note only when there's real prose; link it to the contact rather
   than restating fields ([[rule-synapse-single-source-of-truth]]).
-- **Maintenance pass:** `reconciler moc-contacts` to reconcile one drifted view/note, or `curator
-  moc-contacts` for a stewarded sweep.
+- **Maintenance pass:** `reconciler hub-contacts` to reconcile one drifted view/note, or `curator
+  hub-contacts` for a stewarded sweep.
 
 ## Members
 *Populate as records and notes land.* Contact views and person notes roll up here once they link back via
 `related` ([[rule-synapse-edges-by-role]]).
 
 ## Related
-[[decision-0002-contact-record-plus-narrative]] · [[doc-sql-schema]] · [[doc-storage-model]] · [[moc-synapse]]
+[[decision-0002-contact-record-plus-narrative]] · [[doc-sql-schema]] · [[doc-storage-model]] · [[hub-synapse]]

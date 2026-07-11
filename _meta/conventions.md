@@ -28,7 +28,7 @@ person's data. See also [[context-engine-guide]] (how the renderer reads this sc
 Both Obsidian (`[[wikilink]]`) and the render engine address notes **by basename** — a duplicate
 basename silently shadows a note in both. So every note's `id` equals its filename without `.md`, is
 globally unique, and is kebab-case. The filename **prefix implies the `type:`** (`rule-*`→`rule`,
-`agent-*`→`agent`, `moc-*`→`moc`, `note-*`→`note`, …), and `lint.mjs` enforces the match.
+`agent-*`→`agent`, `hub-*`→`hub`, `note-*`→`note`, …), and `lint.mjs` enforces the match.
 
 ## 2. Frontmatter
 Each note opens with YAML frontmatter terminated by a line that is exactly `---`.
@@ -51,7 +51,7 @@ Each note opens with YAML frontmatter terminated by a line that is exactly `---`
   target's `type:`** ([[rule-synapse-edges-by-role]]). Put each link in the right field:
   - rules → `applies_rules` · tools/skills → `uses_tools` / `invokes_skills` · agents → `delegates_to`
     · docs → `references_docs`
-  - everything else → `related`, where the engine resolves the role by the **target's type**: a `moc`
+  - everything else → `related`, where the engine resolves the role by the **target's type**: a `hub`
     is *navigated to*, a `note`/`journal`/`plan`/`project`/`contact`/`account`/`summary` is *bound* (it
     rolls up as a member of any hub it links to), and a `person`/`decision`/`tool`/`glossary` is
     *attached* (bidirectional).
@@ -70,8 +70,8 @@ is **generated, not authored** (§6).
 ## 5. Note types (the taxonomy)
 | Layer | Types | Substrate | Notes |
 |---|---|---|---|
-| **Map** | `moc` | Markdown | one hub per domain (`moc-finances`, `moc-contacts`, `moc-<project>`) + the master `moc-synapse` |
-| **Knowledge** | `note` `journal` `project` `plan` | Markdown (canonical) | the prose second brain; members of a domain MOC |
+| **Map** | `hub` | Markdown | one hub per domain (`hub-finances`, `hub-contacts`, `hub-<project>`) + the master `hub-synapse` |
+| **Knowledge** | `note` `journal` `project` `plan` | Markdown (canonical) | the prose second brain; members of a domain hub |
 | **People** | `person` `contact` | `person` = Markdown narrative; `contact` = generated view | record + optional narrative, **linked, never duplicated** |
 | **Records** | `contact` `account` `summary` | SQL (canonical) → generated Markdown view | per-row views (`contact`, `account`) + aggregate summaries (finance/health/geo) |
 | **Cross-cut** | `decision` `glossary` | Markdown | bidirectional attachments referenced from many notes |

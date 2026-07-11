@@ -1,13 +1,13 @@
 ---
-id: moc-health
-type: moc
+id: hub-health
+type: hub
 title: Health — domain hub
 tags:
-  - type/moc
+  - type/hub
   - area/health
   - status/active
 references_docs: ["[[doc-sql-schema]]", "[[doc-storage-model]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Health — domain hub
@@ -26,11 +26,11 @@ metric is just a new string value, no migration required.
   value — no migration to the schema); apply with `apply-migrations.mjs` on merge.
 - **Query:** read-only text-to-SQL over the DB; roll trends into `summary-health-<period>` notes via
   `gen-views.mjs`.
-- **Maintenance pass:** `reconciler moc-health` for one stale summary, or `curator moc-health` to sweep.
+- **Maintenance pass:** `reconciler hub-health` for one stale summary, or `curator hub-health` to sweep.
 
 ## Members
 *Populate as records and notes land.* Health summaries roll up here once they link back via `related`
 ([[rule-synapse-edges-by-role]]).
 
 ## Related
-[[doc-sql-schema]] · [[doc-storage-model]] · [[moc-synapse]]
+[[doc-sql-schema]] · [[doc-storage-model]] · [[hub-synapse]]

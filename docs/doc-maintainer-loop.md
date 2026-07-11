@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # The maintainer loop
@@ -61,4 +61,4 @@ human-gated PR on the framework; a direct push for vault Markdown; the human mig
 changes everywhere.
 
 ## Related
-[[loop-maintain-synapse]] · [[doc-governance-model]] · [[agent-curator]] · [[agent-reconciler]] · [[rule-synapse-human-gated-push]] · [[decision-0003-human-gated-mutation]] · [[decision-0006-self-healing-vault]] · [[decision-0004-opencode-local-ollama-runtime]] · [[moc-synapse]]
+[[loop-maintain-synapse]] · [[doc-governance-model]] · [[agent-curator]] · [[agent-reconciler]] · [[rule-synapse-human-gated-push]] · [[decision-0003-human-gated-mutation]] · [[decision-0006-self-healing-vault]] · [[decision-0004-opencode-local-ollama-runtime]] · [[hub-synapse]]

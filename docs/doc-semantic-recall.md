@@ -7,7 +7,7 @@ tags:
   - area/retrieval
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Semantic recall
@@ -18,7 +18,7 @@ notes across the whole vault, then *augments* (never replaces) the deterministic
 **hybrid retrieval** (graph + vector); see [[decision-0005-hybrid-retrieval]].
 
 ## The two phases
-1. **Deterministic seed (unchanged).** `render.mjs agent [+ moc] --profile P` walks the typed-link closure
+1. **Deterministic seed (unchanged).** `render.mjs agent [+ hub] --profile P` walks the typed-link closure
    → a byte-identical briefing. `render.mjs` stays pure and offline.
 2. **Semantic augment (new, opt-in).** `augment.mjs` takes that seed **plus the user's task text**, embeds
    it, runs nearest-neighbor search over the note embeddings, fuses the hits with the closure
@@ -51,4 +51,4 @@ Before [[agent-ingester]] creates a note, it semantically searches for an existi
 idea — enforcing [[rule-synapse-single-source-of-truth]] beyond exact-name matching.
 
 ## Related
-[[decision-0005-hybrid-retrieval]] · [[rule-semantic-suggests-links-decide]] · [[tool-ollama-embeddings]] · [[doc-storage-model]] · [[doc-runtime-wiring]] · [[moc-synapse]]
+[[decision-0005-hybrid-retrieval]] · [[rule-semantic-suggests-links-decide]] · [[tool-ollama-embeddings]] · [[doc-storage-model]] · [[doc-runtime-wiring]] · [[hub-synapse]]

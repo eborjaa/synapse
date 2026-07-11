@@ -26,7 +26,7 @@ fuzzy similarity hit for an established fact. Abstaining is a correct answer; gu
   read the canonical row via read-only SQL ([[tool-sqlite]]), not a possibly-stale view.
 - Keep the **authoritative vs. suggested** split visible: never present a `## Semantically related` hit as if
   it were a typed-closure fact ([[rule-semantic-suggests-links-decide]]).
-- When the context is silent, say so and suggest a remedy (wider profile, a different MOC, or a
+- When the context is silent, say so and suggest a remedy (wider profile, a different hub, or a
   consent-gated handoff) — do not extrapolate ([[rule-synapse-fail-loudly]]).
 - If Ollama is unreachable the augment is skipped; answer from the deterministic closure alone and say the
   semantic layer was unavailable.

@@ -11,12 +11,12 @@
     "db"
   ],
   "targetTypes": [
-    "moc",
+    "hub",
     "project",
     "plan"
   ],
   "autoUpgrade": {
-    "moc": "standard"
+    "hub": "standard"
   },
   "dropTagsAtLean": [
     "status/draft"
@@ -62,7 +62,7 @@
         "account",
         "summary"
       ],
-      "_doc": "MOC <- its members. A member note carries `related: [[moc-x]]`; the reverse edge makes members discoverable."
+      "_doc": "hub <- its members. A member note carries `related: [[hub-x]]`; the reverse edge makes members discoverable."
     },
     "ATTACHES": {
       "field": "related",
@@ -73,22 +73,22 @@
         "tool",
         "glossary"
       ],
-      "_doc": "MOC/note -> reference/background notes it hangs off (NOT members). Forward `related:` to a reference-typed endpoint."
+      "_doc": "hub/note -> reference/background notes it hangs off (NOT members). Forward `related:` to a reference-typed endpoint."
     },
     "NAVIGATES": {
       "field": "related",
       "direction": "forward",
       "endpointTypes": [
-        "moc"
+        "hub"
       ],
-      "_doc": "moc -> sibling/parent moc. Depth-capped per profile."
+      "_doc": "hub -> sibling/parent hub. Depth-capped per profile."
     }
   },
   "referenceRoles": [
     "ATTACHES",
     "NAVIGATES"
   ],
-  "_referenceRoles_doc": "Roles trimmed FIRST under a tight token budget, so a MOC's own members (BINDS) outlast its references.",
+  "_referenceRoles_doc": "Roles trimmed FIRST under a tight token budget, so a hub's own members (BINDS) outlast its references.",
   "profiles": {
     "lean": {
       "roles": [
@@ -151,7 +151,7 @@
   "typePriority": [
     "agent",
     "loop",
-    "moc",
+    "hub",
     "rule",
     "tool",
     "skill",
@@ -175,10 +175,10 @@
   "invariants": [
     {
       "when": {
-        "targetType": "moc",
+        "targetType": "hub",
         "profile": "standard",
         "excludeIds": [
-          "moc-synapse"
+          "hub-synapse"
         ]
       },
       "assert": [

@@ -1,13 +1,13 @@
 ---
-id: moc-finances
-type: moc
+id: hub-finances
+type: hub
 title: Finances — domain hub
 tags:
-  - type/moc
+  - type/hub
   - area/finances
   - status/active
 references_docs: ["[[doc-sql-schema]]", "[[doc-storage-model]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Finances — domain hub
@@ -23,11 +23,11 @@ generated views and `summary` notes, never one note per transaction ([[doc-sql-s
   into `summary-finances-<period>` notes rather than per-row notes.
 
 ## How to work this domain
-- **Add records:** write a forward-only file under `migrations/`, then `node _meta/tools/apply-migrations.mjs`
+- **Add records:** write a forward-only file under `migrations/`, then `synapse migrate`
   (on merge) — the migration is the only writer of the DB and doubles as the audit log.
-- **Refresh views/summaries:** `node _meta/tools/gen-views.mjs` regenerates `accounts/<slug>.md` and
+- **Refresh views/summaries:** `synapse views` regenerates `accounts/<slug>.md` and
   `summary-finances-<period>.md` from canonical rows; never hand-edit them.
-- **Maintenance pass:** `reconciler moc-finances` (scoped doer) or `curator moc-finances "rebuild stale
+- **Maintenance pass:** `reconciler hub-finances` (scoped doer) or `curator hub-finances "rebuild stale
   summaries"` (steward → human-gated PR).
 
 ## Members
@@ -35,4 +35,4 @@ generated views and `summary` notes, never one note per transaction ([[doc-sql-s
 they link back via `related` ([[rule-synapse-edges-by-role]]).
 
 ## Related
-[[doc-sql-schema]] · [[doc-storage-model]] · [[moc-synapse]]
+[[doc-sql-schema]] · [[doc-storage-model]] · [[hub-synapse]]

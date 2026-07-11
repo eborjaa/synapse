@@ -1,13 +1,13 @@
 ---
-id: moc-synapse
-type: moc
-title: Synapse — master map of content
+id: hub-synapse
+type: hub
+title: Synapse — master hub
 tags:
-  - type/moc
+  - type/hub
   - area/meta
   - status/active
 references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]", "[[doc-cli-reference]]"]
-related: ["[[moc-finances]]", "[[moc-contacts]]", "[[moc-health]]", "[[moc-places]]", "[[moc-journal]]", "[[moc-projects]]", "[[moc-social-media]]"]
+related: ["[[hub-finances]]", "[[hub-contacts]]", "[[hub-health]]", "[[hub-places]]", "[[hub-journal]]", "[[hub-projects]]", "[[hub-social-media]]"]
 ---
 
 # Synapse — master hub
@@ -43,11 +43,11 @@ declares the hub in its `related:` field rolls up as a member of that hub). They
 near-empty until data lands.
 
 **Knowledge (Markdown-canonical):**
-[[moc-journal]] (dated entries) · [[moc-projects]] (projects + plans) · [[moc-social-media]] (posts, drafts)
+[[hub-journal]] (dated entries) · [[hub-projects]] (projects + plans) · [[hub-social-media]] (posts, drafts)
 
 **Records (SQL-canonical, surfaced as generated views + summaries):**
-[[moc-finances]] (accounts, transactions) · [[moc-contacts]] (people) · [[moc-health]] (metrics,
-workouts) · [[moc-places]] (gazetteer + visits)
+[[hub-finances]] (accounts, transactions) · [[hub-contacts]] (people) · [[hub-health]] (metrics,
+workouts) · [[hub-places]] (gazetteer + visits)
 
 ## Method — how it runs
 The HOW layer the agents obey and the engine that briefs them:

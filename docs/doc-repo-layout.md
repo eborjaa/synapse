@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Repository layout
@@ -17,7 +17,7 @@ linter discover everything by frontmatter, so layout is for humans (and Obsidian
 
 ```text
 synapse/
-├── moc-synapse.md                 # master hub (entry point)
+├── hub-synapse.md                 # master hub (entry point)
 ├── _meta/
 │   ├── conventions.md           # the schema layer
 │   ├── capture-philosophy.md    # how to think about capture / knowledge
@@ -30,7 +30,7 @@ synapse/
 ├── rules/                       # rule-synapse-* · rule-derived-views-are-generated · constitutional rules
 ├── skills/                      # skill-* pointer notes → .claude/skills/<name>/SKILL.md
 ├── loops/                       # loop-maintain-synapse
-├── moc/                         # moc-finances · moc-contacts · moc-health · moc-places · moc-<project>
+├── hub/                         # hub-finances · hub-contacts · hub-health · hub-places · hub-<project>
 ├── notes/ journal/ projects/ plans/ people/        # hand-authored knowledge (Markdown canonical)
 ├── contacts/ accounts/ finances/ health/ places/   # GENERATED derived views (DB canonical)
 ├── tools/                       # tool-* reference notes
@@ -53,9 +53,9 @@ synapse/
 Open the **repo root** as an Obsidian vault (`node_modules`, `db/`, `_meta/logs/` are excluded via
 `.obsidian/app.json`). Nodes are color-coded by `#type/<type>` (configured in `.obsidian/graph.json`):
 
-| 🟡 moc | 🔴 agent | 🟠 loop | 🔵 rule | 🟣 skill | ⚪ tool | 🩶 doc |
+| 🟡 hub | 🔴 agent | 🟠 loop | 🔵 rule | 🟣 skill | ⚪ tool | 🩶 doc |
 |---|---|---|---|---|---|---|
 | 🫒 decision | 🟢 note | 🩵 journal | 🌊 plan | 🌿 project | 🌸 person | 🧡 contact / account | 🟨 summary |
 
 ## Related
-[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[moc-synapse]]
+[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[hub-synapse]]

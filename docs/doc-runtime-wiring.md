@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Runtime wiring
@@ -55,7 +55,7 @@ Do not hardcode the Tailnet hostname or any secret into committed files; referen
 
 OpenCode is scoped to the vault with `--dir <vault>`. Agents do not read files ad-hoc: they render a
 **role-based briefing** with the engine ([[tool-render]]) —
-`node _meta/tools/render.mjs <agent> [<target>] --profile <lean|standard|fat>` — which walks the manifest
+`synapse render <agent> [<target>] --profile <lean|standard|fat>` — which walks the manifest
 role closure and concatenates the linked note bodies into one context blob. Beyond the briefing, the
 model retrieves over the Markdown corpus (grep/read within `--dir`) as a lightweight RAG source. The
 manifest ([[conventions]]) is the single ontology both the renderer and the linter ([[tool-lint]]) obey.

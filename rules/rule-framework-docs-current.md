@@ -11,7 +11,7 @@ provenance: ["the framework's top-level docs are its public face; stale overview
 
 **Rule:** The framework's top-level overview docs — `README.md` and `TUTORIAL.md` (and `AGENTS.md`) — must
 be brought current in the **same change** as any framework-wide modification: a new or changed agent, rule,
-domain MOC, runtime/CLI behavior, governance posture, the privacy gate, or anything else that alters how the
+domain hub, runtime/CLI behavior, governance posture, the privacy gate, or anything else that alters how the
 system is described to a reader. A framework-wide change that leaves these docs describing the *old* reality
 is **drift** — and the curator's detection pass ([[loop-maintain-synapse]]) should flag it, treating
 stale top-level docs as a valid reconcile target, not an out-of-scope file.
@@ -25,7 +25,7 @@ single-source-of-truth design exists to prevent ([[doc-governance-model]]). Beca
 guards these files, the discipline has to be a rule the agents carry.
 
 **How to apply:**
-- When a change is **framework-wide** (touches an agent, a rule, a domain MOC, runtime/CLI behavior,
+- When a change is **framework-wide** (touches an agent, a rule, a domain hub, runtime/CLI behavior,
   governance, the gate, or the architecture), update `README.md`, `TUTORIAL.md`, and `AGENTS.md` in the
   **same** commit/PR so the overview never lags the reality it describes.
 - On a maintenance pass, the [[agent-curator]] **detects** top-level-doc drift — phrasings that contradict
@@ -35,6 +35,6 @@ guards these files, the discipline has to be a rule the agents carry.
 - Keep edits concise and in the existing voice — reconcile to the truth, do not rewrite or pad. A
   from-scratch rewrite of an overview is an authoring decision, so escalate it rather than guess.
 - These files are lint-ignored (no frontmatter), so confirm any **vault-note wikilinks** you touch still
-  resolve; a `node _meta/tools/lint.mjs --strict` of `errors=0` still gates the rest of the change.
+  resolve; a `synapse lint --strict` of `errors=0` still gates the rest of the change.
 
 Related: [[doc-governance-model]] · [[agent-curator]] · [[loop-maintain-synapse]]

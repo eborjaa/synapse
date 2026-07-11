@@ -7,7 +7,7 @@ tags:
   - area/security
   - status/active
 references_docs: ["[[conventions]]", "[[doc-runtime-wiring]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Deployment model & privacy gate
@@ -130,6 +130,6 @@ shareable; the vault is sealed; the only seam between them is the reviewable, on
 pull.
 
 ## Related
-[[doc-security-privacy]] · [[doc-fork-and-extend]] · [[doc-governance-model]] · [[doc-vision]] · [[doc-runtime-wiring]] · [[decision-0004-opencode-local-ollama-runtime]] · [[moc-synapse]]
+[[doc-security-privacy]] · [[doc-fork-and-extend]] · [[doc-governance-model]] · [[doc-vision]] · [[doc-runtime-wiring]] · [[decision-0004-opencode-local-ollama-runtime]] · [[hub-synapse]]
 </content>
 </invoke>

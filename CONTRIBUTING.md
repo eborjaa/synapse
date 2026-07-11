@@ -8,7 +8,7 @@ improve the *framework* (engine, conventions, rules, agents, docs), never anyone
 Every PR must be lint-clean:
 
 ```bash
-node _meta/tools/lint.mjs --strict   # must report errors=0
+synapse lint --strict   # must report errors=0
 ```
 
 `--strict` also fails on broken wikilinks and unbalanced code fences. An optional pre-commit hook enforces
@@ -41,7 +41,7 @@ The split is by directory (see [`docs/doc-fork-and-extend.md`](docs/doc-fork-and
 - **Framework (contributable here):** `_meta/` (engine, manifest, tools, rules), `agents/`, `loops/`,
   `docs/`, `rules/`, `skills/`, `tools/`, `migrations/0001-init-schema.sql`.
 - **Instance (yours, never in a framework PR):** `inbox/`, `notes/`, `journal/`, `projects/`, `plans/`,
-  `people/`, your `db/`, your domain MOCs, your `0002+` migrations, custom rules.
+  `people/`, your `db/`, your domain hubs, your `0002+` migrations, custom rules.
 
 Your private vault tracks this repo as `upstream`. Contribute framework fixes via a PR from a clean,
 data-free branch — **never push your vault to `upstream`**.
@@ -73,6 +73,6 @@ now overriding the approval requirement" step, never an automerge. Nothing lands
 
 1. Fork (or branch off `main`) from a clean, data-free state.
 2. Make the change; keep it generic and scoped.
-3. `node _meta/tools/lint.mjs --strict` → errors=0.
+3. `synapse lint --strict` → errors=0.
 4. If you touched the schema, add a forward-only migration (never edit `0001-init-schema.sql` destructively).
 5. Open a PR using the checklist in the PR template. Update docs if behavior changed.

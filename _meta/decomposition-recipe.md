@@ -7,7 +7,7 @@ tags:
   - area/meta
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Decomposition recipe
@@ -31,10 +31,10 @@ so its illustrative links are not link-checked.
    (`note-*`, `journal-*`, `project-*`, `plan-*`, `person-*`, `decision-*`) — the prefix *is* the `type:`
    and the linter enforces the match ([[conventions]]). The basename is the note's `id`.
 
-4. **Wire into the right hub via `related`.** Link each note to its domain `moc-<domain>` in the
-   `related:` field. The field decides the role: a `moc` target is *navigated to* and the note rolls up
+4. **Wire into the right hub via `related`.** Link each note to its domain `hub-<domain>` in the
+   `related:` field. The field decides the role: a `hub` target is *navigated to* and the note rolls up
    as a member of that hub — only because the link sits in `related`, the field whose role reaches a
-   `moc` ([[rule-synapse-edges-by-role]]). A link in the wrong field renders nothing.
+   `hub` ([[rule-synapse-edges-by-role]]). A link in the wrong field renders nothing.
 
 5. **Carry `provenance:`.** Every derived note (and every proposed row) cites its inbox source, so any
    fact traces back to the raw capture it came from. Provenance is non-negotiable — it is the audit trail
@@ -58,4 +58,4 @@ If a fact already lives somewhere, link it; never copy it into the new note
 restating fields ([[decision-0002-contact-record-plus-narrative]]).
 
 ## Related
-[[agent-ingester]] · [[doc-capture-pipeline]] · [[capture-philosophy]] · [[rule-synapse-edges-by-role]] · [[decision-0003-human-gated-mutation]] · [[moc-synapse]]
+[[agent-ingester]] · [[doc-capture-pipeline]] · [[capture-philosophy]] · [[rule-synapse-edges-by-role]] · [[decision-0003-human-gated-mutation]] · [[hub-synapse]]

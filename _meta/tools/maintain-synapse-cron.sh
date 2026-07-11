@@ -70,14 +70,14 @@ opencode run -m "$MODEL" --dir "$REPO" "$BRIEFING
 TASK: You are agent-curator on a LOCAL nightly maintenance run. Execute the maintain-synapse playbook
 end-to-end exactly as in .opencode/command/maintain-synapse.md (mirror of loop-maintain-synapse):
 (1) Orient on inbox/attention/ + inbox/curator/logs/ first; action any human-resolved escalation.
-(2) Detect: node _meta/tools/lint.mjs --strict; DB <-> derived-view divergence; orphans/broken links;
+(2) Detect: synapse lint --strict; DB <-> derived-view divergence; orphans/broken links;
     inbox items. There is NO code-drift detection — this vault is its own source of truth.
 (2.5) DRY GATE: if lint errors=0 AND no view diverges AND nothing in the inbox, there is NOTHING to do —
     dispatch nothing, edit nothing, open no PR; append a 'no-op - dry' line to inbox/curator/logs/LOG.md
     and STOP. Treat as success. Only continue if there is real work.
 (3) Heal — reconcile, don't regenerate: apply mechanical lint autofixes yourself in .md only. For EACH
     drifted unit, dispatch agent-reconciler seeded with its scoped briefing
-    (node _meta/tools/render.mjs agent-reconciler moc-<domain> --profile standard) to regenerate a stale
+    (synapse render agent-reconciler hub-<domain> --profile standard) to regenerate a stale
     derived view or make the MINIMAL note edit. Never regenerate a domain from scratch.
 (3c) VERIFY each reconciler diff (maker != checker): in-scope? single-sourced? schema-clean? no stray
     edits? Repair the unambiguous yourself; escalate over-reach. Stage only what you touched (never git add -A).

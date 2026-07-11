@@ -1,13 +1,13 @@
 ---
-id: moc-projects
-type: moc
+id: hub-projects
+type: hub
 title: Projects — domain hub
 tags:
-  - type/moc
+  - type/hub
   - area/projects
   - status/active
 references_docs: ["[[doc-storage-model]]", "[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Projects — domain hub
@@ -23,14 +23,14 @@ hand-written — [[rule-derived-views-are-generated]]).
 
 ## How to work this domain
 - **Author directly:** create a `project-*.md` for the narrative and `plan-*.md` for structured intent,
-  each with `related: ["[[moc-projects]]"]` — Markdown is canonical, no migration involved.
-- **Index plans:** `node _meta/tools/gen-index.mjs` rebuilds the SQL `plans` table from plan frontmatter
+  each with `related: ["[[hub-projects]]"]` — Markdown is canonical, no migration involved.
+- **Index plans:** `synapse index` rebuilds the SQL `plans` table from plan frontmatter
   (generated, never hand-written — [[rule-derived-views-are-generated]]) for text-to-SQL queries.
-- **Maintenance pass:** `reconciler moc-projects` to reconcile one note, or `curator moc-projects` to sweep.
+- **Maintenance pass:** `reconciler hub-projects` to reconcile one note, or `curator hub-projects` to sweep.
 
 ## Members
 *Populate as records and notes land.* Project and plan notes roll up here once they link back via
 `related` ([[rule-synapse-edges-by-role]]).
 
 ## Related
-[[doc-storage-model]] · [[conventions]] · [[moc-synapse]]
+[[doc-storage-model]] · [[conventions]] · [[hub-synapse]]

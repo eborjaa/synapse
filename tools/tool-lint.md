@@ -8,7 +8,7 @@ tags:
   - status/active
 ---
 
-# tool-lint (`_meta/tools/lint.mjs`)
+# tool-lint (`synapse lint`)
 
 The **mechanical health-check**. It *detects* schema problems; an agent *heals* them. A "vault artifact"
 is any `.md` with a `type:` field; files without frontmatter are ignored.
@@ -28,8 +28,8 @@ The curator runs `lint.mjs --strict` as its first drift signal each pass of [[lo
 `errors=0` is part of the loop's dry-gate exit condition. Authors run it before committing.
 
 ```sh
-node _meta/tools/lint.mjs            # report; exit 1 only on ERROR
-node _meta/tools/lint.mjs --strict   # also fail on WARNINGs (broken links, fences)
+synapse lint            # report; exit 1 only on ERROR
+synapse lint --strict   # also fail on WARNINGs (broken links, fences)
 ```
 
 Notes under `_meta/` are excluded from the broken-link check, so illustrative placeholder links there are

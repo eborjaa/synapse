@@ -3,8 +3,8 @@
   "logLabel": "synapse",
   "vaultRoot": ".",
   "skipDirs": ["node_modules", "dist", ".git", ".obsidian", "db"],
-  "targetTypes": ["moc", "project", "plan"],
-  "autoUpgrade": { "moc": "standard" },
+  "targetTypes": ["hub", "project", "plan"],
+  "autoUpgrade": { "hub": "standard" },
   "dropTagsAtLean": ["status/draft"],
 
   "roles": {
@@ -18,16 +18,16 @@
       "_doc": "any note -> supporting docs it explicitly cites in frontmatter." },
     "BINDS": { "field": "related", "direction": "reverse", "reverseName": "members",
       "endpointTypes": ["note", "journal", "project", "plan", "contact", "account", "summary"],
-      "_doc": "MOC <- its members. A member note carries `related: [[moc-x]]`; the reverse edge makes members discoverable." },
+      "_doc": "hub <- its members. A member note carries `related: [[hub-x]]`; the reverse edge makes members discoverable." },
     "ATTACHES": { "field": "related", "direction": "both",
       "endpointTypes": ["person", "decision", "tool", "glossary"],
-      "_doc": "MOC/note -> reference/background notes it hangs off (NOT members). Forward `related:` to a reference-typed endpoint." },
-    "NAVIGATES": { "field": "related", "direction": "forward", "endpointTypes": ["moc"],
-      "_doc": "moc -> sibling/parent moc. Depth-capped per profile." }
+      "_doc": "hub/note -> reference/background notes it hangs off (NOT members). Forward `related:` to a reference-typed endpoint." },
+    "NAVIGATES": { "field": "related", "direction": "forward", "endpointTypes": ["hub"],
+      "_doc": "hub -> sibling/parent hub. Depth-capped per profile." }
   },
 
   "referenceRoles": ["ATTACHES", "NAVIGATES"],
-  "_referenceRoles_doc": "Roles trimmed FIRST under a tight token budget, so a MOC's own members (BINDS) outlast its references.",
+  "_referenceRoles_doc": "Roles trimmed FIRST under a tight token budget, so a hub's own members (BINDS) outlast its references.",
 
   "profiles": {
     "lean":     { "roles": ["CONSTRAINS", "USES", "DELEGATES"], "pointerRoles": ["DELEGATES"], "depth": { "NAVIGATES": 0, "BINDS": 0 } },
@@ -38,12 +38,12 @@
   "tokenBudgets": { "lean": 4000, "standard": 15000, "fat": 30000 },
   "excerptChars": { "lean": 900, "standard": 4000, "fat": 0 },
 
-  "typePriority": ["agent", "loop", "moc", "rule", "tool", "skill", "recipe", "glossary", "doc", "decision", "person", "summary", "account", "contact", "project", "plan", "journal", "note"],
+  "typePriority": ["agent", "loop", "hub", "rule", "tool", "skill", "recipe", "glossary", "doc", "decision", "person", "summary", "account", "contact", "project", "plan", "journal", "note"],
 
   "trailers": { "canary": true, "handover": true },
 
   "invariants": [
-    { "when": { "targetType": "moc", "profile": "standard", "excludeIds": ["moc-synapse"] },
+    { "when": { "targetType": "hub", "profile": "standard", "excludeIds": ["hub-synapse"] },
       "assert": ["members>=1", "tokens<=3*median"], "onFail": "report" }
   ]
 }

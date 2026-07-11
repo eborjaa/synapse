@@ -42,7 +42,7 @@ contradictions · **anything destructive or any DB write** (every DELETE / bulk-
 authoring of a new domain or note ([[rule-synapse-fail-loudly]], [[rule-no-unprompted-actions]]).
 
 ## Delegate + verify — maker ≠ checker
-Per drifted unit, dispatch [[agent-reconciler]] seeded with `render.mjs agent-reconciler moc-<domain>
+Per drifted unit, dispatch [[agent-reconciler]] seeded with `render.mjs agent-reconciler hub-<domain>
 --profile standard`. Then review its diff (in-scope? single-sourced? schema-clean? no stray edits?), repair
 the unambiguous, escalate over-reach. The doer never approves its own edit
 ([[rule-synapse-incremental-reconcile]]).

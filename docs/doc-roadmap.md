@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[conventions]]", "[[doc-fork-and-extend]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Roadmap
@@ -66,4 +66,4 @@ personal-knowledge substrate. See [[doc-fork-and-extend]] · [[doc-cli-reference
 - A planning `lead` agent; more record domains as they earn their place.
 
 ## Related
-[[doc-vision]] · [[moc-synapse]]
+[[doc-vision]] · [[hub-synapse]]

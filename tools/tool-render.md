@@ -8,7 +8,7 @@ tags:
   - status/active
 ---
 
-# tool-render (`_meta/tools/render.mjs`)
+# tool-render (`synapse render`)
 
 The **briefing engine**. Given one or more note ids, it walks the ontology defined in
 `_meta/tools/context.manifest.json` and concatenates the linked note bodies into a single context blob —
@@ -25,12 +25,12 @@ A briefing is compiled deterministically as `agent × target × profile` — ide
 byte-identical output, which is what makes agent runs reproducible:
 
 ```sh
-node _meta/tools/render.mjs agent-curator loop-maintain-synapse --profile standard
+synapse render agent-curator loop-maintain-synapse --profile standard
 ```
 
 - `--profile lean|standard|fat` picks how wide the closure goes (token budgets in the manifest).
 - `--dry-run` lists the closure without emitting bodies; `--copy` puts the blob on the clipboard.
-- `--lint` validates the manifest invariants over the whole index (e.g. every non-master `moc` has at
+- `--lint` validates the manifest invariants over the whole index (e.g. every non-master `hub` has at
   least one member at `standard`).
 
 Every agent's `uses_tools` lists this note; the curator seeds each reconciler with a `render.mjs` command.

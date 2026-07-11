@@ -18,16 +18,17 @@
 # ── What you get ──────────────────────────────────────────────────────────────
 #
 #   curator                              # launch default CLI as agent-curator
-#   curator moc-finances                 # agent + a target MOC (standard — auto-upgrades)
-#   reconciler moc-contacts              # agent + a single domain hub
-#   curator moc-finances --profile fat   # override the profile (context dial)
-#   curator moc-finances "regenerate the Q2 summary view"   # seed a task (+semantic)
+#   curator hub-finances                 # agent + a target hub (standard — auto-upgrades)
+#   reconciler hub-contacts              # agent + a single domain hub
+#   curator hub-finances --profile fat   # override the profile (context dial)
+#   curator hub-finances "regenerate the Q2 summary view"   # seed a task (+semantic)
 #
-#   vault-agents       # list all agent commands + their purpose
-#   vault-mocs         # list all MOC targets (valid second arg)
-#   vault-profiles     # explain the three profiles (context dials)
-#   vault-models       # list models for a CLI (--cli opencode|claude|cursor)
-#   vault-reload       # force re-source agents.sh (also auto-reloads each prompt)
+#   synapse                # unified front door — `synapse help` lists everything
+#   synapse agents         # list all agent commands + their purpose  (vault-agents)
+#   synapse hubs           # list all hub targets (valid second arg)   (vault-hubs)
+#   synapse profiles       # explain the three profiles (context dials)(vault-profiles)
+#   synapse models         # list models for a CLI (--cli opencode|claude|cursor) (vault-models)
+#   synapse reload         # force re-source agents.sh (also auto-reloads each prompt)(vault-reload)
 #
 # ── Syntax ────────────────────────────────────────────────────────────────────
 #   <agent-name> [<target-id>] [--profile lean|standard|fat]
@@ -388,7 +389,7 @@ __mx_launch() {
   target=""
   if [ -n "${1:-}" ] && ! __mx_is_profile "${1:-}" && [ "${1#--}" = "$1" ] && [ "${1#[a-z]}" != "$1" ]; then
     target="$1"; shift
-    case "$target" in moc-*) [ "$profile" = "lean" ] && profile="standard" ;; esac
+    case "$target" in hub-*) [ "$profile" = "lean" ] && profile="standard" ;; esac
   fi
 
   if __mx_is_profile "${1:-}"; then
@@ -725,9 +726,18 @@ if [ -n "${ZSH_VERSION:-}" ]; then
         compadd -P '--cli=' -- opencode claude cursor clip print; return ;;
     esac
   }
+  __mx_complete_synapse_zsh() {
+    if [ "${CURRENT:-0}" -eq 2 ]; then
+      compadd -- render augment lint index views migrate embeddings setup install journal \
+                 agents hubs profiles models bedrock reload gate help
+      return
+    fi
+    __mx_complete_zsh
+  }
   if whence compdef >/dev/null 2>&1 && (( ${+_comps} )); then
     # shellcheck disable=SC2086
     compdef __mx_complete_zsh ${_MX_AGENT_NAMES} vault-models vault-cursor-models
+    compdef __mx_complete_synapse_zsh synapse
   fi
 elif [ -n "${BASH_VERSION:-}" ]; then
   __mx_complete_bash() {
@@ -749,8 +759,17 @@ elif [ -n "${BASH_VERSION:-}" ]; then
     # shellcheck disable=SC2207
     COMPREPLY=($(compgen -W "$_MX_FLAGS" -- "$cur"))
   }
+  __mx_complete_synapse_bash() {
+    local cur; cur="${COMP_WORDS[COMP_CWORD]}"
+    if [ "${COMP_CWORD:-0}" -eq 1 ]; then
+      # shellcheck disable=SC2207
+      COMPREPLY=($(compgen -W "render augment lint index views migrate embeddings setup install journal agents hubs profiles models bedrock reload gate help" -- "$cur")); return
+    fi
+    __mx_complete_bash
+  }
   # shellcheck disable=SC2086
   complete -F __mx_complete_bash ${_MX_AGENT_NAMES} vault-models vault-cursor-models 2>/dev/null
+  complete -F __mx_complete_synapse_bash synapse 2>/dev/null
 fi
 
 # ── discovery commands ────────────────────────────────────────────────────────
@@ -773,18 +792,18 @@ vault-agents() {
     _mx_wrap 28 "$purpose"
   done
   echo ""
-  echo "  Also: vault-mocs  vault-profiles  vault-models  vault-bedrock  vault-reload  vault-gate"
+  echo "  Also: synapse hubs | profiles | models | bedrock | reload | gate   (or the vault-* aliases)"
   echo "  Runtime (--cli, default ${SYNAPSE_CLI:-opencode}): opencode | claude | cursor | clip | print"
   echo "  Cursor default model: auto (override: --model <id> or SYNAPSE_CURSOR_MODEL=...)"
   echo "  Bedrock (opt-in): vault-bedrock on  or  SYNAPSE_CURSOR_BEDROCK=on"
 }
 
-vault-mocs() {
+vault-hubs() {
   SYNAPSE_VAULT="$(__mx_vault)"
-  echo "Synapse vault MOC targets (pass as the second arg to any agent):"
-  echo "  Usage: <agent> <moc-id> [--profile standard]"
+  echo "Synapse vault hub targets (pass as the second arg to any agent):"
+  echo "  Usage: <agent> <hub-id> [--profile standard]"
   echo ""
-  for f in "$SYNAPSE_VAULT"/moc/moc-*.md "$SYNAPSE_VAULT"/moc-synapse.md; do
+  for f in "$SYNAPSE_VAULT"/hub/hub-*.md "$SYNAPSE_VAULT"/hub-synapse.md; do
     [ -e "$f" ] || continue
     id="$(basename "$f" .md)"
     title="$(grep -m1 '^title:' "$f" | sed 's/^title:[[:space:]]*//' | tr -d '"')"
@@ -799,10 +818,10 @@ vault-profiles() {
   echo ""
   printf '  %-10s %-30s %-12s %s\n' "Profile" "Roles pulled" "~Budget" "Best for"
   printf '  %-10s %-30s %-12s %s\n' "lean" "self + rules/skills/tools/deleg" "~4K tok" "an agent + its rules/skills/tools"
-  printf '  %-10s %-30s %-12s %s\n' "standard" "+ members/attach/navigate/refs" "~15K tok" "a domain MOC"
+  printf '  %-10s %-30s %-12s %s\n' "standard" "+ members/attach/navigate/refs" "~15K tok" "a domain hub"
   printf '  %-10s %-30s %-12s %s\n' "fat" "+ transitive closure" "~30K tok" "deep dives / maximum context"
   echo ""
-  echo "  Rule of thumb: agents → lean; MOCs → standard (auto when target is moc-*)."
+  echo "  Rule of thumb: agents → lean; hubs → standard (auto when target is hub-*)."
 }
 
 vault-models() {
@@ -911,7 +930,57 @@ vault-gate() {
     off)    : > "$HOME/.claude/vault-gate-off" && echo "🔓 vault gate OFF — external agent may access the vault" ;;
     on)     rm -f "$HOME/.claude/vault-gate-off" && echo "🔒 vault gate ON — vault sealed (default)" ;;
     status) [ -f "$HOME/.claude/vault-gate-off" ] && echo "🔓 vault gate: OFF" || echo "🔒 vault gate: ON" ;;
-    *)      echo "usage: vault-gate on|off|status" >&2; return 2 ;;
+    *)      echo "usage: synapse gate on|off|status" >&2; return 2 ;;
+  esac
+}
+
+# ── unified front door: `synapse <sub>` ───────────────────────────────────────
+# One namespace over two families: ENGINE subcommands delegate to the Node binary
+# (`command synapse …`, which this function shadows on PATH); SHELL subcommands run
+# in-process here because they must touch the live shell (re-source, env, host config).
+# The vault-* functions above remain first-class synonyms.
+__syn_help() {
+  cat <<'EOF'
+synapse — Synapse context-vault CLI (@eborjaa/synapse)
+
+Engine (delegates to the packaged binary):
+  synapse render <id> … [--profile lean|standard|fat] [--dry-run] [--copy]
+  synapse augment <id> … --task "…"      render + semantic recall
+  synapse lint [--strict]                mechanical vault health-check
+  synapse index | views | migrate        SQL records tooling
+  synapse embeddings [--all|--selftest]  (re)build the embeddings cache
+  synapse setup [--write]                probe/provision Ollama + embedding model
+  synapse install [--write]              wire this shell CLI + editor dirs
+  synapse journal "slug"                 scaffold journal/<date>-<slug>.md
+
+Shell (need this sourced CLI; vault-* aliases in parentheses):
+  synapse agents        list agent commands            (vault-agents)
+  synapse hubs          list hub targets               (vault-hubs)
+  synapse profiles      explain the profiles           (vault-profiles)
+  synapse models        list models per --cli          (vault-models)
+  synapse bedrock …     toggle Cursor Bedrock (on|off|status)   (vault-bedrock)
+  synapse reload        re-source this CLI now         (vault-reload)
+  synapse gate …        host privacy gate (on|off|status)       (vault-gate)
+
+Agents (launch a coding CLI seeded with a briefing):
+  curator | oracle | reconciler | ingester  [<hub-id>] [--profile …] ["task"]
+  e.g.  curator hub-finances "regenerate the Q2 summary view"
+EOF
+}
+
+synapse() {
+  case "${1:-}" in
+    ""|-h|--help|help) __syn_help ;;
+    agents)   shift; vault-agents   "$@" ;;
+    hubs)     shift; vault-hubs     "$@" ;;
+    profiles) shift; vault-profiles "$@" ;;
+    models)   shift; vault-models   "$@" ;;
+    bedrock)  shift; vault-bedrock  "$@" ;;
+    reload)   shift; vault-reload   "$@" ;;
+    gate)     shift; vault-gate     "$@" ;;
+    # Engine subcommands (and anything else) go to the real binary, which owns its
+    # own arg parsing, --help, and unknown-command errors.
+    *)        command synapse "$@" ;;
   esac
 }
 

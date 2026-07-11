@@ -7,7 +7,7 @@ tags:
   - area/security
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Security & privacy
@@ -42,4 +42,4 @@ Markdown + generated views + migration files live in the private git repo; the S
 ([[doc-storage-model]]).
 
 ## Related
-[[doc-storage-model]] · [[decision-0001-sqlite-over-postgres]] · [[decision-0003-human-gated-mutation]] · [[decision-0004-opencode-local-ollama-runtime]] · [[rule-synapse-frontmatter-schema]] · [[moc-synapse]]
+[[doc-storage-model]] · [[decision-0001-sqlite-over-postgres]] · [[decision-0003-human-gated-mutation]] · [[decision-0004-opencode-local-ollama-runtime]] · [[rule-synapse-frontmatter-schema]] · [[hub-synapse]]

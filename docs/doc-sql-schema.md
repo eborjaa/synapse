@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[doc-storage-model]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # SQL schema
@@ -47,4 +47,4 @@ defined by the **migrations** (`migrations/NNNN-*.sql`), which are the DB's sour
 Either way, the projection is generated and never hand-edited ([[rule-derived-views-are-generated]]).
 
 ## Related
-[[doc-storage-model]] · [[decision-0001-sqlite-over-postgres]] · [[decision-0003-human-gated-mutation]] · [[doc-security-privacy]] · [[moc-synapse]]
+[[doc-storage-model]] · [[decision-0001-sqlite-over-postgres]] · [[decision-0003-human-gated-mutation]] · [[doc-security-privacy]] · [[hub-synapse]]

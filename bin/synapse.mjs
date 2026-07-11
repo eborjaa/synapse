@@ -54,6 +54,10 @@ commands:
   install [--write]      wire the agents.sh CLI + editor dirs (dry-run without --write)
   journal "slug"         scaffold journal/<date>-<slug>.md for a work-session log
 
+Shell-only subcommands (agents · hubs · profiles · models · bedrock · reload · gate)
+and the agent launchers (curator · oracle · reconciler · ingester) live in the sourced
+CLI (agents.sh) — run 'synapse install --write' once, then 'synapse help'.
+
 Locate the vault via $SYNAPSE_VAULT or by running inside a vault that has
   _meta/tools/context.manifest.json          (flat layout)
   context-vault/_meta/tools/context.manifest.json  (nested layout)`);

@@ -7,7 +7,7 @@ tags:
   - area/meta
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Fork and extend
@@ -20,7 +20,7 @@ your knowledge and records stay in a private vault that *consumes* the package.
 - **The engine (`@eborjaa/synapse`).** Published from this repo's `bin/`, `lib/`, `agents.sh`, and
   `schema/`. Manifest-driven render / augment / lint / embeddings / SQL helpers / install. **No personal
   data.** Pin a tag: `github:eborjaa/synapse#v0.1.0`.
-- **Your vault (a private repo).** Agents, rules, MOCs, notes, `migrations/0002+`, `db/`. Depends on the
+- **Your vault (a private repo).** Agents, rules, hubs, notes, `migrations/0002+`, `db/`. Depends on the
   engine via `package.json`. Its **`origin` is private**. Optionally track this repo as `upstream` if you
   also want the reference ontology notes — or keep only the npm dependency.
 
@@ -41,7 +41,7 @@ data-free branch.
 
 | Engine package (`files` in package.json) | Yours (vault instance) |
 |---|---|
-| `bin/synapse`, `lib/*`, `agents.sh`, `schema/context.manifest.example.json` | `inbox/`, `notes/`, `journal/`, `projects/`, `plans/`, `people/`, your `db/`, domain MOCs, `0002+` migrations, custom rules/agents |
+| `bin/synapse`, `lib/*`, `agents.sh`, `schema/context.manifest.example.json` | `inbox/`, `notes/`, `journal/`, `projects/`, `plans/`, `people/`, your `db/`, domain hubs, `0002+` migrations, custom rules/agents |
 | — | `_meta/tools/context.manifest.json` (your ontology dial — copy from `schema/`) |
 
 Framework *content* in this template (`agents/`, `docs/`, `rules/`, …) is a **reference vault** you can
@@ -60,4 +60,4 @@ Knowledge is Markdown-in-git, records ride migration files, and every change is 
 ([[doc-governance-model]]). Updating the engine is an npm bump — it cannot overwrite your notes.
 
 ## Related
-[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-repo-layout]] · [[doc-cli-reference]] · [[moc-synapse]]
+[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-repo-layout]] · [[doc-cli-reference]] · [[hub-synapse]]

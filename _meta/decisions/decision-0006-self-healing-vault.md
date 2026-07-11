@@ -36,7 +36,7 @@ The agent **detects the repo and the change type** and applies the matching poli
   **never** pushes to `main` directly, **never** force-pushes, and **never** self-merges. A maintainer
   reviews in the PR UI and merges. Maker ≠ checker holds; decision-0003 governs in full.
 - **Private vault — self-healing for Markdown/knowledge.** For Markdown/knowledge changes (notes, journal,
-  plans, projects, people-narrative, MOCs, summaries, decisions) the steward **commits and pushes directly**
+  plans, projects, people-narrative, hubs, summaries, decisions) the steward **commits and pushes directly**
   — no PR, no human gate. This autonomous upkeep is the intended design for a single-owner instance; git
   history remains the audit trail and revert path.
 - **Records/DB — gated everywhere, including the vault.** SQLite record changes ride `migrations/` files

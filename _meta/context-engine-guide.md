@@ -7,7 +7,7 @@ tags:
   - area/meta
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # How the context engine works
@@ -35,7 +35,7 @@ traverses to that target's `type:` ([[rule-synapse-edges-by-role]]):
 | DELEGATES | `delegates_to` | forward | `agent` |
 | BINDS (reverse name `members`) | `related` | reverse | `note` `journal` `project` `plan` `contact` `account` `summary` |
 | ATTACHES | `related` | both | `person` `decision` `tool` `glossary` |
-| NAVIGATES | `related` | forward | `moc` |
+| NAVIGATES | `related` | forward | `hub` |
 | REFERENCES | `references_docs` | forward | `doc` |
 
 BINDS and ATTACHES share the `related` field but are **disjoint by endpoint type**: a target type is
@@ -48,7 +48,7 @@ A profile selects which roles to include in the closure. Token budgets are guide
 
 - **lean** (~4000 tokens) — `self`, CONSTRAINS, USES, DELEGATES. The note plus its rules, tools/skills,
   and delegations. At lean, notes tagged `status/draft` are dropped (`dropTagsAtLean`).
-- **standard** (~15000) — adds `target`, `members`, ATTACHES, `NAVIGATES@1` (MOCs one hop out), and
+- **standard** (~15000) — adds `target`, `members`, ATTACHES, `NAVIGATES@1` (hubs one hop out), and
   REFERENCES. The default working briefing.
 - **fat** (~30000) — like standard but **transitive** over NAVIGATES and members: a fixpoint BFS that
   keeps expanding those two roles from every reached node, pulling in the wider neighborhood.
@@ -62,16 +62,16 @@ the manifest's `typePriority`, tie-broken by name — so identical (ids + flags)
 output. That determinism is what makes agent runs reproducible.
 
 ```sh
-node _meta/tools/render.mjs agent-curator loop-maintain-synapse --profile standard
+synapse render agent-curator loop-maintain-synapse --profile standard
 ```
 
 ## Auto-upgrade
-`autoUpgrade` bumps the profile when a start id's type warrants more context. Here `{ "moc": "standard" }`
-means rendering a `moc` at lean auto-upgrades to standard (idempotent) — a hub is useless without its
+`autoUpgrade` bumps the profile when a start id's type warrants more context. Here `{ "hub": "standard" }`
+means rendering a `hub` at lean auto-upgrades to standard (idempotent) — a hub is useless without its
 members.
 
 ## How `lint.mjs` enforces the schema
-`render.mjs --lint` checks the manifest's `invariants` over the whole index — e.g. every non-master `moc`
+`render.mjs --lint` checks the manifest's `invariants` over the whole index — e.g. every non-master `hub`
 at `standard` must have `members>=1` and stay within `3*median` tokens (thresholds may be literals or
 cohort statistics like `median`/`p90`, so budgets self-scale as the vault grows). Separately,
 [[tool-lint]] enforces the per-note schema — frontmatter completeness, prefix↔type match, the
@@ -87,4 +87,4 @@ heading. The augment is additive and non-authoritative ([[rule-semantic-suggests
 `render.mjs` stays pure, offline, and byte-identical; hybrid retrieval lives entirely in the separate tool.
 
 ## Related
-[[conventions]] · [[tool-render]] · [[tool-lint]] · [[rule-synapse-edges-by-role]] · [[doc-semantic-recall]] · [[tool-ollama-embeddings]] · [[moc-synapse]]
+[[conventions]] · [[tool-render]] · [[tool-lint]] · [[rule-synapse-edges-by-role]] · [[doc-semantic-recall]] · [[tool-ollama-embeddings]] · [[hub-synapse]]

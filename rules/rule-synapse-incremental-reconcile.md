@@ -12,7 +12,7 @@ provenance: ["loop-engineering: reconcile, don't regenerate", "Emmanuel 2026-06-
 **Rule:** The maintenance loop makes the **minimal targeted edit** to bring a drifted unit back in line.
 It **never re-authors from scratch**. The steward ([[agent-curator]]) dispatches a scoped doer
 ([[agent-reconciler]]) **per drifted unit**, seeded with that unit's scoped briefing
-(`render.mjs agent-reconciler moc-<domain> --profile standard`) — one domain's closure, never the whole
+(`render.mjs agent-reconciler hub-<domain> --profile standard`) — one domain's closure, never the whole
 vault — which edits in place. From-scratch authoring (a brand-new domain, a note that does not exist yet)
 is **escalated**, not done by the loop.
 
@@ -22,7 +22,7 @@ act, not a nightly side-effect. For Synapse the common reconcile is **row → vi
 so regenerate its derived view ([[rule-derived-views-are-generated]]) — not rewrite the domain.
 
 **How to apply:**
-1. **Scope (doer)** — [[agent-reconciler]], seeded with `moc-<domain>`, edits only that unit (regenerate a
+1. **Scope (doer)** — [[agent-reconciler]], seeded with `hub-<domain>`, edits only that unit (regenerate a
    stale view, fix that domain's notes). Minimal diff — what drifted, nothing else.
 2. **Escalate from-scratch** — a new domain / a note that does not exist is not a reconcile; route it to
    `inbox/attention/` ([[rule-synapse-fail-loudly]]); a human initiates the authoring.
