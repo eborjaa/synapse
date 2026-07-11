@@ -1,0 +1,40 @@
+---
+description: Keep framework docs in sync with every engine/CLI/package change
+alwaysApply: true
+---
+
+# Framework changes require documentation updates
+
+Any change to the Synapse **engine or how it is used** must update the matching docs in the **same change** (same commit/PR). Shipping behavior without docs is drift.
+
+## What counts as a framework change
+
+- Engine code: `lib/**`, `bin/**`, `agents.sh`, `package.json`, `schema/**`
+- CLI surface: subcommands, flags, shell wrappers (`synapse …` / `vault-*`), install/setup
+- Manifest dialect, roles/profiles, lint rules, SQL tooling (`migrate` / `index` / `views`)
+- Agents, rules, loops, governance, privacy gate, or ontology types (e.g. `hub`)
+- Package boundary: what ships in `@eborjaa/synapse` vs what stays in a consumer vault
+
+## Docs to bring current (pick what the change touches)
+
+| If you changed… | Update at least… |
+|---|---|
+| Install / consume / package layout | `README.md`, `docs/doc-fork-and-extend.md`, `CHANGELOG.md` |
+| CLI commands or env vars | `docs/doc-cli-reference.md`, `README.md` quick start, `AGENTS.md` |
+| Agent launch / runtime / `--cli` | `docs/doc-runtime-wiring.md`, `TUTORIAL.md`, `AGENTS.md` |
+| Engine behavior (render/lint/augment) | `_meta/context-engine-guide.md`, relevant `tools/tool-*.md` |
+| Types / hubs / ontology | `_meta/conventions.md`, `hub-synapse.md`, domain hub notes |
+| User-facing overview | `README.md`, `TUTORIAL.md`, `AGENTS.md` (always for framework-wide changes) |
+
+Also update the vault rule note [[rule-framework-docs-current]] when the *policy* itself changes.
+
+## Checklist before finishing
+
+1. Search docs for **old command names** (`node _meta/tools/…`, `vault-mocs`, `moc-`, removed flags).
+2. Prefer `synapse <sub>` examples; note `vault-*` only as equals where they still exist.
+3. Add a `CHANGELOG.md` entry when the change is user-visible (CLI, package API, breaking dialect).
+4. Do **not** leave "TODO: update docs" — either update them or split docs into a follow-up that lands with the same PR.
+
+## Out of scope
+
+Pure refactors with **zero** user/agent-visible behavior change do not require README rewrites — still update code comments / `CHANGELOG` only if the public API surface moved.
