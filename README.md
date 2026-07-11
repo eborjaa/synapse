@@ -34,7 +34,7 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 [Ask the vault + semantic recall](#-ask-the-vault--semantic-recall) ·
 [Pluggable runtime (`--cli`)](#-pluggable-runtime---cli) · [A day in the life](#-a-day-in-the-life) ·
 [How it works](#-how-it-works-in-brief) · [Get started (template)](#-get-started-use-this-template) ·
-[More](#-more)
+[npm package](#-npm-package--tooling-only) · [More](#-more)
 
 ---
 
@@ -42,15 +42,16 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ```bash
 cd /path/to/your-vault
-node _meta/tools/install.mjs            # dry-run: prints exactly what it WOULD add, changes nothing
-node _meta/tools/install.mjs --write    # apply (idempotent — safe to re-run)
-exec $SHELL                             # reload your shell
-vault-agents                            # ← you now have one command per agent
+npm install github:eborjaa/synapse#v0.1.0   # or: npm install ../path/to/synapse-framework
+npx synapse install                        # dry-run
+npx synapse install --write                # wire agents.sh + editor dirs
+exec $SHELL
+vault-agents                               # ← one command per agent
 ```
 
-> The installer bakes the absolute vault path into the source line and appends a short Synapse pointer to
-> your OpenCode instructions. It never touches your model config or any secret. No `opencode` on PATH? a
-> briefing lands on your clipboard instead, paste-ready for any tool.
+> The engine is the **`@eborjaa/synapse` npm package** (`bin/synapse`, `lib/*`, `agents.sh`). Your vault
+> keeps only content + `_meta/tools/context.manifest.json`. Legacy `node _meta/tools/<tool>.mjs` shims
+> still work in this template; prefer `synapse <cmd>`.
 
 ## ⚡ Your first commands
 
@@ -192,23 +193,67 @@ framework is fully PR-gated, vault Markdown self-heals, and the records DB is ga
 
 ## 🌱 Get started (use this template)
 
-Synapse is a GitHub **Template repo** — you don't fork it, you *instantiate* it as your own private vault.
+Synapse ships **two layers** in one repo:
+
+1. **`@eborjaa/synapse`** — the publishable tooling package (`bin/`, `lib/`, `agents.sh`, `schema/`).
+2. **Reference vault content** — agents, rules, docs, starter MOCs, `migrations/0001-*.sql` (not in the
+   npm `files` list; kept here so you can instantiate a private vault).
 
 1. **Use this template / clone.** Click **"Use this template"** on GitHub (or `git clone` it), then open
-   the new repo as your private vault.
+   the new repo as your private vault — **or** `npm install` the engine into an existing vault (below).
 2. **Prerequisites.**
-   - **Node 22+** (the engine uses Node's built-in `node:sqlite` — no native deps).
-   - **OpenCode** (`opencode-ai`) on PATH — the agent runtime.
+   - **Node 22+** (built-in `node:sqlite` — no native deps). A `.nvmrc` pins `22`.
+   - **OpenCode** (`opencode-ai`) on PATH — the agent runtime (or Claude / Cursor via `--cli`).
    - **Ollama** reachable (local or over Tailscale) — the model + embedding server.
-   - `ollama pull mxbai-embed-large` — the default embedding model for semantic recall.
-3. **Wire the CLI.** `node _meta/tools/install.mjs` (dry-run), then `--write` (idempotent). `exec $SHELL`.
-4. **Create the records DB.** `node _meta/tools/apply-migrations.mjs` applies `0001-init-schema.sql` →
+   - `ollama pull mxbai-embed-large` — the default embedding model for semantic recall (`synapse setup`).
+3. **Wire the CLI.** `npx synapse install` (dry-run), then `--write` (idempotent). `exec $SHELL`.
+4. **Create the records DB.** `npx synapse migrate` applies `0001-init-schema.sql` →
    a fresh `db/synapse.db` (gitignored, replayable from migrations).
 5. **Make it yours.** Set your name for the nightly canary (`export VAULT_USER="Your Name"`), and record
    ownership in the DB: copy `migrations/0002-owner.sql.example` → `migrations/0002-owner.sql`, fill it in,
-   then `apply-migrations.mjs` again.
+   then `synapse migrate` again.
 6. **Start capturing.** Append freeform thoughts to `inbox/`, then let `ingester` atomize them — see
    **A day in the life** above.
+
+---
+
+## 📦 npm package — tooling only
+
+Distribute and update the **engine** without forking vault content:
+
+```jsonc
+{
+  "dependencies": {
+    "@eborjaa/synapse": "github:eborjaa/synapse#v0.1.0"
+  },
+  "scripts": {
+    "vault:render": "synapse render",
+    "vault:lint": "synapse lint",
+    "vault:migrate": "synapse migrate",
+    "vault:install": "synapse install"
+  }
+}
+```
+
+```bash
+npm install
+npx synapse setup --write     # Ollama + embed model (optional; deterministic tools work without it)
+npx synapse install --write   # shell + editor wiring
+```
+
+The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`
+(nested). Copy [`schema/context.manifest.example.json`](schema/context.manifest.example.json). Vault
+resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`](CHANGELOG.md) and
+[`doc-fork-and-extend`](docs/doc-fork-and-extend.md).
+
+| Command | Does |
+|---|---|
+| `synapse render <id> …` | Typed-ontology briefing |
+| `synapse augment … --task` | render + semantic recall |
+| `synapse lint [--strict]` | Vault health-check |
+| `synapse embeddings` | Rebuild `note_vectors` |
+| `synapse index` / `views` / `migrate` | SQL projections + migrations |
+| `synapse setup` / `install` | Runtime + shell wiring |
 
 ---
 

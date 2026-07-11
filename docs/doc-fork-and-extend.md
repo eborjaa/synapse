@@ -1,7 +1,7 @@
 ---
 id: doc-fork-and-extend
 type: doc
-title: Fork and extend — framework vs. your vault (the two-layer architecture)
+title: Fork and extend — engine package vs. your vault
 tags:
   - type/doc
   - area/meta
@@ -12,43 +12,52 @@ related: ["[[moc-synapse]]"]
 
 # Fork and extend
 
-Synapse is a **framework**, not a finished vault. This note describes the two-layer architecture that lets
-you take framework updates without ever leaking your private knowledge upstream.
+Synapse is a **framework**, not a finished vault. The maintainable unit is the **tooling npm package**;
+your knowledge and records stay in a private vault that *consumes* the package.
 
-## Two layers, two repos
+## Two layers
 
-- **The framework (the public template repo).** The render engine, the manifest, the conventions
-  ([[conventions]]), the governance rules, the agents, the loop ([[loop-maintain-synapse]]), the docs, and
-  the starter SQL schema (`migrations/0001-init-schema.sql`). It ships **no personal data**.
-- **Your vault (a private repo).** A separate repo you create from the template. Its **`origin` is
-  private** — your knowledge and records live only there. Its **`upstream` is the public framework repo**.
-
-Pull framework updates by tracking upstream:
+- **The engine (`@eborjaa/synapse`).** Published from this repo's `bin/`, `lib/`, `agents.sh`, and
+  `schema/`. Manifest-driven render / augment / lint / embeddings / SQL helpers / install. **No personal
+  data.** Pin a tag: `github:eborjaa/synapse#v0.1.0`.
+- **Your vault (a private repo).** Agents, rules, MOCs, notes, `migrations/0002+`, `db/`. Depends on the
+  engine via `package.json`. Its **`origin` is private**. Optionally track this repo as `upstream` if you
+  also want the reference ontology notes — or keep only the npm dependency.
 
 ```sh
-git remote add upstream https://github.com/<owner>/synapse.git   # one-time
-git fetch upstream && git merge upstream/main                     # pull framework updates
+# Engine only (recommended for new vaults):
+npm install github:eborjaa/synapse#v0.1.0
+npx synapse install --write
+
+# Or pull framework *content* updates (agents/docs/rules) the old way:
+git remote add upstream https://github.com/eborjaa/synapse.git
+git fetch upstream && git merge upstream/main
 ```
 
-**Never push your vault to `upstream`.** Contribute framework fixes back through a PR from a clean,
+**Never push your vault to `upstream`.** Contribute engine fixes back through a PR from a clean,
 data-free branch.
 
-## The boundary is by directory
+## The boundary
 
-| Upstream-owned (framework) | Yours (instance) |
+| Engine package (`files` in package.json) | Yours (vault instance) |
 |---|---|
-| `_meta/` (engine, manifest, tools, rules), `agents/`, `loops/`, `docs/`, `rules/`, `skills/`, `tools/`, `migrations/0001-init-schema.sql` | `inbox/`, `notes/`, `journal/`, `projects/`, `plans/`, `people/`, your `db/`, your domain MOCs, your `0002+` migrations, your custom rules |
+| `bin/synapse`, `lib/*`, `agents.sh`, `schema/context.manifest.example.json` | `inbox/`, `notes/`, `journal/`, `projects/`, `plans/`, `people/`, your `db/`, domain MOCs, `0002+` migrations, custom rules/agents |
+| — | `_meta/tools/context.manifest.json` (your ontology dial — copy from `schema/`) |
 
-The split keeps merges clean: framework changes touch upstream-owned directories; your content lives in
-the instance directories the framework leaves near-empty. A migration you add (`0002-owner.sql` and up) is
-yours; the starter schema is upstream's.
+Framework *content* in this template (`agents/`, `docs/`, `rules/`, …) is a **reference vault** you can
+copy or track via git; it is **not** what `npm install` puts in `node_modules`.
+
+## Vault layouts the engine understands
+
+- **Flat** — `_meta/tools/context.manifest.json` at the vault root (this template).
+- **Nested** — `context-vault/_meta/tools/context.manifest.json` under a package/repo root.
+
+Resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD` ([[tool-render]], `lib/vault-root.mjs`).
 
 ## Why it's safe
 
-The same governance that keeps the vault honest keeps the two layers separate: knowledge is
-Markdown-in-git, records ride migration files, and every change is a reviewable diff
-([[doc-governance-model]]). Because the framework carries no data, an `upstream` merge can only update the
-engine and conventions — it can never overwrite your notes.
+Knowledge is Markdown-in-git, records ride migration files, and every change is a reviewable diff
+([[doc-governance-model]]). Updating the engine is an npm bump — it cannot overwrite your notes.
 
 ## Related
-[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-repo-layout]] · [[moc-synapse]]
+[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-repo-layout]] · [[doc-cli-reference]] · [[moc-synapse]]
