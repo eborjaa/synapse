@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Storage model
@@ -48,7 +48,7 @@ hand-edited** ([[rule-derived-views-are-generated]]):
   not one note each.
 - **The `.md` index** is the inverse: it persists the link graph the linter already computes so the model
   can answer structural questions with text-to-SQL ("which notes are orphans", "what links to
-  `moc-finances`", "biggest notes"). Markdown stays canonical; the table is rebuilt from the notes.
+  `hub-finances`", "biggest notes"). Markdown stays canonical; the table is rebuilt from the notes.
 
 ## What lives where (git vs local)
 - **In git (private repo):** all Markdown (knowledge + derived views), the manifest, the tooling, and the
@@ -67,4 +67,4 @@ changes ride git's PR diff; SQL changes ride **migration files** through the *sa
 applies the migration on merge. The slight delay between propose and apply is the feature, not a cost.
 
 ## Related
-[[conventions]] · [[doc-governance-model]] · [[doc-security-privacy]] · [[rule-synapse-single-source-of-truth]] · [[rule-derived-views-are-generated]] · [[moc-synapse]]
+[[conventions]] · [[doc-governance-model]] · [[doc-security-privacy]] · [[rule-synapse-single-source-of-truth]] · [[rule-derived-views-are-generated]] · [[hub-synapse]]

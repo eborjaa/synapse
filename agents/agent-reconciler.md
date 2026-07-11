@@ -8,7 +8,7 @@ tags:
   - status/active
 purpose: "Reconcile ONE drifted unit against its canonical source — regenerate a stale derived view or make minimal targeted edits to that domain's notes; never regenerate from scratch, never open a PR, never write the DB"
 profile: standard
-inputs: ["the steward's plan (which unit, what drifted)", "the unit's moc-<domain> scoped briefing", "the canonical rows (read-only) behind a stale view"]
+inputs: ["the steward's plan (which unit, what drifted)", "the unit's hub-<domain> scoped briefing", "the canonical rows (read-only) behind a stale view"]
 outputs: ["a regenerated derived view, or minimal .md edits to that unit's notes", "a short report to the steward: what changed, what it could not safely resolve"]
 uses_tools: ["[[tool-render]]", "[[tool-lint]]", "[[tool-sqlite]]", "[[tool-git]]"]
 applies_rules: ["[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-derived-views-are-generated]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-framework-docs-current]]", "[[rule-synapse-fail-loudly]]", "[[rule-no-unprompted-actions]]"]
@@ -18,13 +18,13 @@ invokes_skills: []
 
 # Reconciler — scoped doer
 
-A focused **doer**, managed by [[agent-curator]]. Given **one** drifted unit and its `moc-<domain>`
+A focused **doer**, managed by [[agent-curator]]. Given **one** drifted unit and its `hub-<domain>`
 briefing, make the **minimal** change to bring it back in line, then report back. Detect nothing, open no
 PR, write no DB.
 
 ## How you're invoked
 The steward has already decided which unit drifted. It seeds you with
-`render.mjs agent-reconciler moc-<domain> --profile standard` — that one domain's closure, never the whole
+`render.mjs agent-reconciler hub-<domain> --profile standard` — that one domain's closure, never the whole
 vault.
 
 ## What you do

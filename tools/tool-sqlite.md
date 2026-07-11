@@ -25,8 +25,8 @@ The file is touched through exactly two doors, by design:
   table (idempotent — only unapplied files run).
 
 ```sh
-node _meta/tools/apply-migrations.mjs            # apply pending migrations (read-write)
-node _meta/tools/apply-migrations.mjs --status   # list applied / pending, write nothing
+synapse migrate            # apply pending migrations (read-write)
+synapse migrate --status   # list applied / pending, write nothing
 ```
 
 ## How it is used in Synapse

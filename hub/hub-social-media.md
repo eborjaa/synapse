@@ -1,13 +1,13 @@
 ---
-id: moc-social-media
-type: moc
+id: hub-social-media
+type: hub
 title: Social media — domain hub
 tags:
-  - type/moc
+  - type/hub
   - area/social-media
   - status/active
 references_docs: ["[[doc-storage-model]]", "[[doc-capture-pipeline]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Social media — domain hub
@@ -25,9 +25,9 @@ notes wired here ([[doc-capture-pipeline]], [[decomposition-recipe]]).
 ## How to work this domain
 - **Capture:** dump a freeform post idea into `inbox/`, then `ingester <inbox-item>` atomizes it into
   one-idea-per-file notes, each wired here via `related` ([[doc-capture-pipeline]]).
-- **Author directly:** create a note with `related: ["[[moc-social-media]]"]` — Markdown is canonical, so
+- **Author directly:** create a note with `related: ["[[hub-social-media]]"]` — Markdown is canonical, so
   no migration is involved.
-- **Maintenance pass:** `reconciler moc-social-media` to tidy one note, or `curator moc-social-media` to
+- **Maintenance pass:** `reconciler hub-social-media` to tidy one note, or `curator hub-social-media` to
   sweep.
 
 ## Members
@@ -35,4 +35,4 @@ notes wired here ([[doc-capture-pipeline]], [[decomposition-recipe]]).
 here once they link back via `related` ([[rule-synapse-edges-by-role]]).
 
 ## Related
-[[doc-storage-model]] · [[doc-capture-pipeline]] · [[decomposition-recipe]] · [[moc-synapse]]
+[[doc-storage-model]] · [[doc-capture-pipeline]] · [[decomposition-recipe]] · [[hub-synapse]]

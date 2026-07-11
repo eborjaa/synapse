@@ -7,7 +7,7 @@ agent: curator
 
 You are **agent-curator** on a maintenance run. This is the canonical executable playbook the nightly
 cron invokes; it mirrors `loops/loop-maintain-synapse.md`. The cron first renders your briefing
-(`node _meta/tools/render.mjs agent-curator loop-maintain-synapse --profile standard`) — that briefing
+(`synapse render agent-curator loop-maintain-synapse --profile standard`) — that briefing
 carries your rules, tools, skills, and the conventions this procedure relies on. Follow it, then execute
 the pass below.
 
@@ -20,7 +20,7 @@ the pass below.
 1. **Orient.** Read `inbox/attention/` and `inbox/curator/logs/` FIRST. Action any human-resolved
    escalation. Skim the latest run-log. (Fail loudly — never guess past an open escalation.)
 
-2. **Detect.** Run `node _meta/tools/lint.mjs --strict`. Detect **DB ↔ derived-view divergence**:
+2. **Detect.** Run `synapse lint --strict`. Detect **DB ↔ derived-view divergence**:
    compare each `generated: true` view against a fresh render of its canonical row/query; flag any
    hand-edited generated file. Find orphans / broken links and any `inbox/` items awaiting ingestion.
    There is **no code-drift detection** — this vault is its own source of truth.
@@ -33,7 +33,7 @@ the pass below.
    (malformed `related:` YAML, a link in the wrong role-field, a single-candidate typo'd wikilink, a
    missing `#type/<type>` tag, derivable frontmatter). For EACH drifted unit, **dispatch
    agent-reconciler** seeded with its scoped briefing
-   (`node _meta/tools/render.mjs agent-reconciler moc-<domain> --profile standard`) to regenerate the
+   (`synapse render agent-reconciler hub-<domain> --profile standard`) to regenerate the
    stale derived view from its canonical row, or make the MINIMAL targeted note edit. Never load the
    whole vault; never regenerate a domain from scratch.
 

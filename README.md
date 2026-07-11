@@ -34,7 +34,7 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 [Ask the vault + semantic recall](#-ask-the-vault--semantic-recall) ·
 [Pluggable runtime (`--cli`)](#-pluggable-runtime---cli) · [A day in the life](#-a-day-in-the-life) ·
 [How it works](#-how-it-works-in-brief) · [Get started (template)](#-get-started-use-this-template) ·
-[More](#-more)
+[npm package](#-npm-package--tooling-only) · [More](#-more)
 
 ---
 
@@ -42,15 +42,17 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ```bash
 cd /path/to/your-vault
-node _meta/tools/install.mjs            # dry-run: prints exactly what it WOULD add, changes nothing
-node _meta/tools/install.mjs --write    # apply (idempotent — safe to re-run)
-exec $SHELL                             # reload your shell
-vault-agents                            # ← you now have one command per agent
+npm install github:eborjaa/synapse#v0.1.0   # or: npm install ../path/to/synapse-framework
+npx synapse install                        # dry-run
+npx synapse install --write                # wire agents.sh + editor dirs
+exec $SHELL
+synapse agents                             # ← list agents (or: vault-agents)
+synapse hubs                               # ← list hub targets (or: vault-hubs)
 ```
 
-> The installer bakes the absolute vault path into the source line and appends a short Synapse pointer to
-> your OpenCode instructions. It never touches your model config or any secret. No `opencode` on PATH? a
-> briefing lands on your clipboard instead, paste-ready for any tool.
+> The engine is the **`@eborjaa/synapse` npm package** (`bin/synapse`, `lib/*`, `agents.sh`). Your vault
+> keeps only content + `_meta/tools/context.manifest.json`. After install, `synapse <sub>` is the unified
+> front door (engine + shell). Legacy `node _meta/tools/<tool>.mjs` shims still work in this template.
 
 ## ⚡ Your first commands
 
@@ -59,13 +61,13 @@ briefing** (mission + rules + skills + the target's neighborhood) compiled deter
 
 ```bash
 curator                                          # run the steward — detect drift across the vault
-curator moc-finances                             # scope it to one domain hub
-oracle moc-finances "did I note anything about budgeting?"   # ask the vault — read-only, cited
-reconciler moc-contacts                          # fix one drifted domain's notes/views
+curator hub-finances                             # scope it to one domain hub
+oracle hub-finances "did I note anything about budgeting?"   # ask the vault — read-only, cited
+reconciler hub-contacts                          # fix one drifted domain's notes/views
 ingester inbox/2026-06-15.md                     # atomize a freeform capture into typed notes + rows
 ```
 
-**Syntax:** `<agent> [<target>] [--profile lean|standard|fat] ["task"]`. A `moc-*` target auto-upgrades a
+**Syntax:** `<agent> [<target>] [--profile lean|standard|fat] ["task"]`. A `hub-*` target auto-upgrades a
 `lean` agent to `standard`. → **Full command reference, env vars & flags:** [`doc-cli-reference`](docs/doc-cli-reference.md).
 
 ---
@@ -76,7 +78,7 @@ The **oracle** answers questions grounded in your vault — read-only, every cla
 that owns it, never a fabrication:
 
 ```bash
-oracle moc-finances "what did I decide about the emergency fund?"
+oracle hub-finances "what did I decide about the emergency fund?"
 ```
 
 What makes the answer *good* is **semantic recall** — an opt-in second retrieval phase. The render engine
@@ -89,7 +91,7 @@ whole vault, regardless of links or wording, and appends them under a clearly-la
 
 ```bash
 ollama pull mxbai-embed-large          # one-time, on the Ollama host that serves your model
-node _meta/tools/gen-embeddings.mjs    # build db/synapse.db's note_vectors index (the maintainer keeps it fresh)
+synapse embeddings    # build db/synapse.db's note_vectors index (the maintainer keeps it fresh)
 ```
 
 Embeddings come from the **same local Ollama** that runs the agents — no API key, no cloud. Results are
@@ -107,10 +109,10 @@ OpenCode is the **default** runtime, not the only one. The *same* rendered brief
 swappable sink with `--cli` — so you can drive Synapse with whatever tool you like:
 
 ```bash
-curator moc-finances "rebuild summaries"                  # → OpenCode (default, local Ollama)
-curator moc-finances "rebuild summaries" --cli claude     # → Claude Code, scoped to the repo dir
-oracle moc-health "trend since April?"   --cli clip       # → copy the briefing to the clipboard
-reconciler moc-contacts                  --cli print      # → write the briefing to stdout, pipe anywhere
+curator hub-finances "rebuild summaries"                  # → OpenCode (default, local Ollama)
+curator hub-finances "rebuild summaries" --cli claude     # → Claude Code, scoped to the repo dir
+oracle hub-health "trend since April?"   --cli clip       # → copy the briefing to the clipboard
+reconciler hub-contacts                  --cli print      # → write the briefing to stdout, pipe anywhere
 ```
 
 The render + semantic pipeline is identical for every sink — only the final hand-off differs. That's the
@@ -135,11 +137,11 @@ echo "called the plumber, \$180, fixed the leak" >> inbox/2026-06-15.md
 ingester inbox/2026-06-15.md          # opens a PR you review; on merge, migrations apply + views regenerate
 
 # 3. ASK — later, query the vault; semantic recall surfaces notes you never explicitly linked.
-oracle moc-finances "how much have I spent on home repairs?"
+oracle hub-finances "how much have I spent on home repairs?"
 
 # 4. MAINTAIN — the steward keeps the graph schema-clean and the views current.
-curator moc-finances "summaries look stale"     # detect → heal the unambiguous → escalate the rest → PR
-node _meta/tools/lint.mjs --strict              # confirm the vault is schema-clean
+curator hub-finances "summaries look stale"     # detect → heal the unambiguous → escalate the rest → PR
+synapse lint --strict              # confirm the vault is schema-clean
 ```
 
 That's the loop: **capture freely → the agent structures it → ask anything → an agent keeps it healthy** —
@@ -155,7 +157,7 @@ render is **deterministic**: same inputs → byte-identical briefing, so agent r
 | You pick… | = | What it is | Examples |
 |---|:--:|---|---|
 | **① an Agent** | the **method** (what *job*) | mission + rules + skills + tools | `curator` · `reconciler` · `ingester` · `oracle` |
-| **② a Target** | the **what** (which *domain/unit*) | the knowledge to act on | `moc-finances` · a note `id` |
+| **② a Target** | the **what** (which *domain/unit*) | the knowledge to act on | `hub-finances` · a note `id` |
 | **③ a Profile** | the **dial** (how *much* context) | `lean` (~4K) · `standard` (~15K) · `fat` (~30K) | which relationship roles to pull |
 
 **The four agents** — three writers + one reader. *Maker ≠ checker:* the agent that writes an edit never
@@ -169,14 +171,14 @@ approves it. Click a name to open and tune its file.
 | 🔮 [`agent-oracle`](agents/agent-oracle.md) | **reader** — grounded, cited Q&A over a domain's closure + semantic recall (never writes) |
 
 **The graph is hub-and-spoke.** One master hub links out to seven domain hubs; members roll up
-automatically (a note's `related: ["[[moc-x]]"]` *makes* it a member of `moc-x` — the hub is never edited
+automatically (a note's `related: ["[[hub-x]]"]` *makes* it a member of `hub-x` — the hub is never edited
 by hand).
 
 ```
-                          [[moc-synapse]]   ← master hub: architecture · domains · method
+                          [[hub-synapse]]   ← master hub: architecture · domains · method
                                │
    ┌──────────┬───────────┬────┼────┬───────────┬────────────┬──────────────┐
-moc-finances moc-contacts moc-health moc-places moc-journal moc-projects moc-social-media
+hub-finances hub-contacts hub-health hub-places hub-journal hub-projects hub-social-media
 ```
 
 **Two substrates, one gate.** Markdown is canonical for knowledge, SQLite for records; where they meet,
@@ -184,31 +186,90 @@ one side is canonical and the other is a *generated, never-hand-edited* projecti
 unattended** — every DB change rides a migration file through a human gate. Governance is per-repo: the
 framework is fully PR-gated, vault Markdown self-heals, and the records DB is gated everywhere.
 
-→ Deeper: the in-vault map [`moc-synapse`](moc-synapse.md) · [`doc-agent-architecture`](docs/doc-agent-architecture.md) ·
+→ Deeper: the in-vault map [`hub-synapse`](hub-synapse.md) · [`doc-agent-architecture`](docs/doc-agent-architecture.md) ·
 [`doc-storage-model`](docs/doc-storage-model.md) · [`doc-governance-model`](docs/doc-governance-model.md) ·
 [`context-engine-guide`](_meta/context-engine-guide.md).
 
 ---
 
-## 🌱 Get started (use this template)
+## 🌱 Get started
 
-Synapse is a GitHub **Template repo** — you don't fork it, you *instantiate* it as your own private vault.
+Synapse ships **two layers**:
 
-1. **Use this template / clone.** Click **"Use this template"** on GitHub (or `git clone` it), then open
-   the new repo as your private vault.
-2. **Prerequisites.**
-   - **Node 22+** (the engine uses Node's built-in `node:sqlite` — no native deps).
-   - **OpenCode** (`opencode-ai`) on PATH — the agent runtime.
-   - **Ollama** reachable (local or over Tailscale) — the model + embedding server.
-   - `ollama pull mxbai-embed-large` — the default embedding model for semantic recall.
-3. **Wire the CLI.** `node _meta/tools/install.mjs` (dry-run), then `--write` (idempotent). `exec $SHELL`.
-4. **Create the records DB.** `node _meta/tools/apply-migrations.mjs` applies `0001-init-schema.sql` →
-   a fresh `db/synapse.db` (gitignored, replayable from migrations).
-5. **Make it yours.** Set your name for the nightly canary (`export VAULT_USER="Your Name"`), and record
-   ownership in the DB: copy `migrations/0002-owner.sql.example` → `migrations/0002-owner.sql`, fill it in,
-   then `apply-migrations.mjs` again.
-6. **Start capturing.** Append freeform thoughts to `inbox/`, then let `ingester` atomize them — see
-   **A day in the life** above.
+1. **`@eborjaa/synapse`** — the publishable tooling package (`bin/`, `lib/`, `agents.sh`, `schema/`).
+2. **Reference vault content** in this repo — agents, rules, docs, starter hubs, `migrations/0001-*.sql`
+   (not in the npm tarball; kept so you can copy a private vault).
+
+### Option A — new private vault (recommended)
+
+```bash
+mkdir my-vault && cd my-vault
+npm init -y
+npm install github:eborjaa/synapse#v0.1.0
+# copy schema example → your ontology dial
+mkdir -p _meta/tools
+cp node_modules/@eborjaa/synapse/schema/context.manifest.example.json \
+   _meta/tools/context.manifest.json
+# copy starter agents/rules/hubs from the template repo if you want them, or author your own
+npx synapse setup --write      # Ollama + embed model (optional)
+npx synapse install --write    # shell CLI + editor wiring
+npx synapse migrate            # create db/synapse.db from migrations/
+exec $SHELL
+synapse agents && synapse hubs
+```
+
+### Option B — use this repo as a template
+
+1. Click **"Use this template"** (or clone), keep it **private**, and treat it as your vault.
+2. **Prerequisites:** Node 22+ (`.nvmrc` pins `22`), OpenCode (or Claude/Cursor via `--cli`), Ollama.
+3. From the vault root: `npm install` (links `@eborjaa/synapse` if present) → `npx synapse install --write`
+   → `npx synapse migrate` → `exec $SHELL`.
+4. Set `export VAULT_USER="Your Name"`, fill `migrations/0002-owner.sql` from the example, migrate again.
+5. Capture into `inbox/`, then `ingester …`.
+
+Updating the engine later is an **npm bump**, not a git merge of tooling files. See
+[`doc-fork-and-extend`](docs/doc-fork-and-extend.md).
+
+---
+
+## 📦 npm package — tooling only
+
+Distribute and update the **engine** without forking vault content:
+
+```jsonc
+{
+  "dependencies": {
+    "@eborjaa/synapse": "github:eborjaa/synapse#v0.1.0"
+  },
+  "scripts": {
+    "vault:render": "synapse render",
+    "vault:lint": "synapse lint",
+    "vault:migrate": "synapse migrate",
+    "vault:install": "synapse install"
+  }
+}
+```
+
+```bash
+npm install
+npx synapse setup --write     # Ollama + embed model (optional; deterministic tools work without it)
+npx synapse install --write   # shell + editor wiring
+```
+
+The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`
+(nested). Copy [`schema/context.manifest.example.json`](schema/context.manifest.example.json). Vault
+resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`](CHANGELOG.md) and
+[`doc-fork-and-extend`](docs/doc-fork-and-extend.md).
+
+| Command | Does |
+|---|---|
+| `synapse render <id> …` | Typed-ontology briefing |
+| `synapse augment … --task` | render + semantic recall |
+| `synapse lint [--strict]` | Vault health-check |
+| `synapse embeddings` | Rebuild `note_vectors` |
+| `synapse index` / `views` / `migrate` | SQL projections + migrations |
+| `synapse setup` / `install` | Runtime + shell wiring |
+| `synapse agents` / `hubs` / `help` | Shell discovery (after `install --write`; `vault-*` equals) |
 
 ---
 
@@ -218,9 +279,9 @@ Synapse is a GitHub **Template repo** — you don't fork it, you *instantiate* i
 - **Browse the graph in Obsidian** (color-coded by type) → [`doc-repo-layout`](docs/doc-repo-layout.md)
 - **The privacy gate** (framework readable, vault sealed; `vault-gate on|off`) → [`doc-deployment-gate`](docs/doc-deployment-gate.md)
 - **Staying healthy** (lint, pre-commit hook, the nightly curator loop) → [`doc-maintainer-loop`](docs/doc-maintainer-loop.md) · [`loop-maintain-synapse`](loops/loop-maintain-synapse.md)
-- **Two-repo model** (framework vs. your private vault, pulling upstream updates) → [`doc-fork-and-extend`](docs/doc-fork-and-extend.md)
+- **Engine package** (`@eborjaa/synapse` vs your private vault; npm bump to update tooling) → [`doc-fork-and-extend`](docs/doc-fork-and-extend.md)
 - **Extending** (new note / rule / agent / domain / migration) → [`_meta/conventions.md`](_meta/conventions.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- **The vision & full architecture** → [`doc-vision`](docs/doc-vision.md) · [`moc-synapse`](moc-synapse.md)
+- **The vision & full architecture** → [`doc-vision`](docs/doc-vision.md) · [`hub-synapse`](hub-synapse.md)
 
 ---
 

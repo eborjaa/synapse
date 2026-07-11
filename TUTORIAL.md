@@ -13,7 +13,7 @@
    example is a real note or command in *this* vault; nothing here is hypothetical, and every closure
    number below was produced by running the command shown against the live vault.
 2. **Guided by your agent** — Synapse agents run on **OpenCode** against a **local Ollama** model over
-   Tailscale (no API key, no cloud). Once you've sourced the launcher (`source _meta/tools/agents.sh`),
+   Tailscale (no API key, no cloud). Once you've run `synapse install --write` (sources the package `agents.sh`),
    open a session and paste:
 
    > Read TUTORIAL.md and give me the guided tour. Go lesson by lesson: explain each concept, then SHOW me with a real file from this vault (open it, point at the lines), and give me one small exercise before moving on. Start with Lesson 0.
@@ -29,14 +29,14 @@ Synapse is a **private, local-first personal knowledge system** — a manifest-d
 and run yourself. Internalize five ideas and everything else follows.
 
 1. **Notes are atoms.** One file = one fact / concept / record / playbook, kebab-case filename with a type
-   prefix (`rule-derived-views-are-generated.md`, `doc-storage-model.md`, `moc-finances.md`). Every term
+   prefix (`rule-derived-views-are-generated.md`, `doc-storage-model.md`, `hub-finances.md`). Every term
    is defined *once* and linked from everywhere else — no copy-paste redundancy, no drift.
 2. **Links make the graph — but the engine only follows *frontmatter role fields*.** Notes reference each
    other with `[[wikilinks]]`. Inline `[[links]]` in the *body* are for human readers and Obsidian's graph
    view; the renderer does **not** traverse them. To land in a briefing, a link must live in a frontmatter
    field whose *role* the manifest traverses (Lesson 2 and 5). This is the single biggest thing to get
    right.
-3. **Render assembles a briefing.** `_meta/tools/render.mjs` starts at any note, follows its *typed roles*
+3. **Render assembles a briefing.** `synapse render` starts at any note, follows its *typed roles*
    outward to the breadth a profile selects, and concatenates the bodies into **one paste-ready blob** —
    the system prompt for an agent session. That's the deterministic half. An **opt-in second phase**
    (`augment.mjs`) adds *semantic recall* — embedding search that appends conceptually-related notes the
@@ -44,7 +44,7 @@ and run yourself. Internalize five ideas and everything else follows.
    (Lesson 5).
 4. **Agent = method × target = domain × profile = a dial.** An "agent" is not a running bot — it's a saved
    **context recipe** (a Markdown note that says, as frontmatter links, "for this job, here are my rules,
-   skills, tools"). The agent is the *method*; a MOC (map of content) you fuse it with is the *domain*; the
+   skills, tools"). The agent is the *method*; a hub (hub) you fuse it with is the *domain*; the
    profile (`lean`/`standard`/`fat`) is *how much* context. Rendering the note packs the briefcase;
    launching OpenCode with that briefing is the agent "running."
 
@@ -65,7 +65,7 @@ and run yourself. Internalize five ideas and everything else follows.
      aggregate, filter, sort, or relate it → SQL. If you read, link, or narrate it → Markdown.**
 
 > 🤖 **Ask your agent:** *"Read TUTORIAL.md Lesson 0, then prove the 'agent = context recipe' idea: show
-> me `agents/agent-curator.md` raw, then run `node _meta/tools/render.mjs agent-curator --profile lean
+> me `agents/agent-curator.md` raw, then run `synapse render agent-curator --profile lean
 > --dry-run` and tell me which notes got pulled in that weren't in the file itself, and which frontmatter
 > field pulled each one."*
 
@@ -81,7 +81,7 @@ wiki/                              ← THE VAULT ROOT
 ├── README.md                      ← install + daily usage
 ├── TUTORIAL.md                    ← this file (no frontmatter — the linter ignores it)
 ├── AGENTS.md                      ← runtime entry note for OpenCode
-├── moc-synapse.md                   ← 🧭 THE master hub — start browsing here
+├── hub-synapse.md                   ← 🧭 THE master hub — start browsing here
 │
 │   ── KNOWLEDGE (Markdown canonical) ─────────────────────────────
 ├── notes/                         ← note-*    — the prose second brain (atoms)
@@ -103,7 +103,7 @@ wiki/                              ← THE VAULT ROOT
 ├── skills/                        ← skill-*  — pointer notes → .opencode executable playbooks
 ├── tools/                         ← tool-*   — external instruments (git, gh, sqlite, render, lint, opencode)
 ├── docs/                          ← doc-*    — operator-facing architecture docs
-├── moc/                           ← moc-*    — per-domain hubs (finances, contacts, health, …)
+├── hub/                           ← hub-*    — per-domain hubs (finances, contacts, health, …)
 ├── loops/                         ← loop-*   — standing autonomous processes (run-until-dry)
 │
 │   ── THE SQL GATE + PLUMBING ────────────────────────────────────
@@ -123,16 +123,16 @@ Navigation rules worth memorizing:
   so each gets one generated view. Transactions, health metrics, visits — those are **SQL-only**; they
   surface through `summary-*` aggregate notes and ad-hoc text-to-SQL, never one note per row (that would
   bury the graph).
-- **Browse with MOCs, work with agents.** `moc-synapse` is the root hub; each domain has its own
-  (`moc-finances`, `moc-contacts`, …). A MOC is a table of contents, not a briefing — at `standard` it
+- **Browse with hubs, work with agents.** `hub-synapse` is the root hub; each domain has its own
+  (`hub-finances`, `hub-contacts`, …). A hub is a table of contents, not a briefing — at `standard` it
   expands to its whole domain, so render it that way when you want the domain's full map.
 
 > **Fresh-vault note:** in a brand-new Synapse the knowledge dirs (`notes/`, `projects/`, …) and the record
 > view dirs (`contacts/`, `accounts/`, …) start empty — only the schema layer, the docs, and the domain
-> MOCs exist. That's why a domain MOC's closure is small until records and notes land (Lesson 5).
+> hubs exist. That's why a domain hub's closure is small until records and notes land (Lesson 5).
 
 > 🤖 **Ask your agent:** *"Tour the layout from TUTORIAL.md Lesson 1: `ls` the vault top-level dirs, open
-> `moc-synapse.md` and one `moc/moc-*.md`, and tell me in one line why a transaction lives in SQLite while a
+> `hub-synapse.md` and one `hub/hub-*.md`, and tell me in one line why a transaction lives in SQLite while a
 > meeting note lives in `notes/`."*
 
 ---
@@ -196,7 +196,7 @@ decision:
 > `[[rule-x]]` mentioned only in prose is invisible to `render.mjs`. Body links still matter — they're how
 > a human jumps around and how Obsidian draws the graph — but they don't pack the briefcase.
 
-**Schema is real and enforced.** `_meta/conventions.md` defines the taxonomy; `_meta/tools/lint.mjs`
+**Schema is real and enforced.** `_meta/conventions.md` defines the taxonomy; `synapse lint`
 enforces it:
 
 - **Prefix ↔ `type:` must agree**, and `tags:` must carry the matching `type/<type>`.
@@ -209,11 +209,11 @@ enforces it:
   numbers — those rest on the private repo + read-only query credential + the derived-view design, not the
   linter.)
 - **`--strict`** additionally fails on broken `[[wikilinks]]` and unbalanced code fences; engine
-  invariants (e.g. every non-master `moc` at `standard` must have `members ≥ 1` and stay within `3×median`
+  invariants (e.g. every non-master `hub` at `standard` must have `members ≥ 1` and stay within `3×median`
   tokens) are checked over the whole index.
 - **Advisory** (never fails the build): oversize notes (split candidates) and orphans.
 
-Run `node _meta/tools/lint.mjs` before you commit; `lint.mjs --strict` is the gate.
+Run `synapse lint` before you commit; `lint.mjs --strict` is the gate.
 
 > 🤖 **Ask your agent:** *"From TUTORIAL.md Lesson 2: open `rules/rule-synapse-edges-by-role.md` and
 > `agents/agent-curator.md`, and for each frontmatter field tell me which consumer reads it — the render
@@ -275,7 +275,7 @@ they're for, with a real example of each:
 
 | Type | What it is | Real example |
 |---|---|---|
-| **moc** | map of content — a hub that indexes a domain | [[moc-finances]], [[moc-contacts]], [[moc-social-media]], [[moc-synapse]] (root) |
+| **hub** | hub — a hub that indexes a domain | [[hub-finances]], [[hub-contacts]], [[hub-social-media]], [[hub-synapse]] (root) |
 | **loop** | a standing, autonomous *process* (detect → heal → verify, run until dry, with an exit condition) | [[loop-maintain-synapse]] |
 
 How the method types differ *in practice*: a **rule** says *don't / always* (`rule-synapse-human-gated-push`:
@@ -290,7 +290,7 @@ the linter ignores them — covered in Lesson 6.
 
 > 🤖 **Ask your agent:** *"TUTORIAL.md Lesson 3 quiz: I'll describe five pieces of information, you tell me
 > which substrate (Markdown or SQL) and which note type each becomes, and why. Then reverse it — open one
-> note of each method type plus one `moc` and justify its type."*
+> note of each method type plus one `hub` and justify its type."*
 
 ---
 
@@ -326,13 +326,13 @@ Synapse's core loop runs on **three writers, one rule: the agent that writes an 
   (lint + DB↔view divergence + orphans + pending captures), heal the unambiguous, dispatch a reconciler
   per drifted unit, **verify each diff**, escalate the rest, open one human-gated PR, log the pass.
   Detects and plans; rarely edits content itself.
-- **[[agent-reconciler]]** — the *scoped doer*. Given one drifted unit and its `moc-<domain>` briefing,
+- **[[agent-reconciler]]** — the *scoped doer*. Given one drifted unit and its `hub-<domain>` briefing,
   makes the minimal edit (regenerate a stale view, fix a unit's notes) and reports back. Never detects,
   never opens a PR, never writes the DB.
 - **[[agent-ingester]]** — the *capture ingester*. Atomizes a freeform `inbox/` dump into one-idea-per-file
   notes (or proposes record rows as a migration), carrying `provenance:`, then clears the entry. Each note
-  is wired into the right `moc-<domain>`; when a capture fits **no** existing domain, the ingester
-  **proposes a new `moc-<domain>`** hub in the same human-gated proposal rather than forcing a wrong fit.
+  is wired into the right `hub-<domain>`; when a capture fits **no** existing domain, the ingester
+  **proposes a new `hub-<domain>`** hub in the same human-gated proposal rather than forcing a wrong fit.
 
 The **reconciler (maker)** writes; the **curator (checker)** reviews the diff — in scope? single-sourced?
 schema-clean? no stray edits? — repairs the unambiguous, escalates the rest, and is the only one that
@@ -340,11 +340,11 @@ opens the PR. A human merges. From-scratch authoring is escalated, never auto-ru
 
 Alongside the writers sits one **reader**:
 
-- **[[agent-oracle]]** — the *read front door*. Point it at a `moc-<domain>` and ask: it answers grounded in
+- **[[agent-oracle]]** — the *read front door*. Point it at a `hub-<domain>` and ask: it answers grounded in
   that domain's typed closure plus query-driven semantic recall, **cites every claim**, and abstains when
   the context is silent ([[rule-answer-grounded]]). It never edits, migrates, or opens a PR — its one
   action is to **propose a consent-gated handoff** to a writer when it spots a gap (e.g. `oracle
-  moc-finances "did I note anything about budgeting?"`).
+  hub-finances "did I note anything about budgeting?"`).
 
 **Why this design works:** the agent file stays tiny and stable, while the rules/skills/tools it links
 evolve independently. Tighten a constraint in [[rule-derived-views-are-generated]] once, and every agent
@@ -362,10 +362,10 @@ There's no template dir — you scaffold from an existing note:
 3. **Wire the role edges:** `applies_rules`, `uses_tools`, `invokes_skills` (present, may be `[]`),
    `delegates_to` if it hands off, `references_docs` for docs. Targets that don't exist yet are allowed
    while drafting; `--strict` lint flags them.
-4. **Validate + try it:** `node _meta/tools/lint.mjs`, then
-   `node _meta/tools/render.mjs agent-<slug> --profile lean --dry-run` to see exactly what the closure
+4. **Validate + try it:** `synapse lint`, then
+   `synapse render agent-<slug> --profile lean --dry-run` to see exactly what the closure
    pulls in (dry-run lists the notes without printing the blob).
-5. **No registration step.** `agents.sh` auto-discovers the new agent on next `source _meta/tools/agents.sh`
+5. **No registration step.** `agents.sh` auto-discovers the new agent on the next prompt (or run `synapse reload`)
    — it generates one shell function per `agents/agent-*.md`, reading the note's `profile:` field for the
    default.
 
@@ -392,20 +392,20 @@ Seven named roles, each reading specific frontmatter fields and reaching specifi
 | **DELEGATES** | `delegates_to` | forward | `agent` |
 | **BINDS** (reverse name `members`) | `related` | reverse | `note` `journal` `project` `plan` `contact` `account` `summary` |
 | **ATTACHES** | `related` | both | `person` `decision` `tool` `glossary` |
-| **NAVIGATES** | `related` | forward | `moc` |
+| **NAVIGATES** | `related` | forward | `hub` |
 | **REFERENCES** | `references_docs` | forward | `doc` |
 
 **The one trick:** BINDS, ATTACHES, and NAVIGATES all read the *same* `related` field. The engine tells
 them apart by the **type of the note at the far end** — a `related` link landing on a
 note/journal/project/plan/contact/account/summary is a **member** (BINDS); one landing on a
-person/decision/tool/glossary is an **attachment** (ATTACHES); one landing on an `moc` is a **sibling hub**
+person/decision/tool/glossary is an **attachment** (ATTACHES); one landing on an `hub` is a **sibling hub**
 (NAVIGATES). Those type-sets are **disjoint**, so every `related` link belongs to exactly one role — no
 ambiguity, no double-counting.
 
 And **BINDS is *reverse***: a domain hub doesn't list its members; the members list the hub
-(`related: ["[[moc-finances]]"]`), and the engine discovers them by asking "who points back at me?" That's
-why adding an account view that `related`-links its MOC instantly makes it appear in the MOC's `standard`
-briefing — with zero edits to the MOC.
+(`related: ["[[hub-finances]]"]`), and the engine discovers them by asking "who points back at me?" That's
+why adding an account view that `related`-links its hub instantly makes it appear in the hub's `standard`
+briefing — with zero edits to the hub.
 
 ### Profiles — the role-set dial
 
@@ -414,40 +414,40 @@ A profile is a preset *bundle of roles*, not a hop count (`context.manifest.json
 | Profile | Role-set | ~Budget | Use |
 |---|---|---|---|
 | `lean` | self + CONSTRAINS + USES + DELEGATES | ~4K tok | an agent + its rules/skills/tools/delegations; or a single unit note. Drops `status/draft`. |
-| `standard` | lean + `target` + members (BINDS) + ATTACHES + NAVIGATES@1 + REFERENCES | ~15K tok | a domain **MOC** — pulls its members, attachments, sibling hubs, and docs |
+| `standard` | lean + `target` + members (BINDS) + ATTACHES + NAVIGATES@1 + REFERENCES | ~15K tok | a domain **hub** — pulls its members, attachments, sibling hubs, and docs |
 | `fat` | standard but **transitive** over NAVIGATES + members (fixpoint BFS) | ~30K+ tok | deep dives / maximum context |
 
-**Auto-upgrade.** The manifest's `autoUpgrade: { "moc": "standard" }` means starting from a hub
-(`type: moc`) and asking for `lean` bumps you to `standard` automatically — a bare hub at lean carries
+**Auto-upgrade.** The manifest's `autoUpgrade: { "hub": "standard" }` means starting from a hub
+(`type: hub`) and asking for `lean` bumps you to `standard` automatically — a bare hub at lean carries
 almost nothing useful. Finer-grained starts (a `note`, `plan`, `contact`) stay at whatever you asked for.
 
 These are not hypothetical numbers — here are **real closures from this vault**, each produced by the
 exact command shown with `--dry-run`:
 
 ```bash
-node _meta/tools/render.mjs agent-curator                          --profile lean     --dry-run   # closure=18  ~7.3K tok
-node _meta/tools/render.mjs agent-curator                          --profile standard --dry-run   # closure=24  ~11.9K tok
-node _meta/tools/render.mjs agent-curator loop-maintain-synapse      --profile standard --dry-run   # closure=25  ~12.8K tok
-node _meta/tools/render.mjs moc-finances                           --profile lean     --dry-run   # auto→standard: closure=4 ~2.0K
-node _meta/tools/render.mjs moc-finances                           --profile fat      --dry-run   # closure=9  ~3.0K tok
+synapse render agent-curator                          --profile lean     --dry-run   # closure=18  ~7.3K tok
+synapse render agent-curator                          --profile standard --dry-run   # closure=24  ~11.9K tok
+synapse render agent-curator loop-maintain-synapse      --profile standard --dry-run   # closure=25  ~12.8K tok
+synapse render hub-finances                           --profile lean     --dry-run   # auto→standard: closure=4 ~2.0K
+synapse render hub-finances                           --profile fat      --dry-run   # closure=9  ~3.0K tok
 ```
 
 Read the diffs by role:
 - **lean → standard** on `agent-curator` (18 → 24) adds the six `references_docs` (REFERENCES role:
   `conventions`, `context-engine-guide`, `doc-governance-model`, `doc-maintainer-loop`) and the two
   `related` decisions (ATTACHES) — the docs and ADRs the steward cites, which `lean` omits.
-- **`moc-finances` at lean prints `profile=standard`** in its header even though you asked for lean —
+- **`hub-finances` at lean prints `profile=standard`** in its header even though you asked for lean —
   that's `autoUpgrade` firing. Its closure is small (4) because this is a fresh vault: the finances domain
   has no account views or summaries linking back yet (BINDS finds no members). It pulls itself,
-  `moc-synapse` (NAVIGATES), and its two `references_docs` (`doc-sql-schema`, `doc-storage-model`). As
-  records land, the same command's closure grows with zero edits to the MOC.
+  `hub-synapse` (NAVIGATES), and its two `references_docs` (`doc-sql-schema`, `doc-storage-model`). As
+  records land, the same command's closure grows with zero edits to the hub.
 
 ### Render = role-closure assembly + fusion
 
 ```bash
-node _meta/tools/render.mjs agent-curator --profile lean                              # one agent's briefing
-node _meta/tools/render.mjs agent-curator loop-maintain-synapse --profile standard      # agent × process
-node _meta/tools/render.mjs agent-reconciler moc-finances --profile standard --dry-run # method × domain
+synapse render agent-curator --profile lean                              # one agent's briefing
+synapse render agent-curator loop-maintain-synapse --profile standard      # agent × process
+synapse render agent-reconciler hub-finances --profile standard --dry-run # method × domain
 ```
 
 `render.mjs` (zero dependencies, prints to stdout, sends nothing anywhere) reads the manifest, indexes the
@@ -456,12 +456,12 @@ a deterministic order** — start ids first, then the manifest's `typePriority`,
 start ids + same flags = byte-identical output**, every time (reproducible, reviewable). Useful flags:
 `--dry-run` (list ids+types, no bodies) and `--copy` (to clipboard, for pasting into any tool).
 
-Passing **two start nodes** (an agent + a `moc-<domain>`) is the `method × domain` fusion from Lesson 0 —
-the agent brings rules/skills/tools, the MOC brings the domain. Real example:
+Passing **two start nodes** (an agent + a `hub-<domain>`) is the `method × domain` fusion from Lesson 0 —
+the agent brings rules/skills/tools, the hub brings the domain. Real example:
 
 ```bash
-node _meta/tools/render.mjs agent-reconciler moc-finances --profile standard --dry-run  # closure=17 ~8.7K tok
-node _meta/tools/render.mjs agent-curator    moc-contacts --profile standard --dry-run  # closure=29 ~14.2K tok
+synapse render agent-reconciler hub-finances --profile standard --dry-run  # closure=17 ~8.7K tok
+synapse render agent-curator    hub-contacts --profile standard --dry-run  # closure=29 ~14.2K tok
 ```
 
 ### Hybrid retrieval — the opt-in semantic second phase
@@ -473,13 +473,13 @@ retrieval** (graph + vector), in two clean phases:
 
 1. **Deterministic seed (Phase 1, unchanged).** `render.mjs` walks the typed-link closure → the
    byte-identical briefing above. It stays pure and offline; the semantic layer never touches it.
-2. **Semantic augment (Phase 2, new).** `_meta/tools/augment.mjs` shells `render.mjs` for that seed, then
+2. **Semantic augment (Phase 2, new).** `synapse augment` shells `render.mjs` for that seed, then
    embeds the **user's task**, cosine-ranks notes **not already in the closure**, drops anything below a
    similarity floor (`SYNAPSE_MIN_SIM`, default 0.45), takes the top-`--k` (default 6), and **appends** a
    clearly-labeled `## Semantically related (not yet linked)` section of short excerpts.
 
 ```sh
-node _meta/tools/augment.mjs agent-curator moc-finances --profile standard --task "did I note anything about budgeting?"
+synapse augment agent-curator hub-finances --profile standard --task "did I note anything about budgeting?"
 ```
 
 **All local, no new deps.** Embeddings come from the **same local Ollama over Tailscale** that runs the
@@ -499,20 +499,20 @@ index is empty, augment still emits the full deterministic briefing plus a `(sem
 
 ### The launcher commands
 
-After `source _meta/tools/agents.sh` (the installer, `node _meta/tools/install.mjs --write`, adds that
+After `synapse install --write` (the installer sources package `agents.sh` and adds that
 line to your shell rc), every agent is a one-word command that renders the briefing and launches OpenCode
 with it as the prompt:
 
 ```bash
 vault-agents                                  # list every agent + purpose + default profile
-vault-mocs                                    # list the MOC targets (valid second arg)
+synapse hubs                                    # list the hub targets (valid second arg)
 vault-profiles                                # explain lean / standard / fat
 
 curator                                       # launch the steward (its default profile: standard)
-curator moc-finances                          # steward focused on a domain (moc-* → auto-standard)
-reconciler moc-contacts                        # scoped doer on one domain
-curator moc-finances --profile fat            # override the profile (the context dial)
-curator moc-finances "regenerate the Q2 summary view"   # seed a task
+curator hub-finances                          # steward focused on a domain (hub-* → auto-standard)
+reconciler hub-contacts                        # scoped doer on one domain
+curator hub-finances --profile fat            # override the profile (the context dial)
+curator hub-finances "regenerate the Q2 summary view"   # seed a task
 ```
 
 Syntax: `<agent> [<target>] [--profile lean|standard|fat] [--cli opencode|claude|clip|print] ["task"]`. Under
@@ -569,7 +569,7 @@ stays in the loop. No chat history required.
 - **`inbox/handovers/`** — clean session handovers ([[rule-context-handover]]).
 
 Raw captures (a phone dump, pasted text, a quick thought) also land in `inbox/`; [[agent-ingester]]
-atomizes each into typed notes (or proposed record rows), wires each into the right `moc-<domain>` (proposing
+atomizes each into typed notes (or proposed record rows), wires each into the right `hub-<domain>` (proposing
 a new hub when none fits), records `provenance:`, then clears it.
 
 ### The maintenance loop — one pass of [[loop-maintain-synapse]]
@@ -604,9 +604,9 @@ the vault is its own source of truth** ([[doc-maintainer-loop]]). One pass:
 
 | Generator | Direction | Rebuilds |
 |---|---|---|
-| `node _meta/tools/gen-views.mjs` | **SQL → Markdown** | `contacts/<slug>.md`, `accounts/<slug>.md`, `summary-*` views from canonical rows |
-| `node _meta/tools/gen-index.mjs` | **Markdown → SQL** | the `notes` + `note_links` tables (the `.md` index) and `plans` (from plan frontmatter) |
-| `node _meta/tools/gen-embeddings.mjs` | **Markdown → SQL** | the `note_vectors` embedding index (semantic recall); incremental — re-embeds only changed notes |
+| `synapse views` | **SQL → Markdown** | `contacts/<slug>.md`, `accounts/<slug>.md`, `summary-*` views from canonical rows |
+| `synapse index` | **Markdown → SQL** | the `notes` + `note_links` tables (the `.md` index) and `plans` (from plan frontmatter) |
+| `synapse embeddings` | **Markdown → SQL** | the `note_vectors` embedding index (semantic recall); incremental — re-embeds only changed notes |
 
 The view/index outputs are `generated: true` and **never hand-edited** — edit the canonical side and
 regenerate. `note_vectors` is the same kind of derived projection ([[rule-derived-views-are-generated]]):
@@ -616,7 +616,7 @@ it's a rebuildable cache of embeddings, not canonical, gitignored with the DB. T
 ### The migration gate — the only way the DB changes
 
 The DB is never written ad-hoc. A record change is a new file `migrations/NNNN-*.sql`, reviewed in the
-same PR diff as any Markdown change, and applied **on merge** by `node _meta/tools/apply-migrations.mjs`
+same PR diff as any Markdown change, and applied **on merge** by `synapse migrate`
 (the only credential that opens `db/synapse.db` read-write). The migration files in git **are** the audit
 log and the revert path (revert = a new compensating migration; they're forward-only). Queries and chat
 use a **read-only** connection — a generated query can never mutate or drop a table.
@@ -647,37 +647,37 @@ sealed — only a one-directional `git … upstream` pull crosses the boundary.
 
 From the vault root:
 
-1. **Render and read.** `node _meta/tools/render.mjs agent-curator --profile lean`. Find in the output:
+1. **Render and read.** `synapse render agent-curator --profile lean`. Find in the output:
    the mission (`purpose`), one rule (CONSTRAINS), and one tool (USES).
-2. **Compare profiles, diff by role.** `node _meta/tools/render.mjs agent-curator --profile lean --dry-run`
+2. **Compare profiles, diff by role.** `synapse render agent-curator --profile lean --dry-run`
    (closure 18) vs `--profile standard --dry-run` (closure 24). For each *new* note at standard, name the
    role that pulled it in (REFERENCES via `references_docs`? ATTACHES via `related`?).
-3. **Watch auto-upgrade fire.** `node _meta/tools/render.mjs moc-finances --profile lean --dry-run` — note
+3. **Watch auto-upgrade fire.** `synapse render hub-finances --profile lean --dry-run` — note
    the header says `profile=standard` even though you asked for lean. That's the manifest's `autoUpgrade`
-   rule for `moc` targets.
-4. **Fuse method × domain.** `node _meta/tools/render.mjs agent-reconciler moc-finances --profile standard
+   rule for `hub` targets.
+4. **Fuse method × domain.** `synapse render agent-reconciler hub-finances --profile standard
    --dry-run` (closure 17) — see the reconciler's rules/tools joined with the finances domain's docs in one
    closure.
-5. **Round-trip the SQL index.** `node _meta/tools/apply-migrations.mjs` (applies `0001-init-schema.sql`,
-   creating `db/synapse.db`), then `node _meta/tools/gen-index.mjs` (rebuilds `notes` + `note_links` + `plans`
+5. **Round-trip the SQL index.** `synapse migrate` (applies `0001-init-schema.sql`,
+   creating `db/synapse.db`), then `synapse index` (rebuilds `notes` + `note_links` + `plans`
    from the vault), then open the DB **read-only** and query the index — e.g.
    `sqlite3 'file:db/synapse.db?mode=ro&immutable=1' "SELECT id FROM notes WHERE id LIKE 'doc-%' LIMIT 5;"`.
    You just queried the link graph with text-to-SQL.
-6. **Lint.** `node _meta/tools/lint.mjs` — read one advisory (an oversize split-candidate) and open the note
+6. **Lint.** `synapse lint` — read one advisory (an oversize split-candidate) and open the note
    it names. (Don't fix the backlog; just see what it checks.)
 7. **Author one knowledge atom.** Pick something the vault doesn't have (an idea → a `note-*`, a structural
    choice → a `decision-*`). Follow `_meta/conventions.md` §1–2 for the frontmatter, and link it from one
    existing note **via a frontmatter `related:` field** so render actually reaches it (a body `[[link]]`
-   won't). `node _meta/tools/lint.mjs`. Congratulations — the brain grew.
+   won't). `synapse lint`. Congratulations — the brain grew.
 8. **Propose one record row — the right way.** Want to add a contact? You do **not** write the DB. Create a
    new `migrations/0002-add-<slug>.sql` with the `INSERT`s, leave it for the human-gated PR, and remember
    that on merge `apply-migrations.mjs` runs it and `gen-views.mjs` will produce `contacts/<slug>.md`. Open
    `migrations/0001-init-schema.sql` first to see the table shapes (`money = integer cents`, dates =
    ISO-8601 TEXT, `slug` ties the row to its view).
 9. **Try semantic recall — and feed the graph.** One-time on the Ollama host: `ollama pull
-   mxbai-embed-large`. Then build the index: `node _meta/tools/gen-embeddings.mjs` (watch it report
+   mxbai-embed-large`. Then build the index: `synapse embeddings` (watch it report
    `embedded N`). Now run an augmented briefing with a task that *isn't* about the target's linked
-   neighborhood — e.g. `node _meta/tools/augment.mjs agent-curator moc-finances --profile standard --task
+   neighborhood — e.g. `synapse augment agent-curator hub-finances --profile standard --task
    "what do I know about budgeting?"`. Find the appended `## Semantically related (not yet linked)` section
    and note each hit's `similarity` score. Pick one hit that's genuinely relevant and **promote it**: add
    the target id to the relevant note's frontmatter `related:` field (a typed edge), then re-run with

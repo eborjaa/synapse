@@ -26,7 +26,7 @@ An agent is launched headlessly with a deterministic briefing piped from the ren
 
 ```sh
 opencode run -m ollama/qwen3.6-256k --dir . \
-  "$(node _meta/tools/render.mjs agent-curator loop-maintain-synapse --profile standard)"
+  "$(synapse render agent-curator loop-maintain-synapse --profile standard)"
 ```
 
 The nightly maintenance loop ([[loop-maintain-synapse]]) drives the curator this way from cron/launchd.

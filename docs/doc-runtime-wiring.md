@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Runtime wiring
@@ -27,12 +27,13 @@ behind this is [[decision-0004-opencode-local-ollama-runtime]]; the schema it re
 
 ## The CLI is pluggable (`--cli`)
 
-OpenCode is the **default** sink, not the only one. The shell CLI (`_meta/tools/agents.sh`) renders the
+OpenCode is the **default** sink, not the only one. The shell CLI (packaged `agents.sh`, wired by
+`synapse install`) renders the
 same role-based briefing and then hands it to whichever runtime you pick with `--cli` (or
 `export SYNAPSE_CLI=…`): **`opencode`** (local Ollama, below), **`claude`** (Claude Code, scoped to the repo
-dir and seeded with the briefing — its own model, keys, and config), or **`clip`/`print`** (copy to
+dir and seeded with the briefing — its own model, keys, and config), **`cursor`**, or **`clip`/`print`** (copy to
 clipboard / write to stdout, to paste or pipe into any tool). The render + semantic pipeline is identical
-for every sink; only the final hand-off differs — so you can maintain the **public framework** with a
+for every sink; only the final hand-off differs — so you can maintain the **public engine** with a
 powerful cloud CLI while a **private vault** stays on local OpenCode, using the same commands. Any host
 privacy gate still applies to whichever CLI you launch ([[doc-deployment-gate]]).
 
@@ -55,7 +56,7 @@ Do not hardcode the Tailnet hostname or any secret into committed files; referen
 
 OpenCode is scoped to the vault with `--dir <vault>`. Agents do not read files ad-hoc: they render a
 **role-based briefing** with the engine ([[tool-render]]) —
-`node _meta/tools/render.mjs <agent> [<target>] --profile <lean|standard|fat>` — which walks the manifest
+`synapse render <agent> [<target>] --profile <lean|standard|fat>` — which walks the manifest
 role closure and concatenates the linked note bodies into one context blob. Beyond the briefing, the
 model retrieves over the Markdown corpus (grep/read within `--dir`) as a lightweight RAG source. The
 manifest ([[conventions]]) is the single ontology both the renderer and the linter ([[tool-lint]]) obey.
@@ -77,9 +78,10 @@ the regenerated Markdown derived views. They **never** write the DB. Any record 
 
 ## How agents launch
 
-The shell helpers in `_meta/tools/agents.sh` generate one command per `agents/agent-*.md` (function name
-= id minus `agent-`): `curator`, `reconciler`, `ingester`. Each renders the agent's briefing (and any
-target's) and launches `opencode run -m <model> --dir <vault> "<briefing>"`. The nightly maintainer
+The packaged shell helpers (`agents.sh`, after `synapse install`) generate one command per
+`agents/agent-*.md` (function name = id minus `agent-`): `curator`, `reconciler`, `ingester`, `oracle`.
+Each renders the agent's briefing (and any target's) and launches the chosen `--cli`. Discovery:
+`synapse agents` · `synapse hubs` · `synapse help`. The nightly maintainer
 (`_meta/tools/maintain-synapse-cron.sh`) does the same headlessly for [[agent-curator]] running
 [[loop-maintain-synapse]], via the executable command `.opencode/command/maintain-synapse.md`.
 

@@ -13,7 +13,7 @@ provenance: ["the context-vault schema layer (conventions)", "Emmanuel 2026-06-1
 and `lint.mjs` ([[tool-lint]]) enforces it:
 
 - **Required frontmatter:** `id`, `type`, `title`, `tags`. `id` equals the basename.
-- **Prefix ↔ type match:** the filename prefix implies the type (`note-*`→`note`, `moc-*`→`moc`,
+- **Prefix ↔ type match:** the filename prefix implies the type (`note-*`→`note`, `hub-*`→`hub`,
   `rule-*`→`rule`, `contact-*`→`contact`, …). They must agree.
 - **`#type/<type>` tag:** the `tags:` list must contain `type/<type>` matching `type:`. Use **block-style**
   tags (one per line) so the tag check matches — flow-style (`[type/x, …]`) puts a comma after the tag and

@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Synapse — vision
@@ -45,4 +45,4 @@ render engine (deterministic briefings) + linter (mechanical health) · a config
 read-only text-to-SQL) · Tailscale (the only access path).
 
 ## Related
-[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-agent-architecture]] · [[doc-capture-pipeline]] · [[moc-synapse]]
+[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-agent-architecture]] · [[doc-capture-pipeline]] · [[hub-synapse]]

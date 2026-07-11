@@ -6,7 +6,7 @@
 
 ## Checklist
 
-- [ ] **Lint clean:** `node _meta/tools/lint.mjs --strict` reports `errors=0`.
+- [ ] **Lint clean:** `synapse lint --strict` reports `errors=0`.
 - [ ] **Generic / no personal data:** no instance-specific content, internal paths, secrets, or private
       project references. The framework stays data- and model-agnostic.
 - [ ] **Conventions followed:** frontmatter schema, block-style tags, bare `[[wikilink]]`s in the right

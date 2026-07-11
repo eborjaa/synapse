@@ -18,7 +18,7 @@ manifest traverses to that target's `type:` ([[context-engine-guide]]). Use the 
 | `uses_tools`, `invokes_skills` | USES (forward) | `tool`, `skill` |
 | `delegates_to` | DELEGATES (forward) | `agent` |
 | `references_docs` | REFERENCES (forward) | `doc` |
-| `related` → MOC | NAVIGATES (forward) | `moc` |
+| `related` → hub | NAVIGATES (forward) | `hub` |
 | `related` → member | BINDS / `members` (reverse) | `note`, `journal`, `project`, `plan`, `contact`, `account`, `summary` |
 | `related` → attachment | ATTACHES (both) | `person`, `decision`, `tool`, `glossary` |
 

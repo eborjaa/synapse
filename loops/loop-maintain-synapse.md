@@ -15,7 +15,7 @@ pattern: "event-driven, loop-until-dry (detect → heal → verify)"
 guardrails: "Edit ONLY .md + migration files under the vault — never write db/synapse.db directly, never edit a generated view by hand. Autofix only the unambiguous; escalate every judgment call to inbox/attention/ (rule-synapse-fail-loudly). Stage only what you touched (never git add -A); never force-push or rewrite shared history. Hand off by the per-repo/per-content policy (rule-synapse-human-gated-push, decision-0006-self-healing-vault): framework = human-gated PR (surface unresolved lint loudly in the PR body, never self-merge); vault Markdown/knowledge = direct push (self-healing); record/DB/migration changes = human-gated migration EVERYWHERE (the records DB is never self-healed). NO-SPIN: the trigger skips the curator's own synapse/curator-* maintenance commits."
 owner_agent: "[[agent-curator]]"
 skill: "[[skill-maintain-synapse]]"
-delegates_to: "[[agent-reconciler]] — one scoped doer per drifted unit, seeded with moc-<domain>"
+delegates_to: "[[agent-reconciler]] — one scoped doer per drifted unit, seeded with hub-<domain>"
 reconcile: "incremental, row → view — the curator detects + plans, dispatches agent-reconciler per unit to regenerate a stale derived view or make minimal note edits, then verifies the diff (maker != checker). It does NOT regenerate a domain from scratch; new-domain authoring is escalated."
 trigger: "LOCAL nightly cron/launchd → maintain-synapse-cron.sh runs the curator via OpenCode (opencode run, local Ollama over Tailscale — NO API key, NO cloud). Manual run is the fallback."
 cadence: "nightly — one pass if there is anything to do; one PR per non-dry pass"
@@ -44,7 +44,7 @@ loop self-orients from `inbox/curator/` and the last-marker commit. A manual run
 3. **Dry gate** — lint `errors=0` AND no divergence AND nothing in the inbox → append `no-op — dry` to
    `logs/LOG.md` and **stop**. The common case; treat as success.
 4. **Heal — reconcile, don't regenerate** ([[rule-synapse-incremental-reconcile]]) — mechanical lint autofixes
-   in place; for each drifted unit, dispatch [[agent-reconciler]] (`render.mjs agent-reconciler moc-<domain>
+   in place; for each drifted unit, dispatch [[agent-reconciler]] (`render.mjs agent-reconciler hub-<domain>
    --profile standard`) to regenerate a stale view or make the minimal note edit. Stage only what changed.
 5. **Verify (maker ≠ checker)** — the curator reviews each reconciler's diff; repairs the unambiguous;
    escalates over-reach. The doer never approves its own edit.
@@ -67,7 +67,7 @@ reconciler, no edits, no PR — just a `no-op — dry` heartbeat. Hard budget ca
 
 ## Harness mapping
 Local cron / launchd → `maintain-synapse-cron.sh` → `opencode run` runs [[skill-maintain-synapse]] on local
-Ollama (no API key) · per-unit scoped sub-agent = [[agent-reconciler]] seeded with `moc-<domain>` · the
+Ollama (no API key) · per-unit scoped sub-agent = [[agent-reconciler]] seeded with `hub-<domain>` · the
 last-maintenance commit + `inbox/curator/logs/` = external memory. The pass also runs `gen-embeddings.mjs`
 (incremental, after `gen-index.mjs`) to keep the generated `note_vectors` table fresh for semantic recall
 ([[doc-semantic-recall]]); if Ollama is unreachable it skips with a clear message and never blocks the pass.

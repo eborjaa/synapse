@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Capture → ingestion
@@ -25,7 +25,7 @@ ingester's job, not yours.
 2. **Decomposes** — one idea per file ([[decomposition-recipe]]); a single dump becomes several atomic notes.
 3. **Routes:**
    - prose → a typed note (`note` / `journal` / `plan` / `project` / `person` / `decision`) in its dir,
-     wired into the right `moc-<domain>` via `related`.
+     wired into the right `hub-<domain>` via `related`.
    - record → a **migration** proposing the row(s) — never a direct DB write ([[doc-governance-model]]).
 4. **Carries `provenance:`** — every derived note and row cites its inbox source, so anything traces back.
 5. **Clears** the inbox entry once everything is routed.
@@ -36,4 +36,4 @@ every other change ([[rule-synapse-human-gated-push]]). Ambiguous classification
 `inbox/attention/` with Options ([[rule-synapse-fail-loudly]]); never guess a routing it isn't sure of.
 
 ## Related
-[[doc-governance-model]] · [[decomposition-recipe]] · [[agent-ingester]] · [[rule-synapse-fail-loudly]] · [[moc-synapse]]
+[[doc-governance-model]] · [[decomposition-recipe]] · [[agent-ingester]] · [[rule-synapse-fail-loudly]] · [[hub-synapse]]

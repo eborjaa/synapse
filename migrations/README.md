@@ -2,7 +2,7 @@
 
 The records DB (`db/synapse.db`) is **never written by hand or by an agent directly**. Every change to
 canonical record data is a **forward-only migration file** here, reviewed in a PR and applied on merge by
-`_meta/tools/apply-migrations.mjs`. These files **are** the audit log and the revert path.
+`synapse migrate`. These files **are** the audit log and the revert path.
 
 ## Convention
 - One file per change: `NNNN-slug.sql` (zero-padded, monotonic; `0001-init-schema.sql` is the schema).
@@ -25,6 +25,6 @@ with clear Options and never assumes merge. A human reviews and merges; the runn
 
 ## Commands
 ```sh
-node _meta/tools/apply-migrations.mjs --status   # list applied / pending, apply nothing
-node _meta/tools/apply-migrations.mjs            # apply pending (read-write)
+synapse migrate --status   # list applied / pending, apply nothing
+synapse migrate            # apply pending (read-write)
 ```

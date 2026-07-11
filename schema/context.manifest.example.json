@@ -1,0 +1,191 @@
+{
+  "_schema": "synapse context.manifest.json \u2014 copy into your vault at _meta/tools/ (flat) or context-vault/_meta/tools/ (nested), then edit. The engine reads THIS to drive render/lint/augment \u2014 nothing is hardcoded in the package.",
+  "repo": "synapse",
+  "logLabel": "synapse",
+  "vaultRoot": ".",
+  "skipDirs": [
+    "node_modules",
+    "dist",
+    ".git",
+    ".obsidian",
+    "db"
+  ],
+  "targetTypes": [
+    "hub",
+    "project",
+    "plan"
+  ],
+  "autoUpgrade": {
+    "hub": "standard"
+  },
+  "dropTagsAtLean": [
+    "status/draft"
+  ],
+  "roles": {
+    "CONSTRAINS": {
+      "field": "applies_rules",
+      "direction": "forward",
+      "mandatoryFull": true,
+      "_doc": "agent -> the rules that bind it (guardrails). mandatoryFull:true = never truncated/excerpted."
+    },
+    "USES": {
+      "field": [
+        "invokes_skills",
+        "uses_tools"
+      ],
+      "direction": "forward",
+      "_doc": "agent -> the skills it invokes + tools it operates. Excerptable under budget."
+    },
+    "DELEGATES": {
+      "field": "delegates_to",
+      "direction": "forward",
+      "_doc": "agent -> doer-agents it hands work to. Add to a profile's pointerRoles to render as a one-line pointer."
+    },
+    "REFERENCES": {
+      "field": "references_docs",
+      "direction": "forward",
+      "endpointTypes": [
+        "doc"
+      ],
+      "_doc": "any note -> supporting docs it explicitly cites in frontmatter."
+    },
+    "BINDS": {
+      "field": "related",
+      "direction": "reverse",
+      "reverseName": "members",
+      "endpointTypes": [
+        "note",
+        "journal",
+        "project",
+        "plan",
+        "contact",
+        "account",
+        "summary"
+      ],
+      "_doc": "hub <- its members. A member note carries `related: [[hub-x]]`; the reverse edge makes members discoverable."
+    },
+    "ATTACHES": {
+      "field": "related",
+      "direction": "both",
+      "endpointTypes": [
+        "person",
+        "decision",
+        "tool",
+        "glossary"
+      ],
+      "_doc": "hub/note -> reference/background notes it hangs off (NOT members). Forward `related:` to a reference-typed endpoint."
+    },
+    "NAVIGATES": {
+      "field": "related",
+      "direction": "forward",
+      "endpointTypes": [
+        "hub"
+      ],
+      "_doc": "hub -> sibling/parent hub. Depth-capped per profile."
+    }
+  },
+  "referenceRoles": [
+    "ATTACHES",
+    "NAVIGATES"
+  ],
+  "_referenceRoles_doc": "Roles trimmed FIRST under a tight token budget, so a hub's own members (BINDS) outlast its references.",
+  "profiles": {
+    "lean": {
+      "roles": [
+        "CONSTRAINS",
+        "USES",
+        "DELEGATES"
+      ],
+      "pointerRoles": [
+        "DELEGATES"
+      ],
+      "depth": {
+        "NAVIGATES": 0,
+        "BINDS": 0
+      }
+    },
+    "standard": {
+      "roles": [
+        "CONSTRAINS",
+        "USES",
+        "DELEGATES",
+        "BINDS",
+        "ATTACHES",
+        "NAVIGATES",
+        "REFERENCES"
+      ],
+      "pointerRoles": [],
+      "depth": {
+        "NAVIGATES": 1,
+        "BINDS": 1
+      }
+    },
+    "fat": {
+      "roles": [
+        "CONSTRAINS",
+        "USES",
+        "DELEGATES",
+        "BINDS",
+        "ATTACHES",
+        "NAVIGATES",
+        "REFERENCES"
+      ],
+      "pointerRoles": [],
+      "depth": {
+        "NAVIGATES": 99,
+        "BINDS": 99
+      },
+      "transitive": true
+    }
+  },
+  "tokenBudgets": {
+    "lean": 4000,
+    "standard": 15000,
+    "fat": 30000
+  },
+  "excerptChars": {
+    "lean": 900,
+    "standard": 4000,
+    "fat": 0
+  },
+  "typePriority": [
+    "agent",
+    "loop",
+    "hub",
+    "rule",
+    "tool",
+    "skill",
+    "recipe",
+    "glossary",
+    "doc",
+    "decision",
+    "person",
+    "summary",
+    "account",
+    "contact",
+    "project",
+    "plan",
+    "journal",
+    "note"
+  ],
+  "trailers": {
+    "canary": true,
+    "handover": true
+  },
+  "invariants": [
+    {
+      "when": {
+        "targetType": "hub",
+        "profile": "standard",
+        "excludeIds": [
+          "hub-synapse"
+        ]
+      },
+      "assert": [
+        "members>=1",
+        "tokens<=3*median"
+      ],
+      "onFail": "report"
+    }
+  ]
+}

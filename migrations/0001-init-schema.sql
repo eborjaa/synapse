@@ -142,7 +142,7 @@ CREATE TABLE plans (                                   -- from plan-*.md frontma
   status       TEXT,                                   -- todo|doing|done|blocked|dropped
   priority     TEXT,                                   -- low|med|high
   due_on       TEXT,                                   -- ISO date
-  project_slug TEXT,                                   -- → moc-<project> / project-<slug>
+  project_slug TEXT,                                   -- → hub-<project> / project-<slug>
   updated_at   TEXT
 );
 CREATE TABLE notes (                                   -- the .md index: one row per vault note

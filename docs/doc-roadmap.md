@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[conventions]]", "[[doc-fork-and-extend]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Roadmap
@@ -43,12 +43,19 @@ entirely local ([[decision-0005-hybrid-retrieval]], [[doc-semantic-recall]]):
   pure `render.mjs` briefing, additive and non-authoritative ([[rule-semantic-suggests-links-decide]]).
 
 ## Phase 5 — Open-source release (framework)
-Released as a public GitHub **Template** repo — a generic, data-agnostic framework others instantiate as
-their own private vault, tracking this repo as `upstream` ([[doc-fork-and-extend]]):
+Released as a public GitHub repo others can **template or clone**, then pin the engine as
+`@eborjaa/synapse` ([[doc-fork-and-extend]]):
 - MIT license, `CONTRIBUTING.md`, and issue/PR templates; the lint gate as the contribution bar.
-- The two-repo model (framework vs. your vault) and the by-directory framework/instance boundary.
+- Engine package vs private vault: npm dependency for tooling; optional `upstream` for reference notes.
 - Ownership recorded generically in `vault_meta` (seeded by the user via `0002-owner.sql`), no personal
   data in the framework.
+
+## Phase 6 — Engine as npm package (done)
+The tooling ships as **`@eborjaa/synapse`** — `bin/synapse`, `lib/*`, `agents.sh`,
+`schema/context.manifest.example.json`. Consumers keep vault content + a local
+`context.manifest.json`; the engine resolves the vault via `$SYNAPSE_VAULT` or an ancestor walk
+(flat or nested layout). SQL helpers (`migrate` / `index` / `views`) stay in-package for the
+personal-knowledge substrate. See [[doc-fork-and-extend]] · [[doc-cli-reference]] · `CHANGELOG.md`.
 
 ## Later
 - **Open WebUI** as an optional read-only chat front-end over the same local Ollama — still optional and
@@ -59,4 +66,4 @@ their own private vault, tracking this repo as `upstream` ([[doc-fork-and-extend
 - A planning `lead` agent; more record domains as they earn their place.
 
 ## Related
-[[doc-vision]] · [[moc-synapse]]
+[[doc-vision]] · [[hub-synapse]]

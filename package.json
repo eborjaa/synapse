@@ -1,0 +1,57 @@
+{
+  "name": "@eborjaa/synapse",
+  "version": "0.1.0",
+  "description": "Synapse — the context-vault engine: a manifest-driven, role-based knowledge-graph renderer with semantic recall, SQL records tooling, linting, and a pluggable agent CLI. Package-agnostic; consumers keep their own vault + context.manifest.json.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "synapse": "bin/synapse.mjs"
+  },
+  "exports": {
+    ".": "./lib/index.mjs",
+    "./render": "./lib/render.mjs",
+    "./augment": "./lib/augment.mjs",
+    "./lint": "./lib/lint.mjs",
+    "./vault-root": "./lib/vault-root.mjs",
+    "./agents.sh": "./agents.sh",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "agents.sh",
+    "schema/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node --test lib/*.test.mjs",
+    "vault:render": "synapse render",
+    "vault:augment": "synapse augment",
+    "vault:lint": "synapse lint",
+    "vault:lint:strict": "synapse lint --strict",
+    "vault:embeddings": "synapse embeddings",
+    "vault:index": "synapse index",
+    "vault:views": "synapse views",
+    "vault:migrate": "synapse migrate",
+    "vault:setup": "synapse setup",
+    "vault:install": "synapse install"
+  },
+  "keywords": [
+    "context-vault",
+    "knowledge-graph",
+    "rag",
+    "sqlite",
+    "local-first",
+    "opencode",
+    "ollama"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eborjaa/synapse.git"
+  },
+  "license": "MIT",
+  "author": "Emmanuel Borja"
+}

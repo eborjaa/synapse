@@ -7,7 +7,7 @@ tags:
   - area/meta
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Capture philosophy
@@ -54,4 +54,4 @@ that asymmetry is the whole point: you can think freely without the system ever 
 your back.
 
 ## Related
-[[conventions]] · [[doc-capture-pipeline]] · [[decomposition-recipe]] · [[doc-storage-model]] · [[doc-governance-model]] · [[moc-synapse]]
+[[conventions]] · [[doc-capture-pipeline]] · [[decomposition-recipe]] · [[doc-storage-model]] · [[doc-governance-model]] · [[hub-synapse]]

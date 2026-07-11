@@ -7,7 +7,7 @@ tags:
   - area/governance
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[moc-synapse]]"]
+related: ["[[hub-synapse]]"]
 ---
 
 # Governance & mutation model
@@ -50,4 +50,4 @@ Unresolved lint errors are surfaced in the run summary and the PR body — never
 run. When in doubt, escalate; never guess ([[rule-synapse-fail-loudly]]).
 
 ## Related
-[[doc-storage-model]] · [[doc-security-privacy]] · [[doc-maintainer-loop]] · [[decision-0003-human-gated-mutation]] · [[decision-0006-self-healing-vault]] · [[rule-synapse-human-gated-push]] · [[rule-synapse-fail-loudly]] · [[rule-no-unprompted-actions]] · [[agent-curator]] · [[agent-reconciler]] · [[moc-synapse]]
+[[doc-storage-model]] · [[doc-security-privacy]] · [[doc-maintainer-loop]] · [[decision-0003-human-gated-mutation]] · [[decision-0006-self-healing-vault]] · [[rule-synapse-human-gated-push]] · [[rule-synapse-fail-loudly]] · [[rule-no-unprompted-actions]] · [[agent-curator]] · [[agent-reconciler]] · [[hub-synapse]]

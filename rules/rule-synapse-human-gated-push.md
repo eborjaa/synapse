@@ -18,7 +18,7 @@ type** is changing. The agent detects both and applies the matching gate
   `main` (or any shared branch) directly, and **NEVER** merges its own PR. The PR is the handoff — a
   maintainer reviews and merges. Maker ≠ checker holds.
 - **Private vault → self-healing for Markdown/knowledge.** For Markdown/knowledge changes (notes, journal,
-  plans, projects, people-narrative, MOCs, summaries, decisions) the steward **commits and pushes
+  plans, projects, people-narrative, hubs, summaries, decisions) the steward **commits and pushes
   directly** — no PR, no human gate. Git history is the audit trail and revert path. This autonomous
   upkeep is the intended design for a single-owner instance.
 - **Records/DB → human-gated everywhere, including the vault.** SQLite record changes ride `migrations/`
