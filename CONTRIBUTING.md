@@ -45,7 +45,7 @@ See [`docs/doc-fork-and-extend.md`](docs/doc-fork-and-extend.md):
 | Reference `agents/`, `docs/`, `rules/`, `skills/`, `loops/`, starter `hub/` | your domain hubs' *members*, custom agents/rules |
 | `migrations/0001-init-schema.sql` | your `migrations/0002+` |
 
-Private vaults **depend on the package** (`npm install github:eborjaa/synapse#v…`). Optionally track this
+Private vaults **depend on the package** (`npm install @eborja/synapse`). Optionally track this
 repo as `upstream` if you also want reference note updates — **never push vault data to `upstream`**.
 Engine fixes land via PR on a clean, data-free branch (or a fork).
 

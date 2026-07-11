@@ -9,6 +9,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   auth-retry (npm forbids republishing a used version even when the package page 404s), so the release
   ships as **0.1.1**.
 
+Published on npm: [`@eborja/synapse@0.1.1`](https://www.npmjs.com/package/@eborja/synapse).
+
 Install: `npm install @eborja/synapse@^0.1.1`
 
 ## 0.1.0 — 2026-07-11
@@ -38,7 +40,7 @@ Initial distributable release of the context-vault engine as an npm package. The
 
 ```jsonc
 "@eborja/synapse": "^0.1.1"
-// or: "github:eborjaa/synapse#v0.1.0"
+// or: "github:eborjaa/synapse#v0.1.1"
 ```
 
 ```sh
