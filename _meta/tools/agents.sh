@@ -1,57 +1,63 @@
 #!/usr/bin/env sh
 # agents.sh — Synapse context-vault CLI: one shell command per agent, each launching
-# OpenCode (local Ollama over Tailscale) seeded with a rendered, role-based briefing.
+# a coding CLI seeded with a rendered (optionally semantic-augmented) role-based briefing.
 #
-# Source from your shell rc (one-time setup — the installer bakes the absolute path):
-#     export SYNAPSE_VAULT="/abs/path/to/wiki"; source "/abs/path/to/wiki/_meta/tools/agents.sh"
-# (run `node _meta/tools/install.mjs --write` to add that line for you)
+# One-time setup (run once — never again when scripts change):
+#     node synapse-framework/_meta/tools/install.mjs --write
+# That adds ~/synapse/bin to PATH and sources bin/synapse-env.sh for TAB-completion.
+# bin/* re-sources this file on every call, so updates apply immediately.
+#
+# Vault resolution (per command, from $PWD):
+#   • inside synapse-vault/  → synapse-vault
+#   • inside synapse-framework/ → synapse-framework
+#   • anywhere else          → synapse-vault (default private vault)
 #
 # ── What you get ──────────────────────────────────────────────────────────────
 #
-#   curator                              # launch OpenCode as agent-curator (its default profile)
+#   curator                              # launch default CLI as agent-curator
 #   curator moc-finances                 # agent + a target MOC (standard — auto-upgrades)
 #   reconciler moc-contacts              # agent + a single domain hub
 #   curator moc-finances --profile fat   # override the profile (context dial)
-#   curator moc-finances "regenerate the Q2 summary view"   # seed a task
+#   curator moc-finances "regenerate the Q2 summary view"   # seed a task (+semantic)
 #
-#   vault-agents    # list all agent commands + their purpose
-#   vault-mocs      # list all MOC targets (valid second arg)
-#   vault-profiles  # explain the three profiles (context dials)
+#   vault-agents       # list all agent commands + their purpose
+#   vault-mocs         # list all MOC targets (valid second arg)
+#   vault-profiles     # explain the three profiles (context dials)
+#   vault-models       # list models for a CLI (--cli opencode|claude|cursor)
+#   vault-reload       # force re-source agents.sh (also auto-reloads each prompt)
 #
 # ── Syntax ────────────────────────────────────────────────────────────────────
-#   <agent-name> [<target-id>] [--profile lean|standard|fat] [--cli opencode|claude|clip|print] ["task text"]
+#   <agent-name> [<target-id>] [--profile lean|standard|fat]
+#     [--cli opencode|claude|cursor|clip|print]
+#     [--model <id>] [--auto|--bypass|--manual] [--no-semantic] [--clipboard] ["task text"]
 #
 #   <agent-name>   = agent id minus the `agent-` prefix  (e.g. curator, reconciler, ingester)
 #   <target-id>    = any vault id: moc-*, project-*, plan-*, note-*, contact-*, account-*, …
 #   --profile      = lean | standard | fat; auto-upgrades to standard when a MOC target is given
+#   --cli          = which coding CLI to launch (default: $SYNAPSE_CLI or opencode)
+#   --model / -m   = model id for the selected CLI (TAB-completes per --cli; see vault-models)
 #
-# Runtime is PLUGGABLE via --cli (or `export SYNAPSE_CLI=…`), default `opencode`:
-#   • opencode — OpenCode + local Ollama over Tailscale (NO API key, NO cloud); model from SYNAPSE_MODEL,
-#                endpoint/key in YOUR ~/.config/opencode/opencode.json (this file hardcodes neither).
-#   • claude   — Claude Code, scoped to the repo dir + seeded with the briefing (its own model/keys/config).
-#   • clip     — copy the briefing to the clipboard; print (or -) — write it to stdout, pipe into anything.
-# The render + semantic pipeline is IDENTICAL for every sink; only the final hand-off differs. So you can
-# maintain the public framework with Claude Code and a private vault with local OpenCode, same commands.
+# Runtime sinks:
+#   • opencode — OpenCode + local Ollama (model from --model or SYNAPSE_MODEL; config in opencode.json)
+#   • claude   — Claude Code; briefing via --append-system-prompt-file, task as positional prompt
+#   • cursor   — Cursor CLI (`cursor-agent`); briefing via .cursor/rules/*.mdc (alwaysApply)
+#   • clip     — copy briefing (+ task) to clipboard; print / - — write to stdout
 #
-# ROADMAP (out of full scope here): first-class multi-CLI + external-API-key support — per-CLI model and
-# permission config, and an installer that wires more than OpenCode. This selector is the minimal wiring
-# toward that goal; see docs/doc-runtime-wiring.md. Contributions welcome.
+# With a task, routes through augment.mjs (semantic recall) when the index exists; --no-semantic forces
+# pure render. Briefing is ALWAYS system context; task is ALWAYS the user prompt — never concatenated.
 #
 # Must be SOURCED, not executed. zsh + bash (+ POSIX sh) supported.
 
-# ── default model (override in your env: export SYNAPSE_MODEL=ollama/<your-model>) ──
+# ── defaults (override in your env) ───────────────────────────────────────────
 : "${SYNAPSE_MODEL:=ollama/qwen3.6-256k}"
-# ── default CLI sink (override per-call with --cli, or globally: export SYNAPSE_CLI=claude) ──
 : "${SYNAPSE_CLI:=opencode}"
+: "${SYNAPSE_CURSOR_MODEL:=auto}"
+# Bedrock is opt-in only (subscription-dependent). Set on or run: vault-bedrock on
+: "${SYNAPSE_CURSOR_BEDROCK:=off}"
+# Semantic-recall Ollama endpoint (augment.mjs/gen-embeddings.mjs only; NOT opencode's runtime).
+: "${SYNAPSE_OLLAMA_URL:=http://localhost:11434}"
 
-# ── locate the HOME vault (portable, no hardcoded path) ─────────────────────────
-# Self-detect the vault that OWNS this script (2 levels up from _meta/tools/) at SOURCE
-# time, when %x / BASH_SOURCE is still reliable. This is the "home" vault: it seeds the
-# command set below and is the fallback when a command is run from OUTSIDE any vault.
-# Self-detection follows the repo wherever it moves — no baked path. The pre-set
-# SYNAPSE_VAULT (installer-baked) is only a SAFETY NET for shells / direnv where
-# self-detection comes back empty. Per call, __mx_vault walks up from $PWD first, so a
-# command always acts on the vault you run it in (fully directory-agnostic).
+# ── locate the HOME vault ─────────────────────────────────────────────────────
 if [ -n "${ZSH_VERSION:-}" ]; then
   _mx_self="${(%):-%x}"
 elif [ -n "${BASH_VERSION:-}" ]; then
@@ -60,68 +66,257 @@ else
   _mx_self="$0"
 fi
 _MX_SELF_VAULT="$(cd "$(dirname "$_mx_self")/../.." 2>/dev/null && pwd)"
+_MX_REPO="$(cd "$_MX_SELF_VAULT/.." 2>/dev/null && pwd)"
 unset _mx_self
 
-# Home vault precedence: self-detected (portable) → baked SYNAPSE_VAULT (safety net).
+# Default when $PWD is outside any vault: synapse-vault (private data), else this script's vault.
+_MX_DEFAULT_VAULT="$_MX_REPO/synapse-vault"
+if [ ! -d "$_MX_DEFAULT_VAULT/agents" ] || [ ! -f "$_MX_DEFAULT_VAULT/_meta/tools/render.mjs" ]; then
+  _MX_DEFAULT_VAULT="$_MX_SELF_VAULT"
+fi
+
 if [ -n "$_MX_SELF_VAULT" ] && [ -d "$_MX_SELF_VAULT/agents" ]; then
   SYNAPSE_VAULT="$_MX_SELF_VAULT"
 fi
-export SYNAPSE_VAULT SYNAPSE_MODEL SYNAPSE_CLI
+export SYNAPSE_VAULT SYNAPSE_MODEL SYNAPSE_CLI SYNAPSE_OLLAMA_URL SYNAPSE_CURSOR_MODEL SYNAPSE_CURSOR_BEDROCK
 
 if [ -z "$SYNAPSE_VAULT" ] || [ ! -d "$SYNAPSE_VAULT/agents" ]; then
   echo "agents.sh: could not locate the vault (SYNAPSE_VAULT=$SYNAPSE_VAULT)" >&2
   return 0 2>/dev/null || exit 0
 fi
 
-# ── resolve the EFFECTIVE vault for a single invocation ─────────────────────────
-# Walk up from $PWD to the nearest synapse vault root, so a command targets the vault
-# you RUN it IN — not whichever path the installer baked into SYNAPSE_VAULT at setup.
-# This is what you expect when you keep more than one vault side by side (e.g. the
-# public framework + a private vault): `cd synapse-vault && ingester` must drive the
-# vault, `cd synapse-framework && ingester` the framework — same command set either way.
-# A directory is a vault root when it holds both agents/ and _meta/tools/render.mjs.
-# No match (you're standing outside any vault) → fall back to the baked SYNAPSE_VAULT.
+# ── resolve the EFFECTIVE vault for a single invocation ───────────────────────
+__mx_is_vault() { [ -d "$1/agents" ] && [ -f "$1/_meta/tools/render.mjs" ]; }
+
 __mx_vault() {
   _mx_d="$PWD"
   while [ -n "$_mx_d" ] && [ "$_mx_d" != "/" ]; do
-    if [ -d "$_mx_d/agents" ] && [ -f "$_mx_d/_meta/tools/render.mjs" ]; then
+    if __mx_is_vault "$_mx_d"; then
       printf '%s\n' "$_mx_d"; return 0
     fi
     _mx_d="$(dirname "$_mx_d")"
   done
-  # outside any vault → home vault: self-detected (portable) first, baked env as last resort
-  if [ -n "${_MX_SELF_VAULT:-}" ] && [ -d "${_MX_SELF_VAULT}/agents" ]; then
-    printf '%s\n' "$_MX_SELF_VAULT"
+  if [ -n "${_MX_DEFAULT_VAULT:-}" ] && __mx_is_vault "$_MX_DEFAULT_VAULT"; then
+    printf '%s\n' "$_MX_DEFAULT_VAULT"; return 0
+  fi
+  if [ -n "${_MX_SELF_VAULT:-}" ] && __mx_is_vault "$_MX_SELF_VAULT"; then
+    printf '%s\n' "$_MX_SELF_VAULT"; return 0
+  fi
+  printf '%s\n' "$SYNAPSE_VAULT"
+}
+
+# Launch an agent by short name; profile read from the effective vault at call time.
+__mx_agent_cmd() {
+  _name="$1"; shift
+  _vault="$(__mx_vault)"
+  _prof="$(_mx_field "$_vault/agents/agent-${_name}.md" profile)"
+  _prof="${_prof:-lean}"
+  __mx_launch "agent-${_name}" "$_prof" "$@"
+}
+
+# ── clipboard helper (same tool matrix as render --copy) ──────────────────────
+__mx_clip() {
+  if   command -v pbcopy >/dev/null 2>&1; then pbcopy
+  elif command -v clip   >/dev/null 2>&1; then clip
+  elif command -v xclip  >/dev/null 2>&1; then xclip -selection clipboard
+  else cat; fi
+}
+
+# ── per-CLI model memory (last explicit --model wins until overridden) ────────
+__mx_last_model_path() { printf '%s/.synapse-last-model-%s' "${HOME}" "$1"; }
+
+__mx_last_model_save() {
+  [ -n "${2:-}" ] || return 0
+  printf '%s\n' "$2" > "$(__mx_last_model_path "$1")" 2>/dev/null || true
+}
+
+__mx_last_model_load() {
+  cat "$(__mx_last_model_path "$1")" 2>/dev/null | head -1
+}
+
+# Resolve the model for a CLI: explicit --model > env/config default > last-used > fallback.
+__mx_resolve_model() {
+  _mx_cli="$1"
+  _mx_explicit="$2"
+  if [ -n "$_mx_explicit" ]; then
+    __mx_last_model_save "$_mx_cli" "$_mx_explicit"
+    printf '%s\n' "$_mx_explicit"
+    return 0
+  fi
+
+  case "$_mx_cli" in
+    cursor)
+      if [ -n "${SYNAPSE_CURSOR_MODEL:-}" ]; then
+        printf '%s\n' "$SYNAPSE_CURSOR_MODEL"; return 0
+      fi
+      _mx_cfg="${HOME}/.cursor/cli-config.json"
+      if [ -f "$_mx_cfg" ] && command -v node >/dev/null 2>&1; then
+        _mx_from_cfg="$(node -e '
+          try {
+            const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            const sel = c.selectedModel?.modelId || c.model?.modelId || "";
+            const aliases = c.model?.aliases;
+            if (sel === "default" && aliases?.[0]) process.stdout.write(aliases[0]);
+            else if (sel) process.stdout.write(sel);
+          } catch {}
+        ' "$_mx_cfg" 2>/dev/null)"
+        if [ -n "$_mx_from_cfg" ]; then
+          printf '%s\n' "$_mx_from_cfg"; return 0
+        fi
+      fi
+      _mx_last="$(__mx_last_model_load cursor)"
+      if [ -n "$_mx_last" ]; then printf '%s\n' "$_mx_last"; return 0; fi
+      printf '%s\n' "auto"
+      ;;
+    opencode)
+      if [ -n "${SYNAPSE_MODEL:-}" ]; then
+        printf '%s\n' "$SYNAPSE_MODEL"; return 0
+      fi
+      _mx_last="$(__mx_last_model_load opencode)"
+      if [ -n "$_mx_last" ]; then printf '%s\n' "$_mx_last"; return 0; fi
+      _mx_oc_cfg="${HOME}/.config/opencode/opencode.json"
+      if [ -f "$_mx_oc_cfg" ] && command -v node >/dev/null 2>&1; then
+        _mx_from_cfg="$(node -e '
+          try {
+            const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            if (c.model) process.stdout.write(c.model);
+          } catch {}
+        ' "$_mx_oc_cfg" 2>/dev/null)"
+        if [ -n "$_mx_from_cfg" ]; then
+          printf '%s\n' "$_mx_from_cfg"; return 0
+        fi
+      fi
+      printf '%s\n' "ollama/qwen3.6-256k"
+      ;;
+    claude)
+      if [ -n "${ANTHROPIC_MODEL:-}" ]; then
+        printf '%s\n' "$ANTHROPIC_MODEL"; return 0
+      fi
+      _mx_last="$(__mx_last_model_load claude)"
+      if [ -n "$_mx_last" ]; then printf '%s\n' "$_mx_last"; return 0; fi
+      printf '%s\n' "sonnet"
+      ;;
+    *)
+      printf '%s\n' ""
+      ;;
+  esac
+}
+
+# ── Cursor / AWS Bedrock (opt-in — subscription-dependent) ───────────────────
+# Read-only: is Bedrock configured/enabled? Fast path reads cli-config; no network.
+__mx_cursor_bedrock_is_enabled() {
+  _mx_cfg="${HOME}/.cursor/cli-config.json"
+  if [ -f "$_mx_cfg" ] && command -v node >/dev/null 2>&1; then
+    node -e '
+      try {
+        const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+        process.exit(c.bedrock?.enabled ? 0 : 1);
+      } catch { process.exit(1); }
+    ' "$_mx_cfg" 2>/dev/null && return 0
+  fi
+  return 1
+}
+
+# Enable org Bedrock models (us.anthropic.*, …). Only called by vault-bedrock on
+# or when SYNAPSE_CURSOR_BEDROCK=on explicitly requests it.
+__mx_cursor_bedrock_ensure() {
+  command -v cursor-agent >/dev/null 2>&1 || return 1
+  __mx_cursor_bedrock_is_enabled && return 0
+  _mx_br_team="$(cursor-agent bedrock status 2>/dev/null | awk '/^Team role available:/{print $4}')"
+  if [ "$_mx_br_team" = "yes" ]; then
+    if cursor-agent bedrock use-team-role >/dev/null 2>&1; then
+      echo "[synapse] Bedrock team-role enabled (org subscription models now available)" >&2
+      return 0
+    fi
+  fi
+  return 1
+}
+
+__mx_cursor_bedrock_wanted() {
+  case "${SYNAPSE_CURSOR_BEDROCK:-off}" in
+    1|on|true|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# ── model list cache (per CLI) ────────────────────────────────────────────────
+__mx_models_cache() { printf '%s/.synapse-models-%s.cache' "${TMPDIR:-/tmp}" "$1"; }
+
+# Emit one model id per line for the given CLI. Cached (TTL SYNAPSE_MODELS_TTL, default 3600).
+__mx_cli_model_ids() {
+  cli="${1:-cursor}"
+  cache="$(__mx_models_cache "$cli")"
+  ttl="${SYNAPSE_MODELS_TTL:-3600}"
+  if [ "${2:-}" = "--refresh" ]; then rm -f "$cache"; fi
+  if [ -f "$cache" ]; then
+    now="$(date +%s)"
+    mtime="$(stat -c %Y "$cache" 2>/dev/null || stat -f %m "$cache" 2>/dev/null || echo 0)"
+    if [ "$((now - mtime))" -lt "$ttl" ] && [ -s "$cache" ]; then
+      cat "$cache"; return 0
+    fi
+  fi
+
+  ids=""
+  case "$cli" in
+    cursor)
+      command -v cursor-agent >/dev/null 2>&1 || { cat "$cache" 2>/dev/null; return 0; }
+      # Fast catalog probe (subscription-agnostic — no Bedrock required).
+      catalog="$(cursor-agent --list-models 2>/dev/null \
+        | sed -n 's/^\([^ ][^ ]*\) - .*/\1/p')"
+      ids="$catalog"
+      # Optional Bedrock tenant IDs — only when explicitly opted in (slow probe).
+      if __mx_cursor_bedrock_wanted; then
+        __mx_cursor_bedrock_ensure 2>/dev/null || true
+        _mx_probe_dir="${SYNAPSE_VAULT:-$_MX_DEFAULT_VAULT}"
+        bedrock="$(cd "$_mx_probe_dir" 2>/dev/null && cursor-agent -p --model __invalid_probe__ "x" 2>&1 \
+          | tr ',' '\n' | sed 's/^ *//;s/ *$//' \
+          | grep -E '^(us|eu|ap|sa)\.(anthropic|amazon|meta|cohere|mistral)\.' \
+          | sort -u)"
+        if [ -n "$bedrock" ]; then
+          ids="$(printf '%s\n%s\n' "$bedrock" "$catalog" | grep -v '^$' | sort -u)"
+        fi
+      fi
+      ;;
+    opencode)
+      command -v opencode >/dev/null 2>&1 || { cat "$cache" 2>/dev/null; return 0; }
+      ids="$(opencode models 2>/dev/null | sed '/^$/d')"
+      ;;
+    claude)
+      # Claude Code accepts aliases (sonnet, opus, …) and full catalog names.
+      # No reliable offline probe — ship common aliases; user can always type more.
+      ids="$(printf '%s\n' \
+        sonnet opus haiku fable \
+        claude-sonnet-4-6 claude-opus-4-6 claude-opus-4-8 \
+        claude-sonnet-5 claude-opus-4-8-thinking-high \
+        claude-fable-5 claude-4.6-sonnet-medium)"
+      ;;
+    *)
+      ids=""
+      ;;
+  esac
+
+  if [ -n "$ids" ]; then
+    printf '%s\n' "$ids" > "$cache" 2>/dev/null
+    printf '%s\n' "$ids"
   else
-    printf '%s\n' "$SYNAPSE_VAULT"
+    cat "$cache" 2>/dev/null
   fi
 }
 
-# ── core launcher ──────────────────────────────────────────────────────────────
-# $1 = agent-id (full, e.g. agent-curator)
-# $2 = default profile (from the agent's `profile:` frontmatter)
-# rest = optional [<target-id>] [--profile P] ["task"]
+# ── core launcher ─────────────────────────────────────────────────────────────
 __mx_launch() {
   agent="$1"; profile="$2"; shift 2
 
-  # Re-resolve the vault from the current directory on EVERY call (see __mx_vault):
-  # this is what makes the command relative to where you run it. Re-export so the
-  # rendered engine ($SYNAPSE_VAULT/_meta/tools/render.mjs, which self-locates its
-  # ROOT) and the launched CLI (--dir / cd) all bind to the SAME vault.
   SYNAPSE_VAULT="$(__mx_vault)"; export SYNAPSE_VAULT
 
-  # helper: is $1 a bare profile word?
   __mx_is_profile() { case "$1" in lean|standard|fat) return 0;; *) return 1;; esac; }
 
-  # optional target id — a vault note slug (lowercase, starts with a letter, not a flag/profile word)
   target=""
   if [ -n "${1:-}" ] && ! __mx_is_profile "${1:-}" && [ "${1#--}" = "$1" ] && [ "${1#[a-z]}" != "$1" ]; then
     target="$1"; shift
-    # auto-upgrade to standard for MOC targets (user can still override below)
     case "$target" in moc-*) [ "$profile" = "lean" ] && profile="standard" ;; esac
   fi
 
-  # optional profile — bare word (lean|standard|fat) OR --profile / -P flag
   if __mx_is_profile "${1:-}"; then
     profile="$1"; shift
   elif [ "${1:-}" = "--profile" ] || [ "${1:-}" = "-P" ]; then
@@ -131,45 +326,63 @@ __mx_launch() {
     esac
   fi
 
-  # --no-semantic escape: a flag anywhere in the remaining args forces the deterministic-only path.
-  # Strip it out of the positional args (POSIX-safe: rebuild $@ without it) so it never leaks into the task.
+  # Extract flags anywhere in remaining args (before task/target parsing leaks them).
   no_semantic=0
-  cli="${SYNAPSE_CLI:-opencode}"   # where to send the briefing; --cli overrides (opencode|claude|clip|print)
+  cli="${SYNAPSE_CLI:-opencode}"
+  perm_mode="${SYNAPSE_PERM_MODE:-auto}"
+  clipboard=0
+  model=""
+  case "${SYNAPSE_AUTO:-}" in
+    0) perm_mode="manual" ;;
+    1) perm_mode="auto"   ;;
+  esac
+
   __mx_kept=""
   __mx_want_cli=0
+  __mx_want_model=0
   for __mx_a in "$@"; do
-    if [ "$__mx_want_cli" = "1" ]; then cli="$__mx_a"; __mx_want_cli=0; continue; fi
+    if [ "$__mx_want_cli" = "1" ]; then
+      cli="$__mx_a"; __mx_want_cli=0; continue
+    fi
+    if [ "$__mx_want_model" = "1" ]; then
+      model="$__mx_a"; __mx_want_model=0; continue
+    fi
     case "$__mx_a" in
-      --no-semantic) no_semantic=1; continue ;;
-      --cli)         __mx_want_cli=1; continue ;;
+      --no-semantic)     no_semantic=1; continue ;;
+      --cli)             __mx_want_cli=1; continue ;;
+      --cli=*)           cli="${__mx_a#--cli=}"; continue ;;
+      --model|-m)        __mx_want_model=1; continue ;;
+      --model=*)         model="${__mx_a#--model=}"; continue ;;
+      --auto|-y)         perm_mode="auto"; continue ;;
+      --bypass|--yolo|--dangerously-skip-permissions) perm_mode="bypass"; continue ;;
+      --no-auto|--safe|--confirm|--manual) perm_mode="manual"; continue ;;
+      --clipboard|--copy|-c) clipboard=1; continue ;;
     esac
     __mx_kept="${__mx_kept:+$__mx_kept }$__mx_a"
   done
 
-  # remaining args = task text passed through to the chosen CLI as the positional prompt suffix
   task="$__mx_kept"
 
-  # validate the CLI selector (a typo falls back to opencode rather than failing)
   case "$cli" in
-    opencode|claude|clip|clipboard|print|-) ;;
-    *) echo "[synapse] unknown --cli '$cli' (use opencode|claude|clip|print) — using opencode" >&2; cli=opencode ;;
+    opencode|claude|cursor|clip|clipboard|print|-) ;;
+    *) echo "[synapse] unknown --cli '$cli' — using opencode" >&2; cli=opencode ;;
+  esac
+  case "$perm_mode" in
+    manual|auto|bypass) ;;
+    *) echo "SYNAPSE_PERM_MODE must be manual|auto|bypass (got '$perm_mode')" >&2; return 2 ;;
   esac
 
   if ! command -v node >/dev/null 2>&1; then
     echo "node not found — install Node.js to render briefings." >&2; return 127
   fi
 
-  # ── decide deterministic-only vs. semantic-augmented ────────────────────────────
-  # Semantic augment runs only when a TASK is supplied (it embeds task + briefing). With no task we keep
-  # the pure render. SYNAPSE_SEMANTIC overrides: 1/on → force on, 0/off → force off. Default: ON when
-  # db/synapse.db has a non-empty note_vectors table, else OFF (the augment would only skip anyway).
-  # --no-semantic always wins. This realizes the opt-in posture of decision-0005 / rule-semantic-suggests.
+  # Semantic augment: on when task present (unless --no-semantic / SYNAPSE_SEMANTIC=off).
   __mx_semantic=0
   if [ -n "$task" ] && [ "$no_semantic" = "0" ]; then
     case "${SYNAPSE_SEMANTIC:-auto}" in
       1|on|true|yes) __mx_semantic=1 ;;
       0|off|false|no) __mx_semantic=0 ;;
-      *) # auto: probe note_vectors for at least one row
+      *)
         if node -e '
           import("node:sqlite").then(({DatabaseSync})=>{
             try{
@@ -179,118 +392,197 @@ __mx_launch() {
               process.exit(n>0?0:1);
             }catch{process.exit(1);}
           }).catch(()=>process.exit(1));
-        ' "$SYNAPSE_VAULT/db/synapse.db" 2>/dev/null; then __mx_semantic=1; fi ;;
+        ' "$SYNAPSE_VAULT/db/synapse.db" 2>/dev/null; then __mx_semantic=1; fi
+        ;;
     esac
   fi
 
-  # Render the briefing. Args are passed EXPLICITLY (agent + optional target) — never via an
-  # unquoted string: zsh does not word-split unquoted vars, so `node … $ids` would pass
-  # "agent moc" as ONE arg and render would fail. When semantic is on, route through augment.mjs (which
-  # shells render.mjs itself, then appends the labeled "## Semantically related" section); the task text
-  # is passed via --task so augment can embed it. augment degrades gracefully if Ollama is unreachable.
-  _mx_render() {  # $1=outfile ("" → --copy fallback passthrough), rest appended
+  engine="render"
+  if [ "$__mx_semantic" = "1" ] && [ -f "$SYNAPSE_VAULT/_meta/tools/augment.mjs" ]; then
+    engine="augment"
+  fi
+
+  # Emit briefing to stdout or file. Briefing ONLY — task never mixed in here.
+  _mx_emit() {
     _out="$1"; shift
-    if [ "$__mx_semantic" = "1" ]; then
-      _mx_eng="$SYNAPSE_VAULT/_meta/tools/augment.mjs"
-      if [ -n "$_out" ]; then
-        if [ -n "$target" ]; then node "$_mx_eng" "$agent" "$target" --profile "$profile" --task "$task" "$@" > "$_out" 2>/dev/null
-        else                      node "$_mx_eng" "$agent"           --profile "$profile" --task "$task" "$@" > "$_out" 2>/dev/null; fi
+    if [ "$engine" = "augment" ]; then
+      _eng="$SYNAPSE_VAULT/_meta/tools/augment.mjs"
+      if [ -n "$target" ]; then
+        if [ -n "$_out" ]; then node "$_eng" "$agent" "$target" --profile "$profile" --task "$task" "$@" > "$_out"
+        else                       node "$_eng" "$agent" "$target" --profile "$profile" --task "$task" "$@"; fi
       else
-        if [ -n "$target" ]; then node "$_mx_eng" "$agent" "$target" --profile "$profile" --task "$task" "$@" 2>&1
-        else                      node "$_mx_eng" "$agent"           --profile "$profile" --task "$task" "$@" 2>&1; fi
+        if [ -n "$_out" ]; then node "$_eng" "$agent" --profile "$profile" --task "$task" "$@" > "$_out"
+        else                       node "$_eng" "$agent" --profile "$profile" --task "$task" "$@"; fi
       fi
     else
-      _mx_eng="$SYNAPSE_VAULT/_meta/tools/render.mjs"
-      if [ -n "$_out" ]; then
-        if [ -n "$target" ]; then node "$_mx_eng" "$agent" "$target" --profile "$profile" "$@" > "$_out" 2>/dev/null
-        else                      node "$_mx_eng" "$agent"           --profile "$profile" "$@" > "$_out" 2>/dev/null; fi
+      _eng="$SYNAPSE_VAULT/_meta/tools/render.mjs"
+      if [ -n "$target" ]; then
+        if [ -n "$_out" ]; then node "$_eng" "$agent" "$target" --profile "$profile" "$@" > "$_out"
+        else                       node "$_eng" "$agent" "$target" --profile "$profile" "$@"; fi
       else
-        if [ -n "$target" ]; then node "$_mx_eng" "$agent" "$target" --profile "$profile" "$@" 2>&1
-        else                      node "$_mx_eng" "$agent"           --profile "$profile" "$@" 2>&1; fi
+        if [ -n "$_out" ]; then node "$_eng" "$agent" --profile "$profile" "$@" > "$_out"
+        else                       node "$_eng" "$agent" --profile "$profile" "$@"; fi
       fi
     fi
   }
 
-  # ── sinks that need no external CLI ─────────────────────────────────────────────
   case "$cli" in
-    clip|clipboard) _mx_render "" --copy; return $? ;;   # render → clipboard, paste into any tool
-    print|-)        _mx_render "";          return $? ;;  # render → stdout, pipe into anything
+    clip|clipboard)
+      echo "[synapse] ${agent#agent-}${target:+ + $target} (${profile}) → clipboard" >&2
+      if [ -n "$task" ]; then
+        { _mx_emit "" | cat; printf '\n\n---\n\n%s\n' "$task"; } | __mx_clip
+      else
+        _mx_emit "" --copy 2>/dev/null || _mx_emit "" | __mx_clip
+      fi
+      return $?
+      ;;
+    print|-)
+      if [ -n "$task" ]; then
+        _mx_emit ""
+        printf '\n\n---\n\n%s\n' "$task"
+      else
+        _mx_emit ""
+      fi
+      return $?
+      ;;
   esac
 
-  # ── CLI sinks (opencode | claude) — require the binary, else fall back to clipboard ──
-  if ! command -v "$cli" >/dev/null 2>&1; then
-    echo "[synapse] '$cli' not found in PATH — copying briefing to clipboard instead. (install $cli, or use --cli print)" >&2
-    _mx_render "" --copy
+  _bin=""
+  case "$cli" in
+    opencode) _bin=opencode ;;
+    claude)   _bin=claude ;;
+    cursor)   _bin=cursor-agent ;;
+  esac
+
+  if ! command -v "$_bin" >/dev/null 2>&1; then
+    echo "[synapse] '$_bin' not found — copying briefing to clipboard. (install $_bin, or use --cli print)" >&2
+    _mx_emit "" --copy 2>/dev/null || _mx_emit "" | __mx_clip
     return $?
   fi
 
   tmp="$(mktemp "${TMPDIR:-/tmp}/synapse.XXXXXX")" || return 1
-  if ! _mx_render "$tmp"; then
+  if ! _mx_emit "$tmp"; then
     rm -f "$tmp"; return 1
   fi
   tok="$(( $(wc -c < "$tmp" | tr -d ' ') / 4 ))"
-  echo "[synapse] ${agent#agent-}${target:+ + $target} (${profile}, ~${tok} tok$([ "$__mx_semantic" = "1" ] && echo ', +semantic')) → launching ${cli}" >&2
+  _eng_tag=""; [ "$engine" = "augment" ] && _eng_tag=" +semantic"
+  echo "[synapse] ${agent#agent-}${target:+ + $target} (${profile}, ~${tok} tok${_eng_tag}, ${perm_mode}) → ${cli}" >&2
   if [ "$tok" -gt 60000 ]; then
-    echo "[synapse] ⚠ briefing is large (~${tok} tok) — 'fat' pulls the transitive graph. Try 'standard' for a tighter, faster prompt." >&2
+    echo "[synapse] ⚠ briefing is large (~${tok} tok) — try 'standard' or a single note at 'lean'." >&2
   fi
 
-  # Assemble the prompt: render output + (optional) task text. The repo dir scopes the session; the
-  # edit/bash permission posture is your CLI's OWN config (opencode.json / Claude Code settings + any
-  # host gate, e.g. a private-vault PreToolUse gate — see decision-0004 / doc-runtime-wiring).
-  briefing="$(cat "$tmp")"
-  rm -f "$tmp"
-  [ -n "$task" ] && briefing="$briefing
+  if [ "$clipboard" = "1" ]; then
+    if [ -n "$task" ]; then
+      { cat "$tmp"; printf '\n\n---\n\n%s\n' "$task"; } | __mx_clip
+    else
+      cat "$tmp" | __mx_clip
+    fi
+    rm -f "$tmp"
+    return 0
+  fi
 
----
-TASK: $task"
-
-  # TUI (interactive, seeded — default in a terminal; you stay in a live session) vs one-shot (no UI,
-  # auto-selected with no TTY: cron/pipes). Override with SYNAPSE_TUI=1 (force TUI) / SYNAPSE_TUI=0.
-  _mx_tui="${SYNAPSE_TUI:-auto}"
-  case "$_mx_tui" in
-    auto)           { [ -t 0 ] && [ -t 1 ]; } && _mx_tui=1 || _mx_tui=0 ;;
-    1|on|true|yes)  _mx_tui=1 ;;
-    *)              _mx_tui=0 ;;
+  # Permission flags per CLI (loaded into $@ via set --)
+  set --
+  case "$cli" in
+    claude)
+      case "$perm_mode" in
+        auto)   set -- --permission-mode auto ;;
+        bypass) set -- --permission-mode bypassPermissions ;;
+        manual) ;;
+      esac
+      ;;
+    opencode)
+      case "$perm_mode" in
+        auto)
+          set -- --dangerously-skip-permissions
+          echo "[synapse] note: opencode has no separate 'auto' mode; using its bypass flag." >&2
+          ;;
+        bypass) set -- --dangerously-skip-permissions ;;
+        manual) ;;
+      esac
+      ;;
+    cursor)
+      case "$perm_mode" in
+        auto)   set -- --auto-review ;;
+        bypass) set -- --force ;;
+        manual) ;;
+      esac
+      ;;
   esac
 
+  rc=0
   case "$cli" in
-    opencode)
-      # OpenCode + local Ollama over Tailscale (model from SYNAPSE_MODEL; endpoint/key live in opencode.json).
-      if [ "$_mx_tui" = "1" ]; then
-        echo "[synapse] opening the OpenCode TUI — native progress; live session (SYNAPSE_TUI=0 for one-shot)." >&2
-        opencode "$SYNAPSE_VAULT" -m "$SYNAPSE_MODEL" --prompt "$briefing"
+    claude)
+      _mx_claude_model="$(__mx_resolve_model claude "$model")"
+      if [ -n "$task" ]; then
+        claude "$@" --append-system-prompt-file "$tmp" --add-dir "$SYNAPSE_VAULT" --model "$_mx_claude_model" -- "$task"
       else
-        # Local reasoning models look frozen for the first 30–90s on a big briefing; stream reasoning.
-        _mx_oc=(run -m "$SYNAPSE_MODEL" --dir "$SYNAPSE_VAULT")
+        claude "$@" --append-system-prompt-file "$tmp" --add-dir "$SYNAPSE_VAULT" --model "$_mx_claude_model"
+      fi
+      rc=$?
+      ;;
+    cursor)
+      _rules_dir="$PWD/.cursor/rules"
+      _rule_file="$_rules_dir/.synapse-vault-briefing.mdc"
+      mkdir -p "$_rules_dir"
+      {
+        printf '%s\n' '---'
+        printf '%s\n' 'description: Synapse vault briefing (temporary — auto-deleted on exit)'
+        printf '%s\n' 'alwaysApply: true'
+        printf '%s\n' '---'
+        printf '\n'
+        cat "$tmp"
+      } > "$_rule_file"
+      trap "rm -f '$_rule_file' '$tmp'; trap - EXIT INT TERM" EXIT INT TERM
+
+      if __mx_cursor_bedrock_wanted; then
+        __mx_cursor_bedrock_ensure 2>/dev/null || \
+          echo "[synapse] note: SYNAPSE_CURSOR_BEDROCK=on but Bedrock unavailable — using Cursor catalog" >&2
+      fi
+      _cursor_model="$(__mx_resolve_model cursor "$model")"
+      if [ -n "$task" ]; then
+        cursor-agent --model "$_cursor_model" "$@" --add-dir "$SYNAPSE_VAULT" "$task"
+      else
+        cursor-agent --model "$_cursor_model" "$@" --add-dir "$SYNAPSE_VAULT"
+      fi
+      rc=$?
+      return $rc
+      ;;
+    opencode)
+      _mx_model="$(__mx_resolve_model opencode "$model")"
+      _mx_tui="${SYNAPSE_TUI:-auto}"
+      case "$_mx_tui" in
+        auto) { [ -t 0 ] && [ -t 1 ]; } && _mx_tui=1 || _mx_tui=0 ;;
+        1|on|true|yes) _mx_tui=1 ;;
+        *) _mx_tui=0 ;;
+      esac
+      if [ "$_mx_tui" = "1" ] && [ -z "$task" ]; then
+        opencode "$SYNAPSE_VAULT" -m "$_mx_model" --prompt "$(cat "$tmp")"
+        rc=$?
+      elif [ -n "$task" ]; then
+        # Briefing as context file; task as the user message (augment-aware).
+        opencode run --interactive "$@" -m "$_mx_model" --dir "$SYNAPSE_VAULT" --file "$tmp" "$task"
+        rc=$?
+      else
+        _mx_oc=(run -m "$_mx_model" --dir "$SYNAPSE_VAULT")
         case "${SYNAPSE_THINKING:-1}" in
           0|off|false|no) ;;
           *) _mx_oc+=(--thinking) ;;
         esac
-        opencode "${_mx_oc[@]}" "$briefing"
-      fi ;;
-    claude)
-      # Claude Code: scoped to the repo via cwd, seeded with the briefing. Model + permissions are
-      # Claude Code's own config; SYNAPSE_MODEL (an Ollama id) does NOT apply. Any host privacy gate
-      # (e.g. the private-vault PreToolUse gate) still applies — disable it to use Claude on the vault.
-      if [ "$_mx_tui" = "1" ]; then
-        echo "[synapse] launching Claude Code (interactive, seeded) in $SYNAPSE_VAULT (SYNAPSE_TUI=0 for one-shot)." >&2
-        ( cd "$SYNAPSE_VAULT" && claude "$briefing" )
-      else
-        ( cd "$SYNAPSE_VAULT" && claude -p "$briefing" )
-      fi ;;
+        opencode "${_mx_oc[@]}" "$@" "$(cat "$tmp")"
+        rc=$?
+      fi
+      ;;
   esac
+  rm -f "$tmp"
+  return $rc
 }
 
 # ── auto-generate one function per agent-*.md ─────────────────────────────────
 _mx_field() { sed -n "s/^$2:[[:space:]]*//p" "$1" | tr -d '"' | head -1; }
 
-# Word-wrap $2 to the terminal width with a hanging indent of $1 columns.
-# The caller has already printed a $1-wide prefix on the current line, so the
-# FIRST wrapped line is emitted with no leading pad (it continues that line);
-# continuation lines are padded to align under the description column.
 _mx_wrap() {
-  local indent="$1" text="$2" width
-  width="${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}"
+  indent="$1"; text="$2"; width="${COLUMNS:-$(tput cols 2>/dev/null || echo 80)}"
   case "$width" in ''|*[!0-9]*) width=80 ;; esac
   awk -v ind="$indent" -v width="$width" -v text="$text" '
     BEGIN {
@@ -307,23 +599,94 @@ _mx_wrap() {
     }'
 }
 
+_MX_AGENT_NAMES=""
 for _mx_f in "$SYNAPSE_VAULT"/agents/agent-*.md; do
   [ -e "$_mx_f" ] || continue
-  _mx_id="$(basename "$_mx_f" .md)"
-  _mx_name="${_mx_id#agent-}"                            # e.g. curator
-  _mx_prof="$(_mx_field "$_mx_f" profile)"
-  _mx_prof="${_mx_prof:-lean}"
+  _mx_name="$(basename "$_mx_f" .md)"
+  _mx_name="${_mx_name#agent-}"
   # shellcheck disable=SC2086,SC2090
-  eval "${_mx_name}() { __mx_launch '${_mx_id}' '${_mx_prof}' \"\$@\"; }"
+  eval "${_mx_name}() { __mx_agent_cmd '${_mx_name}' \"\$@\"; }"
+  _MX_AGENT_NAMES="$_MX_AGENT_NAMES $_mx_name"
 done
-unset _mx_f _mx_id _mx_name _mx_prof
+unset _mx_f _mx_name
+_MX_AGENT_NAMES="${_MX_AGENT_NAMES# }"
+
+# ── TAB-completion (--model values depend on --cli in the same command) ───────
+_MX_FLAGS="--cli --model --profile --auto --bypass --yolo --no-auto --safe --confirm --manual --no-semantic --clipboard --copy"
+
+__mx_cli_from_words() {
+  # $1 = space-separated words (no leading agent name needed for model list)
+  _w_cli="${SYNAPSE_CLI:-opencode}"
+  for _w in $1; do
+    case "$_w" in
+      --cli=*) _w_cli="${_w#--cli=}" ;;
+      --cli)   _mx_next_cli=1; continue ;;
+    esac
+    if [ "${_mx_next_cli:-0}" = "1" ]; then _w_cli="$_w"; _mx_next_cli=0; fi
+  done
+  unset _mx_next_cli
+  printf '%s\n' "$_w_cli"
+}
+
+if [ -n "${ZSH_VERSION:-}" ]; then
+  __mx_complete_zsh() {
+    local -a models
+    local cur="${words[CURRENT]}" prev="${words[CURRENT-1]}"
+    local cli; cli="$(__mx_cli_from_words "${words[2,-1]}")"
+    case "$prev" in
+      --model|-m)
+        models=(${(f)"$(__mx_cli_model_ids "$cli" 2>/dev/null)"})
+        compadd -- $models; return ;;
+      --cli)
+        compadd -- opencode claude cursor clip print; return ;;
+      --profile|-P)
+        compadd -- lean standard fat; return ;;
+    esac
+    case "$cur" in
+      --model=*)
+        models=(${(f)"$(__mx_cli_model_ids "$cli" 2>/dev/null)"})
+        compadd -P '--model=' -- $models; return ;;
+      --cli=*)
+        compadd -P '--cli=' -- opencode claude cursor clip print; return ;;
+    esac
+  }
+  if whence compdef >/dev/null 2>&1 && (( ${+_comps} )); then
+    # shellcheck disable=SC2086
+    compdef __mx_complete_zsh ${_MX_AGENT_NAMES} vault-models vault-cursor-models
+  fi
+elif [ -n "${BASH_VERSION:-}" ]; then
+  __mx_complete_bash() {
+    local cur prev cli
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    cli="$(__mx_cli_from_words "${COMP_WORDS[*]}")"
+    case "$prev" in
+      --model|-m)
+        # shellcheck disable=SC2207
+        COMPREPLY=($(compgen -W "$(__mx_cli_model_ids "$cli" 2>/dev/null)" -- "$cur")); return ;;
+      --cli)
+        # shellcheck disable=SC2207
+        COMPREPLY=($(compgen -W "opencode claude cursor clip print" -- "$cur")); return ;;
+      --profile|-P)
+        # shellcheck disable=SC2207
+        COMPREPLY=($(compgen -W "lean standard fat" -- "$cur")); return ;;
+    esac
+    # shellcheck disable=SC2207
+    COMPREPLY=($(compgen -W "$_MX_FLAGS" -- "$cur"))
+  }
+  # shellcheck disable=SC2086
+  complete -F __mx_complete_bash ${_MX_AGENT_NAMES} vault-models vault-cursor-models 2>/dev/null
+fi
 
 # ── discovery commands ────────────────────────────────────────────────────────
 
 vault-agents() {
-  SYNAPSE_VAULT="$(__mx_vault)"   # reflect the vault you're standing in, not the baked path
+  SYNAPSE_VAULT="$(__mx_vault)"
   echo "Synapse vault agent commands:"
-  echo "  Usage: <name> [<target-id>] [--profile lean|standard|fat] [--cli opencode|claude|clip|print] [\"task\"]"
+  echo "  Usage: <name> [<target-id>] [--profile lean|standard|fat] [--cli opencode|claude|cursor|clip|print]"
+  echo "         [--model <id>] [--auto|--bypass|--manual] [--no-semantic] [--clipboard] [\"task\"]"
+  echo "  Permission default: auto. Global: export SYNAPSE_PERM_MODE=manual|auto|bypass"
+  echo "  --model TAB-completes per --cli (see: vault-models --cli <name>)"
   echo ""
   for f in "$SYNAPSE_VAULT"/agents/agent-*.md; do
     [ -e "$f" ] || continue
@@ -331,18 +694,18 @@ vault-agents() {
     name="${id#agent-}"
     prof="$(_mx_field "$f" profile)"; prof="${prof:-lean}"
     purpose="$(_mx_field "$f" purpose)"
-    printf '  %-14s [%-8s] ' "$name" "$prof"   # 28-col prefix; no newline
-    _mx_wrap 28 "$purpose"                      # wraps purpose under the prefix
+    printf '  %-14s [%-8s] ' "$name" "$prof"
+    _mx_wrap 28 "$purpose"
   done
   echo ""
-  echo "  Also: vault-mocs  vault-profiles"
-  echo "  Runtime (--cli, default ${SYNAPSE_CLI:-opencode}):  opencode | claude | clip | print"
-  echo "    opencode → local Ollama over Tailscale (no API key, model $SYNAPSE_MODEL); claude → Claude Code in \$SYNAPSE_VAULT."
-  echo "    e.g.  curator moc-finances --cli claude \"rebuild summaries\"   (maintain via Claude Code instead of OpenCode)"
+  echo "  Also: vault-mocs  vault-profiles  vault-models  vault-bedrock  vault-reload  vault-gate"
+  echo "  Runtime (--cli, default ${SYNAPSE_CLI:-opencode}): opencode | claude | cursor | clip | print"
+  echo "  Cursor default model: auto (override: --model <id> or SYNAPSE_CURSOR_MODEL=...)"
+  echo "  Bedrock (opt-in): vault-bedrock on  or  SYNAPSE_CURSOR_BEDROCK=on"
 }
 
 vault-mocs() {
-  SYNAPSE_VAULT="$(__mx_vault)"   # reflect the vault you're standing in, not the baked path
+  SYNAPSE_VAULT="$(__mx_vault)"
   echo "Synapse vault MOC targets (pass as the second arg to any agent):"
   echo "  Usage: <agent> <moc-id> [--profile standard]"
   echo ""
@@ -353,26 +716,121 @@ vault-mocs() {
     printf '  %-24s %s\n' "$id" "$title"
   done
   echo ""
-  echo "  Also valid as targets: project-* / plan-* / note-* / contact-* / account-* / summary-*"
-  echo "  Discover: ls \$SYNAPSE_VAULT/moc"
+  echo "  Also valid: project-* / plan-* / note-* / contact-* / account-* / summary-*"
 }
 
 vault-profiles() {
   echo "Synapse vault profiles (context dial — presets of relationship ROLES, not hop counts):"
   echo ""
   printf '  %-10s %-30s %-12s %s\n' "Profile" "Roles pulled" "~Budget" "Best for"
-  printf '  %-10s %-30s %-12s %s\n' "lean" "self + rules/skills/tools/deleg" "~4K tok" "an agent + its rules/skills/tools, or a single unit note"
-  printf '  %-10s %-30s %-12s %s\n' "standard" "+ members/attach/navigate/refs" "~15K tok" "a domain MOC (pulls its members, attachments, refs)"
+  printf '  %-10s %-30s %-12s %s\n' "lean" "self + rules/skills/tools/deleg" "~4K tok" "an agent + its rules/skills/tools"
+  printf '  %-10s %-30s %-12s %s\n' "standard" "+ members/attach/navigate/refs" "~15K tok" "a domain MOC"
   printf '  %-10s %-30s %-12s %s\n' "fat" "+ transitive closure" "~30K tok" "deep dives / maximum context"
   echo ""
-  echo "  Rule of thumb: agents → their declared profile; MOCs → standard (auto-applied when target is moc-*)."
-  echo "  --dry-run previews the closure without rendering bodies."
+  echo "  Rule of thumb: agents → lean; MOCs → standard (auto when target is moc-*)."
 }
 
-# ── privacy gate toggle (host-level; the external-agent gate — see docs/doc-deployment-gate.md) ──
-# vault-gate on|off|status — flips the host sentinel the `vault-privacy-gate.sh` PreToolUse hook reads.
-#   off → external coding agent may enter the vault (scoped task) · on → vault sealed (default) · status.
-# No restart needed — the hook checks the sentinel on every call. Default is ON (sentinel absent).
+vault-models() {
+  cli="${SYNAPSE_CLI:-opencode}"
+  refresh=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --cli) cli="${2:-opencode}"; shift 2 ;;
+      --refresh) refresh="--refresh"; shift ;;
+      cursor|opencode|claude) cli="$1"; shift ;;
+      *) shift ;;
+    esac
+  done
+  if [ "$cli" = "cursor" ]; then
+    if __mx_cursor_bedrock_wanted; then
+      echo "── Bedrock status (SYNAPSE_CURSOR_BEDROCK=on) ──"
+      command -v cursor-agent >/dev/null 2>&1 && cursor-agent bedrock status 2>&1 | sed 's/^/  /' || echo "  cursor-agent not on PATH"
+      echo ""
+      echo "── Raw Bedrock model IDs ──"
+      __mx_cli_model_ids cursor $refresh 2>/dev/null | grep -E '^(us|eu|ap|sa)\.' | sed 's/^/  /' || echo "  (none)"
+      echo ""
+    elif __mx_cursor_bedrock_is_enabled; then
+      echo "── Bedrock ──"
+      echo "  configured in ~/.cursor/cli-config.json (off by default for Synapse — set SYNAPSE_CURSOR_BEDROCK=on to include tenant IDs)"
+      echo ""
+    fi
+    echo "── Cursor catalog ──"
+    __mx_cli_model_ids cursor $refresh 2>/dev/null | grep -v -E '^(us|eu|ap|sa)\.' | sed 's/^/  /'
+  else
+    echo "── Models for --cli $cli ──"
+    __mx_cli_model_ids "$cli" $refresh | sed 's/^/  /'
+  fi
+  echo ""
+  echo "Use:  <agent> --cli $cli --model <id> ..."
+  echo "Cache: $(__mx_models_cache "$cli")  (TTL ${SYNAPSE_MODELS_TTL:-3600}s; vault-models --cli $cli --refresh)"
+}
+
+# Alias for genesis-parity / cursor-focused docs
+vault-cursor-models() {
+  refresh=""; [ "${1:-}" = "--refresh" ] && refresh="--refresh"
+  vault-models --cli cursor $refresh
+}
+
+# Toggle / inspect AWS Bedrock via Cursor team-role (org subscription models).
+vault-bedrock() {
+  if ! command -v cursor-agent >/dev/null 2>&1; then
+    echo "cursor-agent not on PATH" >&2; return 127
+  fi
+  case "${1:-status}" in
+    on|enable|use-team-role)
+      if __mx_cursor_bedrock_ensure; then
+        cursor-agent bedrock status 2>&1 | sed 's/^/  /'
+      else
+        echo "Could not enable Bedrock team-role. Check: cursor-agent bedrock status" >&2
+        cursor-agent bedrock status 2>&1 | sed 's/^/  /' >&2
+        return 1
+      fi
+      ;;
+    off|disable)
+      cursor-agent bedrock disable 2>&1 | sed 's/^/  /'
+      rm -f "$(__mx_models_cache cursor)" 2>/dev/null
+      ;;
+    status)
+      if command -v cursor-agent >/dev/null 2>&1; then
+        cursor-agent bedrock status 2>&1 | sed 's/^/  /'
+      else
+        echo "  cursor-agent not on PATH" >&2
+        return 127
+      fi
+      echo ""
+      if __mx_cursor_bedrock_is_enabled; then
+        echo "  Raw Bedrock model IDs:"
+        __mx_cli_model_ids cursor --refresh 2>/dev/null \
+          | grep -E '^(us|eu|ap|sa)\.' | sed 's/^/    /' || echo "    (none)"
+      else
+        echo "  Bedrock off (default). Enable: vault-bedrock on  or  SYNAPSE_CURSOR_BEDROCK=on"
+      fi
+      ;;
+    *)
+      echo "usage: vault-bedrock on|off|status" >&2; return 2 ;;
+  esac
+}
+
+vault-reload() {
+  _mx_env="${_MX_REPO:-}/bin/synapse-env.sh"
+  if [ -f "$_mx_env" ]; then
+    # shellcheck disable=SC1090
+    . "$_mx_env"
+    echo "[synapse] re-sourced via $_mx_env"
+    return 0
+  fi
+  if [ -n "${ZSH_VERSION:-}" ]; then
+    _mx_self="${(%):-%x}"
+  elif [ -n "${BASH_VERSION:-}" ]; then
+    _mx_self="${BASH_SOURCE[0]}"
+  else
+    echo "vault-reload: re-source bin/synapse-env.sh manually" >&2; return 1
+  fi
+  # shellcheck disable=SC1090
+  . "$_mx_self"
+  echo "[synapse] agents.sh re-sourced from $_mx_self"
+}
+
 vault-gate() {
   case "${1:-status}" in
     off)    : > "$HOME/.claude/vault-gate-off" && echo "🔓 vault gate OFF — external agent may access the vault" ;;
@@ -381,3 +839,40 @@ vault-gate() {
     *)      echo "usage: vault-gate on|off|status" >&2; return 2 ;;
   esac
 }
+
+# ── auto-reload agents.sh when the file changes (edit it, next prompt picks it up) ──
+_MX_AGENTS_SH=""
+if [ -n "${ZSH_VERSION:-}" ]; then
+  _MX_AGENTS_SH="${(%):-%x}"
+elif [ -n "${BASH_VERSION:-}" ]; then
+  _MX_AGENTS_SH="${BASH_SOURCE[0]}"
+fi
+if [ -n "$_MX_AGENTS_SH" ] && [ -f "$_MX_AGENTS_SH" ]; then
+  _MX_AGENTS_MTIME="$(stat -c %Y "$_MX_AGENTS_SH" 2>/dev/null || stat -f %m "$_MX_AGENTS_SH" 2>/dev/null || echo 0)"
+  if [ -n "${ZSH_VERSION:-}" ]; then
+  __mx_autoreload() {
+    _mt="$(stat -c %Y "$_MX_AGENTS_SH" 2>/dev/null || stat -f %m "$_MX_AGENTS_SH" 2>/dev/null || echo 0)"
+    if [ "$_mt" != "${_MX_AGENTS_MTIME:-0}" ]; then
+      _MX_AGENTS_MTIME="$_mt"
+      # shellcheck disable=SC1090
+      . "$_MX_AGENTS_SH" 2>/dev/null
+    fi
+  }
+  if typeset -f add-zsh-hook >/dev/null 2>&1; then
+    add-zsh-hook precmd __mx_autoreload
+  fi
+  elif [ -n "${BASH_VERSION:-}" ]; then
+    __mx_autoreload() {
+      _mt="$(stat -c %Y "$_MX_AGENTS_SH" 2>/dev/null || stat -f %m "$_MX_AGENTS_SH" 2>/dev/null || echo 0)"
+      if [ "$_mt" != "${_MX_AGENTS_MTIME:-0}" ]; then
+        _MX_AGENTS_MTIME="$_mt"
+        # shellcheck disable=SC1090
+        . "$_MX_AGENTS_SH" 2>/dev/null
+      fi
+    }
+    case "${PROMPT_COMMAND:-}" in
+      *__mx_autoreload*) ;;
+      *) PROMPT_COMMAND="__mx_autoreload${PROMPT_COMMAND:+; $PROMPT_COMMAND}" ;;
+    esac
+  fi
+fi

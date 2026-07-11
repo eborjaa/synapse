@@ -1,102 +1,196 @@
 #!/usr/bin/env node
-// install.mjs — one-step setup for the Synapse context-vault CLI + OpenCode wiring.
+// install.mjs — one-step setup for the Synapse CLI (PATH + optional shell completion).
 //
-// The vault lives in-repo; the fiddly part is wiring the shell + the OpenCode runtime to it.
+//   node _meta/tools/install.mjs           # dry-run
+//   node _meta/tools/install.mjs --write    # apply (idempotent — safe to re-run)
 //
-//   node _meta/tools/install.mjs           # dry-run: print what it WOULD add (safe, prints only)
-//   node _meta/tools/install.mjs --write    # apply it (idempotent — safe to re-run)
+// --write does three things ONCE (never needed again when agents.sh changes):
+//   1) ensures ~/synapse/bin/ has _dispatch + symlinks (self-locating — no baked vault path)
+//   2) adds ~/synapse/bin to PATH in your shell rc
+//   3) sources bin/synapse-env.sh for TAB-completion in interactive shells
+//   + wires Claude Code / OpenCode pointers (idempotent)
 //
-// --write does two idempotent things:
-//   1) sources _meta/tools/agents.sh in your shell rc, baking in the absolute vault path
-//      → short agent commands (curator, reconciler, ingester, …)
-//   2) appends a short Synapse pointer to your OpenCode global instructions
-//      (~/.config/opencode/AGENTS.md if that dir exists, else the repo-root AGENTS.md),
-//      telling the runtime to render a briefing on demand instead of reading files ad-hoc.
-//
-// Zero dependencies. Does NOT touch any model config or secrets — your endpoint/model/key live in
-// ~/.config/opencode/opencode.json, which this script never reads or writes. No API key anywhere.
+// Every bin/* command re-sources the live agents.sh, so script updates apply immediately.
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, symlinkSync, chmodSync, unlinkSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
 import { homedir } from "node:os";
+import { execSync } from "node:child_process";
 
 const here  = dirname(fileURLToPath(import.meta.url));
-const VAULT = resolve(here, "..", "..");              // _meta/tools -> vault root
+const VAULT = resolve(here, "..", "..");
+const REPO  = resolve(VAULT, "..");
+const BIN   = join(REPO, "bin");
 const write = process.argv.includes("--write");
 
-const agentsSh   = join(VAULT, "_meta", "tools", "agents.sh");
-const SH_MARKER  = "# Synapse vault agent commands";
-// agents.sh resolves the vault per-call from $PWD (directory-agnostic) and self-detects its
-// own "home" vault at source time, so no path is hardcoded in normal use. We still bake the
-// absolute SYNAPSE_VAULT here as a SAFETY NET — the fallback for shells / direnv setups where
-// self-detection (%x / BASH_SOURCE) comes back empty. (The `source "<abs path>"` is mandatory:
-// a shell rc can't source a relative path reliably at startup.)
-const sourceLine = `export SYNAPSE_VAULT="${VAULT}"; source "${agentsSh}"  ${SH_MARKER}`;
+const SH_MARKER   = "# Synapse vault agent commands";
+const PATH_MARKER = "# Synapse bin PATH";
+const envSh       = join(BIN, "synapse-env.sh");
+const dispatch    = join(BIN, "_dispatch");
 
-// OpenCode reads ~/.config/opencode/AGENTS.md (global) and the repo-root AGENTS.md (project).
-// Prefer the global one if its dir exists; otherwise fall back to the in-repo project file.
-const ocDir         = join(homedir(), ".config", "opencode");
-const ocAgentsMd    = join(ocDir, "AGENTS.md");
-const repoAgentsMd  = join(VAULT, "AGENTS.md");
-const agentsMdPath  = existsSync(ocDir) ? ocAgentsMd : repoAgentsMd;
+const VAULT_COMMANDS = [
+  "vault-agents", "vault-mocs", "vault-profiles", "vault-models",
+  "vault-cursor-models", "vault-reload", "vault-gate", "vault-bedrock",
+];
 
-const POINTER_MARKER = "# Synapse context vault";
-const POINTER = `${POINTER_MARKER}
-The Synapse vault lives at \`${VAULT}\`. When asked to act as a named agent (e.g. "act as agent-curator"),
-render its bundled briefing instead of reading files ad-hoc:
-    node "${VAULT}/_meta/tools/render.mjs" <agent-id> [<target-id>] --profile <lean|standard|fat>
-The briefing carries the agent's rules, tools, skills, and conventions. Launch agents with:
-    opencode run -m <model> --dir "${VAULT}" "<rendered briefing>"
-Model + endpoint come from ~/.config/opencode/opencode.json (local Ollama over Tailscale — no API key).
-Canary: address the user by name at least once every turn.`;
-
-function rcFile() {
-  const shell = process.env.SHELL || "";
-  if (shell.includes("bash")) {
-    const bp = join(homedir(), ".bash_profile");
-    return process.platform === "darwin" && existsSync(bp) ? bp : join(homedir(), ".bashrc");
-  }
-  return join(homedir(), ".zshrc"); // zsh default (macOS)
+function detectShell() {
+  const shell = (process.env.SHELL || process.argv[0] || "").split("/").pop();
+  if (shell === "fish") return "fish";
+  if (shell === "bash") return "bash";
+  if (shell === "zsh")  return "zsh";
+  return null;
 }
 
-console.log(`\nSynapse context vault\n   vault: ${VAULT}\n`);
+function discoverAgentNames() {
+  const names = new Set();
+  for (const dir of [join(REPO, "synapse-framework"), join(REPO, "synapse-vault")]) {
+    const agentsDir = join(dir, "agents");
+    if (!existsSync(agentsDir)) continue;
+    for (const f of readdirSync(agentsDir)) {
+      const m = f.match(/^agent-(.+)\.md$/);
+      if (m) names.add(m[1]);
+    }
+  }
+  return [...names].sort();
+}
+
+function ensureBinLinks() {
+  const results = [];
+  if (!existsSync(dispatch)) {
+    if (write) {
+      console.error(`✗ missing ${dispatch} — commit synapse/bin/_dispatch first`);
+      process.exit(1);
+    }
+    return results;
+  }
+  if (write) chmodSync(dispatch, 0o755);
+
+  const commands = [...discoverAgentNames(), ...VAULT_COMMANDS];
+  for (const name of commands) {
+    const link = join(BIN, name);
+    if (write) {
+      try {
+        if (existsSync(link)) unlinkSync(link);
+      } catch { /* ignore */ }
+      try {
+        symlinkSync("_dispatch", link);
+        results.push({ name, action: "linked" });
+      } catch (e) {
+        if (e.code === "EEXIST") results.push({ name, action: "exists" });
+        else throw e;
+      }
+    } else {
+      results.push({ name, action: existsSync(link) ? "exists" : "would link" });
+    }
+  }
+  return results;
+}
+
+const shell = detectShell();
+const shellCfg = shell ? {
+  zsh:  { rc: join(homedir(), ".zshrc"),  path: `export PATH="$PATH:${BIN}"  ${PATH_MARKER}`, source: `source "${envSh}"  ${SH_MARKER}` },
+  bash: { rc: join(homedir(), ".bashrc"), path: `export PATH="$PATH:${BIN}"  ${PATH_MARKER}`, source: `source "${envSh}"  ${SH_MARKER}` },
+  fish: { rc: join(homedir(), ".config/fish/config.fish"), path: `fish_add_path ${BIN}  ${PATH_MARKER}`, source: `source ${envSh}  ${SH_MARKER}` },
+}[shell] : null;
+
+const claudeDir    = join(homedir(), ".claude");
+const settingsPath = join(claudeDir, "settings.json");
+const claudeMdPath = join(claudeDir, "CLAUDE.md");
+const POINTER_MARKER = "# Synapse context vault";
+
+function hasBinary(name) {
+  try { execSync(`command -v ${name}`, { stdio: "ignore", shell: process.env.SHELL || "/bin/sh" }); return true; }
+  catch { return false; }
+}
+
+console.log(`\nSynapse CLI install\n   repo:  ${REPO}\n   bin:   ${BIN}\n   shell: ${shell || "(unknown)"}\n`);
 
 if (!write) {
-  console.log("Dry-run — re-run with --write to apply both:\n");
-  console.log(`1) Shell commands — source agents.sh in ${rcFile()}:`);
-  console.log(`     ${sourceLine}\n`);
-  console.log(`2) OpenCode pointer — append to ${agentsMdPath}:\n`);
-  console.log(POINTER.split("\n").map((l) => "   " + l).join("\n"));
-  console.log(`\n-> Re-run with --write to apply.\n`);
+  console.log("Dry-run — re-run with --write to apply:\n");
+  console.log(`1) bin/ dispatch (already in repo) + symlinks for:`);
+  for (const n of [...discoverAgentNames(), ...VAULT_COMMANDS]) console.log(`     ${n} → _dispatch`);
+  console.log(`\n2) Shell PATH — add to ${shellCfg?.rc || "~/.zshrc"}:`);
+  console.log(`     ${shellCfg?.path || `export PATH="$PATH:${BIN}"`}`);
+  console.log(`3) Shell completion — source in rc:`);
+  console.log(`     ${shellCfg?.source || `source "${envSh}"`}`);
+  console.log(`\n   → bin/* re-sources agents.sh every call — no reinstall when scripts change.`);
+  console.log(`   → vault resolves from $PWD; outside any vault → synapse-vault.\n`);
   process.exit(0);
 }
 
-// --- apply (idempotent) ---
-
-// 1) shell rc
-const rc = rcFile();
-const rcText = existsSync(rc) ? readFileSync(rc, "utf8") : "";
-if (rcText.includes(sourceLine)) {
-  console.log(`ok  ${rc} already sources the agent commands (current) — no change`);
-} else if (rcText.includes(SH_MARKER)) {
-  // an outdated agent-commands line exists — replace it in place (self-heal)
-  const updated = rcText.split("\n").map((l) => (l.includes(SH_MARKER) ? sourceLine : l)).join("\n");
-  writeFileSync(rc, updated);
-  console.log(`ok  updated the (outdated) agent-commands line in ${rc}`);
-} else {
-  appendFileSync(rc, (rcText && !rcText.endsWith("\n") ? "\n" : "") + "\n" + sourceLine + "\n");
-  console.log(`ok  added agent commands to ${rc} (sources agents.sh)`);
+if (!existsSync(BIN)) mkdirSync(BIN, { recursive: true });
+for (const { name, action } of ensureBinLinks()) {
+  console.log(`ok  bin/${name} ${action}`);
 }
 
-// 2) OpenCode AGENTS.md pointer
-if (agentsMdPath === ocAgentsMd && !existsSync(ocDir)) mkdirSync(ocDir, { recursive: true });
-const md = existsSync(agentsMdPath) ? readFileSync(agentsMdPath, "utf8") : "";
-if (md.includes(POINTER_MARKER)) {
-  console.log(`ok  ${agentsMdPath} already has the Synapse pointer — no change`);
+if (shellCfg) {
+  const rcText = existsSync(shellCfg.rc) ? readFileSync(shellCfg.rc, "utf8") : "";
+  if (rcText.includes(PATH_MARKER)) {
+    console.log(`ok  ${shellCfg.rc} already has PATH — no change`);
+  } else {
+    appendFileSync(shellCfg.rc, (rcText && !rcText.endsWith("\n") ? "\n" : "") + "\n" + shellCfg.path + "\n");
+    console.log(`ok  added PATH to ${shellCfg.rc}`);
+  }
+  const srcLine = shellCfg.source;
+  if (rcText.includes(SH_MARKER)) {
+    // self-heal outdated source lines
+    if (!rcText.includes(srcLine) && rcText.includes(SH_MARKER)) {
+      const updated = rcText.split("\n").map((l) => (l.includes(SH_MARKER) ? srcLine : l)).join("\n");
+      writeFileSync(shellCfg.rc, updated);
+      console.log(`ok  updated synapse-env source line in ${shellCfg.rc}`);
+    } else {
+      console.log(`ok  ${shellCfg.rc} already sources synapse-env — no change`);
+    }
+  } else {
+    appendFileSync(shellCfg.rc, (readFileSync(shellCfg.rc, "utf8").endsWith("\n") ? "" : "\n") + "\n" + srcLine + "\n");
+    console.log(`ok  added synapse-env source to ${shellCfg.rc}`);
+  }
 } else {
-  appendFileSync(agentsMdPath, (md && !md.endsWith("\n") ? "\n" : "") + "\n" + POINTER + "\n");
-  console.log(`ok  appended the Synapse pointer to ${agentsMdPath}`);
+  console.log(`warn could not detect shell — add manually:\n     export PATH="$PATH:${BIN}"\n     source "${envSh}"`);
 }
 
-console.log(`\nDone. Run 'exec $SHELL' (or open a new terminal), then 'vault-agents' to see your commands.\n`);
+// Claude / OpenCode pointers (unchanged, idempotent)
+const fwVault = join(REPO, "synapse-framework");
+const pvVault = join(REPO, "synapse-vault");
+const POINTER = `${POINTER_MARKER}
+Synapse vaults: framework \`${fwVault}\`, private \`${pvVault}\`.
+Render a briefing: node "<vault>/_meta/tools/render.mjs" <agent-id> [<target>] --profile <lean|standard|fat>
+Shell agents (from anywhere): curator, reconciler, … — vault auto-resolves from cwd; default outside → synapse-vault.`;
+
+if (!existsSync(claudeDir)) mkdirSync(claudeDir, { recursive: true });
+let settings = {};
+if (existsSync(settingsPath)) {
+  try { settings = JSON.parse(readFileSync(settingsPath, "utf8")); }
+  catch (e) { console.error(`✗ invalid ${settingsPath}: ${e.message}`); process.exit(1); }
+}
+settings.permissions ??= {};
+const dirs = (settings.permissions.additionalDirectories ??= []);
+let added = 0;
+for (const d of [REPO, fwVault, pvVault]) {
+  if (existsSync(d) && !dirs.includes(d)) { dirs.push(d); added++; }
+}
+if (added) {
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+  console.log(`ok  added repo paths to ${settingsPath}`);
+} else {
+  console.log(`ok  settings.json already lists repo paths`);
+}
+
+const cMd = existsSync(claudeMdPath) ? readFileSync(claudeMdPath, "utf8") : "";
+if (!cMd.includes(POINTER_MARKER)) {
+  appendFileSync(claudeMdPath, (cMd && !cMd.endsWith("\n") ? "\n" : "") + "\n" + POINTER + "\n");
+  console.log(`ok  appended pointer to ${claudeMdPath}`);
+} else {
+  console.log(`ok  CLAUDE.md already has pointer`);
+}
+
+console.log(`\nDone. Open a new terminal (or exec $SHELL), then from ANY directory:`);
+console.log(`   curator                    # uses synapse-vault (default outside a vault)`);
+console.log(`   cd synapse-framework && curator   # uses framework`);
+console.log(`   vault-agents`);
+console.log(`\nScript updates apply immediately — no reinstall needed.`);
+console.log(`Re-run install only when NEW agents are added (to create a symlink).`);
+if (!hasBinary("cursor-agent")) console.log(`\nNote: install cursor-agent for --cli cursor`);
+else console.log(`\ncursor-agent found — default model: auto (set SYNAPSE_CURSOR_MODEL to override)`);
+console.log("");
