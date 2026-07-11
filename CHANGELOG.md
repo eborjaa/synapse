@@ -2,6 +2,15 @@
 
 All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## 0.1.1 — 2026-07-11
+
+### Fixed
+- First public publish under `@eborja/synapse`. Version `0.1.0` was reserved on the registry during an
+  auth-retry (npm forbids republishing a used version even when the package page 404s), so the release
+  ships as **0.1.1**.
+
+Install: `npm install @eborja/synapse@^0.1.1`
+
 ## 0.1.0 — 2026-07-11
 
 Initial distributable release of the context-vault engine as an npm package. The tooling that previously lived only under `_meta/tools/` in the template now ships as `@eborja/synapse` — consumers keep their vault content and a local `context.manifest.json`; the engine resolves the vault via `$SYNAPSE_VAULT` or an ancestor walk.
@@ -28,7 +37,7 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.0"
+"@eborja/synapse": "^0.1.1"
 // or: "github:eborjaa/synapse#v0.1.0"
 ```
 
