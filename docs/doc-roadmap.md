@@ -43,10 +43,10 @@ entirely local ([[decision-0005-hybrid-retrieval]], [[doc-semantic-recall]]):
   pure `render.mjs` briefing, additive and non-authoritative ([[rule-semantic-suggests-links-decide]]).
 
 ## Phase 5 — Open-source release (framework)
-Released as a public GitHub **Template** repo — a generic, data-agnostic framework others instantiate as
-their own private vault, tracking this repo as `upstream` ([[doc-fork-and-extend]]):
+Released as a public GitHub repo others can **template or clone**, then pin the engine as
+`@eborjaa/synapse` ([[doc-fork-and-extend]]):
 - MIT license, `CONTRIBUTING.md`, and issue/PR templates; the lint gate as the contribution bar.
-- The two-repo model (framework vs. your vault) and the by-directory framework/instance boundary.
+- Engine package vs private vault: npm dependency for tooling; optional `upstream` for reference notes.
 - Ownership recorded generically in `vault_meta` (seeded by the user via `0002-owner.sql`), no personal
   data in the framework.
 

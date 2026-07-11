@@ -15,7 +15,7 @@ related: ["[[hub-synapse]]"]
 Privacy is a *core intention*, not a feature: **your data never leaves hardware you control.** This note
 describes the intended on-disk layout, the host-level gate that lets an external AI coding agent maintain
 the public framework while your private vault stays sealed, and why that boundary is agent-scoped. It is
-the deployment-time companion to the two-repo model ([[doc-fork-and-extend]]) and the runtime privacy
+the deployment-time companion to the engine-package vs vault model ([[doc-fork-and-extend]]) and the runtime privacy
 posture ([[doc-security-privacy]]).
 
 ## The intended layout — one parent, two repos side by side
@@ -28,8 +28,8 @@ synapse/
 └── synapse-vault/       # YOUR PRIVATE vault — personal records, knowledge, db/synapse.db
 ```
 
-This is the on-disk realization of the two-layer architecture ([[doc-fork-and-extend]]): the framework is
-the upstream-tracked template (read and maintained freely); the vault is your private `origin` where
+This is the on-disk realization of the two-layer architecture ([[doc-fork-and-extend]]): the engine is
+the npm package (reference notes optional via upstream) (read and maintained freely); the vault is your private `origin` where
 knowledge and records actually live. Keeping them as siblings under one parent is what makes the gate
 below expressible as a single path boundary.
 

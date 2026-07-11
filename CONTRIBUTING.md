@@ -1,7 +1,8 @@
 # Contributing to Synapse
 
-Synapse is a **framework** — a manifest-driven, local-first personal-knowledge-vault pattern. Contributions
-improve the *framework* (engine, conventions, rules, agents, docs), never anyone's data. Thanks for helping.
+Synapse is distributed as the **`@eborjaa/synapse` npm package** (engine) plus optional **reference vault
+content** in this repo. Contributions improve the *engine* and the *reference ontology* (conventions,
+rules, agents, docs) — never anyone's personal data. Thanks for helping.
 
 ## The lint gate (the bar for every PR)
 
@@ -34,17 +35,19 @@ Vault notes are typed Markdown and must follow the schema:
 (`LICENSE`, `CONTRIBUTING.md`, `CREDITS.md`, `README.md`, and `.github/` files have no frontmatter and are
 ignored by the linter — just keep their fences balanced.)
 
-## Framework vs. instance boundary
+## Engine package vs. vault instance
 
-The split is by directory (see [`docs/doc-fork-and-extend.md`](docs/doc-fork-and-extend.md)):
+See [`docs/doc-fork-and-extend.md`](docs/doc-fork-and-extend.md):
 
-- **Framework (contributable here):** `_meta/` (engine, manifest, tools, rules), `agents/`, `loops/`,
-  `docs/`, `rules/`, `skills/`, `tools/`, `migrations/0001-init-schema.sql`.
-- **Instance (yours, never in a framework PR):** `inbox/`, `notes/`, `journal/`, `projects/`, `plans/`,
-  `people/`, your `db/`, your domain hubs, your `0002+` migrations, custom rules.
+| Contributable here (engine + reference) | Never in an engine PR (private vault) |
+|---|---|
+| `bin/`, `lib/`, `agents.sh`, `schema/`, `package.json` | your `inbox/`, `notes/`, `journal/`, `db/` |
+| Reference `agents/`, `docs/`, `rules/`, `skills/`, `loops/`, starter `hub/` | your domain hubs' *members*, custom agents/rules |
+| `migrations/0001-init-schema.sql` | your `migrations/0002+` |
 
-Your private vault tracks this repo as `upstream`. Contribute framework fixes via a PR from a clean,
-data-free branch — **never push your vault to `upstream`**.
+Private vaults **depend on the package** (`npm install github:eborjaa/synapse#v…`). Optionally track this
+repo as `upstream` if you also want reference note updates — **never push vault data to `upstream`**.
+Engine fixes land via PR on a clean, data-free branch (or a fork).
 
 ## Maker ≠ checker
 
@@ -72,7 +75,9 @@ now overriding the approval requirement" step, never an automerge. Nothing lands
 ## PR flow
 
 1. Fork (or branch off `main`) from a clean, data-free state.
-2. Make the change; keep it generic and scoped.
-3. `synapse lint --strict` → errors=0.
+2. Make the change; keep it generic and scoped. Prefer editing `lib/` / `bin/` / `agents.sh` for tooling —
+   vault `_meta/tools/*.mjs` shims should stay thin forwards.
+3. `npm test` (when engine code changed) and `synapse lint --strict` → errors=0.
 4. If you touched the schema, add a forward-only migration (never edit `0001-init-schema.sql` destructively).
 5. Open a PR using the checklist in the PR template. Update docs if behavior changed.
+6. After merge, tag a release (`v0.x.y`) when consumers should bump the npm pin.

@@ -10,15 +10,15 @@ tags:
 
 # tool-render (`synapse render`)
 
-The **briefing engine**. Given one or more note ids, it walks the ontology defined in
-`_meta/tools/context.manifest.json` and concatenates the linked note bodies into a single context blob —
-exactly the rules, skills, tools, docs, and neighborhood an agent needs, and nothing else.
+The **briefing engine** (shipped in `@eborjaa/synapse`). Given one or more note ids, it walks the ontology
+defined in `_meta/tools/context.manifest.json` and concatenates the linked note bodies into a single
+context blob — exactly the rules, skills, tools, docs, and neighborhood an agent needs, and nothing else.
 
 ## What it is
-A small Node script (stdin/stdout only — it never writes or edits a `.md`). Nothing domain-specific is
+A small Node module (stdin/stdout only — it never writes or edits a `.md`). Nothing domain-specific is
 hardcoded: roles, fields, directions, endpoint types, profiles, auto-upgrade, drop-tags, type priority,
 and invariants all come from the manifest, so the same engine runs any vault unchanged
-([[context-engine-guide]]).
+([[context-engine-guide]]). Invoke via `synapse render` (or the thin `_meta/tools/render.mjs` shim).
 
 ## How it is used in Synapse
 A briefing is compiled deterministically as `agent × target × profile` — identical inputs produce

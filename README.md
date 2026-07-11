@@ -192,29 +192,43 @@ framework is fully PR-gated, vault Markdown self-heals, and the records DB is ga
 
 ---
 
-## 🌱 Get started (use this template)
+## 🌱 Get started
 
-Synapse ships **two layers** in one repo:
+Synapse ships **two layers**:
 
 1. **`@eborjaa/synapse`** — the publishable tooling package (`bin/`, `lib/`, `agents.sh`, `schema/`).
-2. **Reference vault content** — agents, rules, docs, starter hubs, `migrations/0001-*.sql` (not in the
-   npm `files` list; kept here so you can instantiate a private vault).
+2. **Reference vault content** in this repo — agents, rules, docs, starter hubs, `migrations/0001-*.sql`
+   (not in the npm tarball; kept so you can copy a private vault).
 
-1. **Use this template / clone.** Click **"Use this template"** on GitHub (or `git clone` it), then open
-   the new repo as your private vault — **or** `npm install` the engine into an existing vault (below).
-2. **Prerequisites.**
-   - **Node 22+** (built-in `node:sqlite` — no native deps). A `.nvmrc` pins `22`.
-   - **OpenCode** (`opencode-ai`) on PATH — the agent runtime (or Claude / Cursor via `--cli`).
-   - **Ollama** reachable (local or over Tailscale) — the model + embedding server.
-   - `ollama pull mxbai-embed-large` — the default embedding model for semantic recall (`synapse setup`).
-3. **Wire the CLI.** `npx synapse install` (dry-run), then `--write` (idempotent). `exec $SHELL`.
-4. **Create the records DB.** `npx synapse migrate` applies `0001-init-schema.sql` →
-   a fresh `db/synapse.db` (gitignored, replayable from migrations).
-5. **Make it yours.** Set your name for the nightly canary (`export VAULT_USER="Your Name"`), and record
-   ownership in the DB: copy `migrations/0002-owner.sql.example` → `migrations/0002-owner.sql`, fill it in,
-   then `synapse migrate` again.
-6. **Start capturing.** Append freeform thoughts to `inbox/`, then let `ingester` atomize them — see
-   **A day in the life** above.
+### Option A — new private vault (recommended)
+
+```bash
+mkdir my-vault && cd my-vault
+npm init -y
+npm install github:eborjaa/synapse#v0.1.0
+# copy schema example → your ontology dial
+mkdir -p _meta/tools
+cp node_modules/@eborjaa/synapse/schema/context.manifest.example.json \
+   _meta/tools/context.manifest.json
+# copy starter agents/rules/hubs from the template repo if you want them, or author your own
+npx synapse setup --write      # Ollama + embed model (optional)
+npx synapse install --write    # shell CLI + editor wiring
+npx synapse migrate            # create db/synapse.db from migrations/
+exec $SHELL
+synapse agents && synapse hubs
+```
+
+### Option B — use this repo as a template
+
+1. Click **"Use this template"** (or clone), keep it **private**, and treat it as your vault.
+2. **Prerequisites:** Node 22+ (`.nvmrc` pins `22`), OpenCode (or Claude/Cursor via `--cli`), Ollama.
+3. From the vault root: `npm install` (links `@eborjaa/synapse` if present) → `npx synapse install --write`
+   → `npx synapse migrate` → `exec $SHELL`.
+4. Set `export VAULT_USER="Your Name"`, fill `migrations/0002-owner.sql` from the example, migrate again.
+5. Capture into `inbox/`, then `ingester …`.
+
+Updating the engine later is an **npm bump**, not a git merge of tooling files. See
+[`doc-fork-and-extend`](docs/doc-fork-and-extend.md).
 
 ---
 
@@ -255,6 +269,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 | `synapse embeddings` | Rebuild `note_vectors` |
 | `synapse index` / `views` / `migrate` | SQL projections + migrations |
 | `synapse setup` / `install` | Runtime + shell wiring |
+| `synapse agents` / `hubs` / `help` | Shell discovery (after `install --write`; `vault-*` equals) |
 
 ---
 
@@ -264,7 +279,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 - **Browse the graph in Obsidian** (color-coded by type) → [`doc-repo-layout`](docs/doc-repo-layout.md)
 - **The privacy gate** (framework readable, vault sealed; `vault-gate on|off`) → [`doc-deployment-gate`](docs/doc-deployment-gate.md)
 - **Staying healthy** (lint, pre-commit hook, the nightly curator loop) → [`doc-maintainer-loop`](docs/doc-maintainer-loop.md) · [`loop-maintain-synapse`](loops/loop-maintain-synapse.md)
-- **Two-repo model** (framework vs. your private vault, pulling upstream updates) → [`doc-fork-and-extend`](docs/doc-fork-and-extend.md)
+- **Engine package** (`@eborjaa/synapse` vs your private vault; npm bump to update tooling) → [`doc-fork-and-extend`](docs/doc-fork-and-extend.md)
 - **Extending** (new note / rule / agent / domain / migration) → [`_meta/conventions.md`](_meta/conventions.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **The vision & full architecture** → [`doc-vision`](docs/doc-vision.md) · [`hub-synapse`](hub-synapse.md)
 

@@ -30,8 +30,8 @@ The design notes, in reading order:
 - [[doc-semantic-recall]] — the opt-in hybrid-retrieval layer: deterministic render + local-embedding
   augment ([[decision-0005-hybrid-retrieval]], [[tool-ollama-embeddings]]).
 - [[doc-security-privacy]] — the privacy boundary (private repo, no public endpoint).
-- [[doc-fork-and-extend]] — framework vs. your vault: the two-repo model (`origin` private, `upstream`
-  the framework) and the by-directory boundary.
+- [[doc-fork-and-extend]] — engine package (`@eborjaa/synapse`) vs. your private vault: depend via npm;
+  optionally track this repo as `upstream` for reference notes.
 - [[doc-deployment-gate]] — the intended one-parent layout and the host-level privacy gate: an external
   coding agent maintains the framework while the vault stays sealed (local-only, data never leaves your
   hardware).

@@ -12,15 +12,16 @@ related: ["[[hub-synapse]]"]
 
 # How the context engine works
 
-A plain-language tour of the briefing engine: how `render.mjs` reads `context.manifest.json`, the three
-profiles, and how a deterministic briefing is assembled. The companion to [[conventions]] (the schema)
-and [[tool-render]] (the command). Examples here are illustrative — this note lives under `_meta/`, which
-the linter excludes from link checks.
+A plain-language tour of the briefing engine in **`@eborjaa/synapse`**: how `synapse render` reads your
+vault's `context.manifest.json`, the three profiles, and how a deterministic briefing is assembled. The
+companion to [[conventions]] (the schema) and [[tool-render]] (the command). Examples here are illustrative
+— this note lives under `_meta/`, which the linter excludes from link checks.
 
 ## One manifest, no hardcoding
-`render.mjs` hardcodes nothing domain-specific. Roles, fields, directions, endpoint types, profiles,
-token budgets, auto-upgrade, drop-tags, type priority, and invariants **all** come from
-`_meta/tools/context.manifest.json`. The same engine runs any vault's manifest unchanged.
+The engine hardcodes nothing domain-specific. Roles, fields, directions, endpoint types, profiles,
+token budgets, excerpting, auto-upgrade, drop-tags, type priority, and invariants **all** come from
+`_meta/tools/context.manifest.json` (copy `schema/context.manifest.example.json` from the package). The
+same engine runs any vault's manifest unchanged.
 
 ## Roles → fields → directions → endpointTypes
 A note's frontmatter fields are *edges*. The manifest maps each field to a **role** with a traversal
@@ -43,20 +44,17 @@ either a member that rolls up under a hub (BINDS, surfaced in reverse as `member
 attachment (ATTACHES) — never both.
 
 ## The three profiles and their token budgets
-A profile selects which roles to include in the closure. Token budgets are guideline ceilings
-(`chars / 4`):
+A profile selects which **roles** to include (and optional `pointerRoles` / per-role `depth`). Token budgets
+are guideline ceilings (`chars / 4`); `excerptChars` truncates non-mandatory bodies under the dial:
 
-- **lean** (~4000 tokens) — `self`, CONSTRAINS, USES, DELEGATES. The note plus its rules, tools/skills,
-  and delegations. At lean, notes tagged `status/draft` are dropped (`dropTagsAtLean`).
-- **standard** (~15000) — adds `target`, `members`, ATTACHES, `NAVIGATES@1` (hubs one hop out), and
-  REFERENCES. The default working briefing.
-- **fat** (~30000) — like standard but **transitive** over NAVIGATES and members: a fixpoint BFS that
-  keeps expanding those two roles from every reached node, pulling in the wider neighborhood.
-
-`ROLE@N` (e.g. `NAVIGATES@1`) caps a role to N hops via a BFS seeded from the start ids.
+- **lean** (~4000 tokens) — CONSTRAINS, USES, DELEGATES (delegates often as one-line pointers). At lean,
+  notes tagged `status/draft` are dropped (`dropTagsAtLean`).
+- **standard** (~15000) — adds BINDS (members), ATTACHES, NAVIGATES (depth 1), REFERENCES. The default
+  working briefing for a hub.
+- **fat** (~30000) — same roles with high depth / transitive closure for deep dives.
 
 ## agent × target × profile → a deterministic briefing
-`render.mjs <agent> <target> --profile <p>` walks the role closure from those start ids and concatenates
+`synapse render <agent> <target> --profile <p>` walks the role closure from those start ids and concatenates
 the linked note **bodies** into one blob. Ordering is fixed — start ids first (in the order given), then
 the manifest's `typePriority`, tie-broken by name — so identical (ids + flags) produce **byte-identical**
 output. That determinism is what makes agent runs reproducible.
@@ -70,11 +68,11 @@ synapse render agent-curator loop-maintain-synapse --profile standard
 means rendering a `hub` at lean auto-upgrades to standard (idempotent) — a hub is useless without its
 members.
 
-## How `lint.mjs` enforces the schema
-`render.mjs --lint` checks the manifest's `invariants` over the whole index — e.g. every non-master `hub`
+## How `synapse lint` / `synapse render --lint` enforce the schema
+`synapse render --lint` checks the manifest's `invariants` over the whole index — e.g. every non-master `hub`
 at `standard` must have `members>=1` and stay within `3*median` tokens (thresholds may be literals or
 cohort statistics like `median`/`p90`, so budgets self-scale as the vault grows). Separately,
-[[tool-lint]] enforces the per-note schema — frontmatter completeness, prefix↔type match, the
+[[tool-lint]] (`synapse lint`) enforces the per-note schema — frontmatter completeness, prefix↔type match, the
 `#type/<type>` tag, balanced fences, no secrets — so the engine can trust every note it traverses.
 
 ## Complemented by semantic recall (opt-in, separate)

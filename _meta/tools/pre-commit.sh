@@ -18,7 +18,12 @@ staged="$(git diff --cached --name-only)"
 # Vault touch = any staged Markdown note, the migrations dir, the manifest, or AGENTS.md.
 if echo "$staged" | grep -qE '(\.md$|^migrations/|^_meta/tools/context\.manifest\.json$|^AGENTS\.md$)'; then
   echo "[pre-commit] vault touched -> linting (strict)..."
-  if ! node "$REPO/_meta/tools/lint.mjs" --strict; then
+  if command -v synapse >/dev/null 2>&1; then
+    if ! synapse lint --strict; then
+      echo "[pre-commit] FAIL: vault lint failed. Fix the errors above, or bypass with 'git commit --no-verify'." >&2
+      exit 1
+    fi
+  elif ! node "$REPO/_meta/tools/lint.mjs" --strict; then
     echo "[pre-commit] FAIL: vault lint failed. Fix the errors above, or bypass with 'git commit --no-verify'." >&2
     exit 1
   fi

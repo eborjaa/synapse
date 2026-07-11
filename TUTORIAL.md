@@ -13,7 +13,7 @@
    example is a real note or command in *this* vault; nothing here is hypothetical, and every closure
    number below was produced by running the command shown against the live vault.
 2. **Guided by your agent** — Synapse agents run on **OpenCode** against a **local Ollama** model over
-   Tailscale (no API key, no cloud). Once you've sourced the launcher (`source _meta/tools/agents.sh`),
+   Tailscale (no API key, no cloud). Once you've run `synapse install --write` (sources the package `agents.sh`),
    open a session and paste:
 
    > Read TUTORIAL.md and give me the guided tour. Go lesson by lesson: explain each concept, then SHOW me with a real file from this vault (open it, point at the lines), and give me one small exercise before moving on. Start with Lesson 0.
@@ -365,7 +365,7 @@ There's no template dir — you scaffold from an existing note:
 4. **Validate + try it:** `synapse lint`, then
    `synapse render agent-<slug> --profile lean --dry-run` to see exactly what the closure
    pulls in (dry-run lists the notes without printing the blob).
-5. **No registration step.** `agents.sh` auto-discovers the new agent on next `source _meta/tools/agents.sh`
+5. **No registration step.** `agents.sh` auto-discovers the new agent on the next prompt (or run `synapse reload`)
    — it generates one shell function per `agents/agent-*.md`, reading the note's `profile:` field for the
    default.
 
@@ -499,7 +499,7 @@ index is empty, augment still emits the full deterministic briefing plus a `(sem
 
 ### The launcher commands
 
-After `source _meta/tools/agents.sh` (the installer, `synapse install --write`, adds that
+After `synapse install --write` (the installer sources package `agents.sh` and adds that
 line to your shell rc), every agent is a one-word command that renders the briefing and launches OpenCode
 with it as the prompt:
 
