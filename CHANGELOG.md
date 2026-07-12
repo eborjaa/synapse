@@ -51,8 +51,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.1"
-// or: "github:eborjaa/synapse#v0.1.1"
+"@eborja/synapse": "^0.1.2"
+// or: "github:eborjaa/synapse#v0.1.2"
 ```
 
 ```sh
