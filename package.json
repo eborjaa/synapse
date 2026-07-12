@@ -1,6 +1,6 @@
 {
   "name": "@eborja/synapse",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Synapse — the context-vault engine: a manifest-driven, role-based knowledge-graph renderer with semantic recall, SQL records tooling, linting, and a pluggable agent CLI. Package-agnostic; consumers keep their own vault + context.manifest.json.",
   "type": "module",
   "engines": {
