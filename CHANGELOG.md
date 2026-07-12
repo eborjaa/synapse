@@ -2,6 +2,18 @@
 
 All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## 0.1.2 — 2026-07-12
+
+### Fixed
+- **Agent launchers (`oracle` / `curator` / …) no longer fail with `command not found: synapse`** after
+  `synapse install --write`. The sourced `synapse()` shell function was making `command -v synapse`
+  succeed even when no binary was on `PATH`, so engine calls tried `command synapse` and died. Engine
+  subcommands now resolve via the PATH binary when present, otherwise `node` + package `lib/*.mjs`.
+- **`synapse install` prefers the vault of `$PWD`** over a stale `$SYNAPSE_VAULT` from a previous
+  install, so re-running `--write` from your private vault rewrites the shell rc to the correct root.
+
+Install: `npm install @eborja/synapse@^0.1.2`
+
 ## 0.1.1 — 2026-07-11
 
 ### Fixed
@@ -39,8 +51,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.1"
-// or: "github:eborjaa/synapse#v0.1.1"
+"@eborja/synapse": "^0.1.2"
+// or: "github:eborjaa/synapse#v0.1.2"
 ```
 
 ```sh

@@ -21,7 +21,9 @@ development. Vault resolves from `$SYNAPSE_VAULT` or `$PWD` (flat or nested layo
 ## A. Shell CLI
 
 Source once (`synapse install --write` → `agents.sh`). Everything is reachable as `synapse <sub>`;
-the `vault-*` names are maintained equals. Agent launchers stay top-level.
+the `vault-*` names are maintained equals. Agent launchers stay top-level. Engine calls (`render` /
+`augment` / …) use a `synapse` binary on `PATH` when present; otherwise they run the package
+`lib/*.mjs` via `node` — you do **not** need a global `npm i -g` for agents to work.
 
 | Command | Does |
 |---|---|

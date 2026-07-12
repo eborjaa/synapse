@@ -98,10 +98,39 @@ __mx_vault() {
 }
 
 # ── resolve engine tools from the npm package (or legacy shims / package lib/) ──
-__mx_have_bin() { command -v synapse >/dev/null 2>&1; }
+# True only when a real PATH *binary* named synapse exists. Must ignore the synapse()
+# shell function defined below — otherwise `command -v synapse` always succeeds after
+# agents.sh is sourced, and `command synapse` then fails with "command not found".
+__mx_have_bin() {
+  if [ -n "${ZSH_VERSION:-}" ]; then
+    whence -p synapse >/dev/null 2>&1
+  elif [ -n "${BASH_VERSION:-}" ]; then
+    type -P synapse >/dev/null 2>&1
+  else
+    _mx_bin="$(command -v synapse 2>/dev/null || true)"
+    if [ -n "$_mx_bin" ] && [ -x "$_mx_bin" ] && [ ! -d "$_mx_bin" ]; then
+      unset _mx_bin
+      return 0
+    fi
+    unset _mx_bin
+    return 1
+  fi
+}
+
+# Map `synapse <sub>` names → lib/*.mjs basenames (and accept legacy tool names as-is).
+__mx_cli_to_tool() {
+  case "$1" in
+    embeddings) printf '%s\n' gen-embeddings ;;
+    index)      printf '%s\n' gen-index ;;
+    views)      printf '%s\n' gen-views ;;
+    migrate)    printf '%s\n' apply-migrations ;;
+    journal)    printf '%s\n' journal-new ;;
+    *)          printf '%s\n' "$1" ;;
+  esac
+}
 
 __mx_tool() {
-  # $1 = render | augment | gen-embeddings | …
+  # $1 = render | augment | gen-embeddings | … (lib basename without .mjs)
   _mx_name="$1"
   _mx_file="${_mx_name}.mjs"
 
@@ -151,15 +180,19 @@ __mx_tool() {
 }
 
 __mx_run() {
-  # $1 = synapse subcommand (render|augment|…) OR legacy tool basename without .mjs
+  # $1 = synapse CLI subcommand (render|augment|index|…) OR legacy tool basename without .mjs
   _mx_cmd="$1"; shift
   if __mx_have_bin; then
-    synapse "$_mx_cmd" "$@"
+    # Prefer the PATH binary — never recurse into the synapse() shell function.
+    command synapse "$_mx_cmd" "$@"
     _mx_rc=$?
   else
-    _mx_toolpath="$(__mx_tool "$_mx_cmd")"
+    _mx_toolpath="$(__mx_tool "$(__mx_cli_to_tool "$_mx_cmd")")"
+    if [ -z "$_mx_toolpath" ] && [ "$(__mx_cli_to_tool "$_mx_cmd")" != "$_mx_cmd" ]; then
+      _mx_toolpath="$(__mx_tool "$_mx_cmd")"
+    fi
     if [ -z "$_mx_toolpath" ]; then
-      echo "agents.sh: could not resolve synapse '$_mx_cmd' (no 'synapse' bin and no @eborja/synapse install)." >&2
+      echo "agents.sh: could not resolve synapse '$_mx_cmd' (no 'synapse' bin on PATH and no @eborja/synapse install)." >&2
       unset _mx_cmd _mx_toolpath
       return 127
     fi
@@ -676,15 +709,28 @@ _mx_wrap() {
 }
 
 _MX_AGENT_NAMES=""
-for _mx_f in "$SYNAPSE_VAULT"/agents/agent-*.md; do
-  [ -e "$_mx_f" ] || continue
-  _mx_name="$(basename "$_mx_f" .md)"
-  _mx_name="${_mx_name#agent-}"
-  # shellcheck disable=SC2086,SC2090
-  eval "${_mx_name}() { __mx_agent_cmd '${_mx_name}' \"\$@\"; }"
-  _MX_AGENT_NAMES="$_MX_AGENT_NAMES $_mx_name"
-done
-unset _mx_f _mx_name
+_mx_agents_root="$(__mx_vault 2>/dev/null || true)"
+[ -n "$_mx_agents_root" ] || _mx_agents_root="${SYNAPSE_VAULT:-}"
+_mx_nullglob_restore=""
+if [ -n "${ZSH_VERSION:-}" ]; then
+  # Unmatched globs must not abort sourcing when the vault path is briefly empty.
+  [[ -o nullglob ]] && _mx_nullglob_restore=keep || _mx_nullglob_restore=off
+  setopt nullglob
+fi
+if [ -n "$_mx_agents_root" ] && [ -d "$_mx_agents_root/agents" ]; then
+  for _mx_f in "$_mx_agents_root"/agents/agent-*.md; do
+    [ -f "$_mx_f" ] || continue
+    _mx_name="$(basename "$_mx_f" .md)"
+    _mx_name="${_mx_name#agent-}"
+    # shellcheck disable=SC2086,SC2090
+    eval "${_mx_name}() { __mx_agent_cmd '${_mx_name}' \"\$@\"; }"
+    _MX_AGENT_NAMES="$_MX_AGENT_NAMES $_mx_name"
+  done
+fi
+if [ "$_mx_nullglob_restore" = off ]; then
+  unsetopt nullglob 2>/dev/null || true
+fi
+unset _mx_f _mx_name _mx_agents_root _mx_nullglob_restore
 _MX_AGENT_NAMES="${_MX_AGENT_NAMES# }"
 
 # ── TAB-completion (--model values depend on --cli in the same command) ───────
@@ -935,15 +981,15 @@ vault-gate() {
 }
 
 # ── unified front door: `synapse <sub>` ───────────────────────────────────────
-# One namespace over two families: ENGINE subcommands delegate to the Node binary
-# (`command synapse …`, which this function shadows on PATH); SHELL subcommands run
+# One namespace over two families: ENGINE subcommands go through __mx_run (PATH
+# binary when present, else package lib/*.mjs via node); SHELL subcommands run
 # in-process here because they must touch the live shell (re-source, env, host config).
 # The vault-* functions above remain first-class synonyms.
 __syn_help() {
   cat <<'EOF'
 synapse — Synapse context-vault CLI (@eborja/synapse)
 
-Engine (delegates to the packaged binary):
+Engine (PATH binary, or package lib/ when no synapse bin on PATH):
   synapse render <id> … [--profile lean|standard|fat] [--dry-run] [--copy]
   synapse augment <id> … --task "…"      render + semantic recall
   synapse lint [--strict]                mechanical vault health-check
@@ -978,9 +1024,14 @@ synapse() {
     bedrock)  shift; vault-bedrock  "$@" ;;
     reload)   shift; vault-reload   "$@" ;;
     gate)     shift; vault-gate     "$@" ;;
-    # Engine subcommands (and anything else) go to the real binary, which owns its
-    # own arg parsing, --help, and unknown-command errors.
-    *)        command synapse "$@" ;;
+    # Engine subcommands: __mx_run uses the PATH binary when available, else node + lib/.
+    *)
+      _syn_eng="$1"; shift
+      __mx_run "$_syn_eng" "$@"
+      _syn_rc=$?
+      unset _syn_eng
+      return $_syn_rc
+      ;;
   esac
 }
 
