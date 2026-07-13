@@ -16,7 +16,7 @@
 #      (tip: give the vault a DISTINCTIVE basename — matching is by basename substring.)
 #
 # ── Toggle (default ON) ────────────────────────────────────────────────────────
-#   vault-gate off | on | status      # friendly command (ships in _meta/tools/agents.sh)
+#   vault-gate off | on | status      # friendly command (ships in agents.sh)
 #   …or the raw host sentinel:  `: > ~/.claude/vault-gate-off` (OFF) · `rm` it (ON)
 #
 # The gate is the OWNER's switch: an external agent can't disable its own gate (the sentinel

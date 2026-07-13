@@ -1,6 +1,6 @@
 -- 0002-owner.sql.example — vault ownership/identity seed (TEMPLATE).
 --
--- Copy to `0002-owner.sql`, fill in your details, then `node _meta/tools/apply-migrations.mjs`.
+-- Copy to `0002-owner.sql`, fill in your details, then `synapse migrate`.
 -- This records WHO owns this vault instance in the `vault_meta` table created by 0001-init-schema.sql.
 -- Forward-only like every migration; to change a value later, add a new migration with an UPDATE.
 

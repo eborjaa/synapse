@@ -56,7 +56,9 @@ synapse setup [--write]
 synapse install [--write]
 ```
 
-Legacy shims under `_meta/tools/*.mjs` in this template forward to `lib/` — prefer the `synapse` CLI.
+Engine subcommands resolve via the `synapse` CLI (`bin/synapse.mjs` in this repo, or
+`node_modules/@eborja/synapse` in a consumer vault). During package development you can also run
+`node lib/<tool>.mjs` directly.
 
 ## Runtime environment variables
 

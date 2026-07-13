@@ -2,6 +2,20 @@
 
 All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
+## 0.1.3 — 2026-07-13
+
+### Removed
+- **Legacy `_meta/tools/*.mjs` engine shims** in the reference vault — the engine ships only via
+  `@eborja/synapse` (`synapse <cmd>` or `node bin/synapse.mjs` during package development). Vaults keep
+  `_meta/tools/context.manifest.json` only; delete any duplicated engine scripts after `npm install`.
+
+### Changed
+- **`synapse install`** now writes a `~/.claude/CLAUDE.md` pointer that references `synapse render`, not
+  a shim path.
+- **Pre-commit hook and nightly cron** resolve the engine via `synapse` on PATH or `bin/synapse.mjs`.
+
+Install: `npm install @eborja/synapse@^0.1.3`
+
 ## 0.1.2 — 2026-07-12
 
 ### Fixed
@@ -51,8 +65,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.2"
-// or: "github:eborjaa/synapse#v0.1.2"
+"@eborja/synapse": "^0.1.3"
+// or: "github:eborjaa/synapse#v0.1.3"
 ```
 
 ```sh

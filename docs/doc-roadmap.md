@@ -51,7 +51,7 @@ Released as a public GitHub repo others can **template or clone**, then pin the 
   data in the framework.
 
 ## Phase 6 — Engine as npm package (done)
-The tooling ships as **`@eborja/synapse`** on the npm registry (`npm install @eborja/synapse@^0.1.2`) —
+The tooling ships as **`@eborja/synapse`** on the npm registry (`npm install @eborja/synapse@^0.1.3`) —
 `bin/synapse`, `lib/*`, `agents.sh`, `schema/context.manifest.example.json`. Consumers keep vault content
 + a local `context.manifest.json`; the engine resolves the vault via `$SYNAPSE_VAULT` or an ancestor walk
 (flat or nested layout). SQL helpers (`migrate` / `index` / `views`) stay in-package for the

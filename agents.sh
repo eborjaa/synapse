@@ -35,8 +35,7 @@
 #     [--cli opencode|claude|cursor|clip|print]
 #     [--model <id>] [--auto|--bypass|--manual] [--no-semantic] [--clipboard] ["task text"]
 #
-# Engine tools resolve via: `synapse` bin on PATH → package lib/ → node_modules/@eborja/synapse
-# → legacy _meta/tools/*.mjs shims.
+# Engine tools resolve via: `synapse` bin on PATH → package lib/ → node_modules/@eborja/synapse.
 #
 # Must be SOURCED, not executed. zsh + bash (+ POSIX sh) supported.
 
@@ -75,7 +74,7 @@ export SYNAPSE_MODEL SYNAPSE_CLI SYNAPSE_OLLAMA_URL SYNAPSE_CURSOR_MODEL SYNAPSE
 # ── resolve the EFFECTIVE vault for a single invocation ───────────────────────
 # A dir D is a vault when it has agents/ + _meta/tools/context.manifest.json (flat),
 # or D/context-vault/ with the same (nested). Engine scripts may live in the npm package,
-# so we no longer require _meta/tools/render.mjs to be present.
+# Engine code lives in the npm package (lib/), not under _meta/tools/.
 __mx_is_vault() { [ -d "$1/agents" ] && [ -f "$1/_meta/tools/context.manifest.json" ]; }
 
 __mx_vault() {
@@ -97,7 +96,7 @@ __mx_vault() {
   return 1
 }
 
-# ── resolve engine tools from the npm package (or legacy shims / package lib/) ──
+# ── resolve engine tools from the npm package ──
 # True only when a real PATH *binary* named synapse exists. Must ignore the synapse()
 # shell function defined below — otherwise `command -v synapse` always succeeds after
 # agents.sh is sourced, and `command synapse` then fails with "command not found".
@@ -148,12 +147,6 @@ __mx_tool() {
     while [ -n "$_mx_d" ] && [ "$_mx_d" != "/" ]; do
       if [ -f "$_mx_d/node_modules/@eborja/synapse/lib/$_mx_file" ]; then
         printf '%s\n' "$_mx_d/node_modules/@eborja/synapse/lib/$_mx_file"
-        unset _mx_name _mx_file _mx_start _mx_base _mx_d
-        return 0
-      fi
-      # Legacy shim / in-vault engine (pre-package).
-      if [ -f "$_mx_d/_meta/tools/$_mx_file" ]; then
-        printf '%s\n' "$_mx_d/_meta/tools/$_mx_file"
         unset _mx_name _mx_file _mx_start _mx_base _mx_d
         return 0
       fi

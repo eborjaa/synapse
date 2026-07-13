@@ -18,7 +18,7 @@ context blob — exactly the rules, skills, tools, docs, and neighborhood an age
 A small Node module (stdin/stdout only — it never writes or edits a `.md`). Nothing domain-specific is
 hardcoded: roles, fields, directions, endpoint types, profiles, auto-upgrade, drop-tags, type priority,
 and invariants all come from the manifest, so the same engine runs any vault unchanged
-([[context-engine-guide]]). Invoke via `synapse render` (or the thin `_meta/tools/render.mjs` shim).
+([[context-engine-guide]]). Invoke via `synapse render`.
 
 ## How it is used in Synapse
 A briefing is compiled deterministically as `agent × target × profile` — identical inputs produce

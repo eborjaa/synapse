@@ -45,10 +45,10 @@ LAST="$(git log "origin/$BRANCH" --grep '^curator: synapse maintenance' -n 1 --f
 NEW="$(git log "$LAST..origin/$BRANCH" --format='%s' 2>/dev/null \
         | grep -vc '^curator: synapse maintenance' || true)"
 
-# Prefer the packaged `synapse` CLI (after `synapse install`); fall back to legacy shim.
+# Prefer the packaged `synapse` CLI (after `synapse install`); fall back to the in-repo bin.
 __syn() {
-  if command -v synapse >/dev/null 2>&1; then synapse "$@"
-  else node "$REPO/_meta/tools/$1.mjs" "${@:2}"
+  if command -v synapse >/dev/null 2>&1; then command synapse "$@"
+  else node "$REPO/bin/synapse.mjs" "$@"
   fi
 }
 

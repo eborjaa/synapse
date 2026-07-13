@@ -75,8 +75,7 @@ now overriding the approval requirement" step, never an automerge. Nothing lands
 ## PR flow
 
 1. Fork (or branch off `main`) from a clean, data-free state.
-2. Make the change; keep it generic and scoped. Prefer editing `lib/` / `bin/` / `agents.sh` for tooling —
-   vault `_meta/tools/*.mjs` shims should stay thin forwards.
+2. Make the change; keep it generic and scoped. Prefer editing `lib/` / `bin/` / `agents.sh` for tooling.
 3. `npm test` (when engine code changed) and `synapse lint --strict` → errors=0.
 4. If you touched the schema, add a forward-only migration (never edit `0001-init-schema.sql` destructively).
 5. Open a PR using the checklist in the PR template. Update docs if behavior changed.
