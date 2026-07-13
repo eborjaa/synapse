@@ -42,7 +42,7 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ```bash
 cd /path/to/your-vault
-npm install @eborja/synapse@^0.1.2   # or: npm install ../path/to/synapse-framework
+npm install @eborja/synapse@^0.1.3   # or: npm install ../path/to/synapse-framework
 npx synapse install                        # dry-run
 npx synapse install --write                # wire agents.sh + editor dirs
 exec $SHELL
@@ -52,7 +52,7 @@ synapse hubs                               # ← list hub targets (or: vault-hub
 
 > The engine is the **`@eborja/synapse` npm package** (`bin/synapse`, `lib/*`, `agents.sh`). Your vault
 > keeps only content + `_meta/tools/context.manifest.json`. After install, `synapse <sub>` is the unified
-> front door (engine + shell). Legacy `node _meta/tools/<tool>.mjs` shims still work in this template.
+> front door (engine + shell).
 
 ## ⚡ Your first commands
 
@@ -205,7 +205,7 @@ Synapse ships **two layers**:
 ```bash
 mkdir my-vault && cd my-vault
 npm init -y
-npm install @eborja/synapse@^0.1.2
+npm install @eborja/synapse@^0.1.3
 # copy schema example → your ontology dial
 mkdir -p _meta/tools
 cp node_modules/@eborja/synapse/schema/context.manifest.example.json \
@@ -239,7 +239,7 @@ Distribute and update the **engine** without forking vault content:
 ```jsonc
 {
   "dependencies": {
-    "@eborja/synapse": "^0.1.2"
+    "@eborja/synapse": "^0.1.3"
   },
   "scripts": {
     "vault:render": "synapse render",
@@ -256,7 +256,7 @@ npx synapse setup --write     # Ollama + embed model (optional; deterministic to
 npx synapse install --write   # shell + editor wiring
 ```
 
-Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.1.2` or
+Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.1.3` or
 `file:../synapse-framework`.
 
 The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`

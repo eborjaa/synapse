@@ -2,7 +2,7 @@
 -- Migrations are the DB's source of truth and its audit log; this one creates the whole schema.
 -- Conventions: money = integer cents; dates/datetimes = ISO-8601 TEXT; `slug` ties a row to its
 -- generated Markdown view (contacts/<slug>.md, accounts/<slug>.md). Forward-only; revert = a new
--- compensating migration (see migrations/README.md). Applied by _meta/tools/apply-migrations.mjs.
+-- compensating migration (see migrations/README.md). Applied by `synapse migrate`.
 
 PRAGMA foreign_keys = ON;
 
@@ -135,7 +135,7 @@ CREATE TABLE visits (                                  -- manual/imported visit 
 CREATE INDEX idx_visits_place ON visits(place_id, arrived_at);
 
 -- ============================ GENERATED PROJECTIONS (Markdown → SQL) ============================
--- These are regenerated from the vault by _meta/tools/gen-index.mjs; never hand-written.
+-- These are regenerated from the vault by `synapse index`; never hand-written.
 CREATE TABLE plans (                                   -- from plan-*.md frontmatter
   slug         TEXT PRIMARY KEY,                       -- = plan note basename
   title        TEXT NOT NULL,

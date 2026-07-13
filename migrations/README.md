@@ -9,13 +9,13 @@ canonical record data is a **forward-only migration file** here, reviewed in a P
 - Plain SQL. **Forward-only** — never edit or delete an applied migration; to undo, add a new compensating
   migration (e.g. `0007-revert-bad-import.sql`).
 - `apply-migrations.mjs` applies any file not yet recorded in the `_migrations` table, each in its own
-  transaction, in filename order. Re-running is idempotent.
+  transaction, in filename order. Re-running is idempotent. Invoked via `synapse migrate`.
 
 ## What rides this gate
 - **Canonical records** — contacts, accounts, balances, transactions, categories, health, places, visits,
   addresses. Inserts/updates to these are migrations.
 - **NOT** the generated projections (`plans`, `notes`, `note_links`) — those are rebuilt from Markdown by
-  `gen-index.mjs` (Markdown is canonical), and the derived Markdown views are rebuilt by `gen-views.mjs`
+  `synapse index` (Markdown is canonical), and the derived Markdown views are rebuilt by `synapse views`
   (DB is canonical). Regenerating a projection is not a migration.
 
 ## Escalation (rule-synapse-fail-loudly)
