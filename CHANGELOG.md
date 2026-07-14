@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.1.4 — 2026-07-14
+
 ### Changed
 - **Shell status banners** — `agents.sh` prints emoji-tagged steps on launch and discovery
   (`⏳` building · `🚀` launching · `📋` clipboard · `🔍` semantic · per-agent icons), so it's clearer
@@ -13,6 +15,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   `synapse render|augment`. Vault is re-resolved on every Tab (`$PWD` walk + `$SYNAPSE_VAULT`),
   so completion works from any cwd. Core agents (`curator`/`oracle`/`reconciler`/`ingester`) are
   always registered even if no vault is found at source time.
+
+Install: `npm install @eborja/synapse@^0.1.4`
 
 ## 0.1.3 — 2026-07-13
 
@@ -77,8 +81,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.3"
-// or: "github:eborjaa/synapse#v0.1.3"
+"@eborja/synapse": "^0.1.4"
+// or: "github:eborjaa/synapse#v0.1.4"
 ```
 
 ```sh
