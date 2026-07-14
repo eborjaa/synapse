@@ -37,6 +37,20 @@ the `vault-*` names are maintained equals. Agent launchers stay top-level. Engin
 | `synapse gate` / `vault-gate on\|off\|status` | host privacy gate (seal / unseal the vault) |
 | `synapse help` | combined engine + shell cheat-sheet |
 
+**Tab completion (zsh + bash):** after `synapse install --write`, Tab fills:
+
+- **agent names** — top-level (`cura<Tab>`) and under `synapse` (`synapse ora<Tab>`)
+- **hub targets** — after any agent (`curator hub-<Tab>` → `hub-finances`, …)
+- **profiles / flags / --model** — as before (`--profile`, `--cli`, `--model` per runtime)
+
+Completion re-resolves the vault on every Tab via `$PWD` walk + `$SYNAPSE_VAULT`, so it works
+from any directory (install bakes `SYNAPSE_VAULT` into your shell rc).
+
+**Status banners:** agent launches print emoji-tagged stderr steps so you can see what's happening at a
+glance — e.g. `⏳ building briefing…` then `🚀 🧭 curator + hub-finances (📦 standard, ~12k tok 🔍 +semantic, auto) → 🖥️ cursor`.
+Agent icons: 🧭 curator · 🔮 oracle · 🔧 reconciler · 📥 ingester. Discovery commands (`synapse agents` /
+`hubs` / `profiles` / `models`) use the same vocabulary.
+
 **Syntax:** `<agent> [<target>] [--profile lean|standard|fat] ["task"]`. A `hub-*` target auto-upgrades a
 `lean` agent to `standard`; a bare profile word also works (`curator hub-finances fat`). Supplying a
 **task** auto-routes through the semantic augment when the embedding index exists.

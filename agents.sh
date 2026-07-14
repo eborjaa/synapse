@@ -185,7 +185,7 @@ __mx_run() {
       _mx_toolpath="$(__mx_tool "$_mx_cmd")"
     fi
     if [ -z "$_mx_toolpath" ]; then
-      echo "agents.sh: could not resolve synapse '$_mx_cmd' (no 'synapse' bin on PATH and no @eborja/synapse install)." >&2
+      echo "❌ [synapse] could not resolve '$_mx_cmd' (no 'synapse' bin on PATH and no @eborja/synapse install)." >&2
       unset _mx_cmd _mx_toolpath
       return 127
     fi
@@ -198,7 +198,7 @@ __mx_run() {
 }
 
 if ! __mx_vault >/dev/null 2>&1 && [ -z "${SYNAPSE_VAULT:-}" ]; then
-  echo "agents.sh: no vault found yet (cd into a vault, or set SYNAPSE_VAULT). Commands will resolve per-call." >&2
+  echo "ℹ️  [synapse] no vault found yet (cd into a vault, or set SYNAPSE_VAULT). Commands will resolve per-call." >&2
 fi
 
 # Launch an agent by short name; profile read from the effective vault at call time.
@@ -321,7 +321,7 @@ __mx_cursor_bedrock_ensure() {
   _mx_br_team="$(cursor-agent bedrock status 2>/dev/null | awk '/^Team role available:/{print $4}')"
   if [ "$_mx_br_team" = "yes" ]; then
     if cursor-agent bedrock use-team-role >/dev/null 2>&1; then
-      echo "[synapse] Bedrock team-role enabled (org subscription models now available)" >&2
+      echo "☁️  [synapse] Bedrock team-role enabled (org subscription models now available)" >&2
       return 0
     fi
   fi
@@ -399,13 +399,42 @@ __mx_cli_model_ids() {
   fi
 }
 
+# ── status icons (shell UX — makes each step glanceable) ─────────────────────
+__mx_agent_emoji() {
+  case "${1#agent-}" in
+    curator)    printf '🧭' ;;
+    oracle)     printf '🔮' ;;
+    reconciler) printf '🔧' ;;
+    ingester)   printf '📥' ;;
+    *)          printf '🤖' ;;
+  esac
+}
+__mx_cli_emoji() {
+  case "$1" in
+    opencode)         printf '⚡' ;;
+    claude)           printf '💬' ;;
+    cursor)           printf '🖥️' ;;
+    clip|clipboard)   printf '📋' ;;
+    print|-)          printf '📤' ;;
+    *)                printf '▶️' ;;
+  esac
+}
+__mx_profile_emoji() {
+  case "$1" in
+    lean)     printf '🪶' ;;
+    standard) printf '📦' ;;
+    fat)      printf '📚' ;;
+    *)        printf '🎚️' ;;
+  esac
+}
+
 # ── core launcher ─────────────────────────────────────────────────────────────
 __mx_launch() {
   agent="$1"; profile="$2"; shift 2
 
   SYNAPSE_VAULT="$(__mx_vault 2>/dev/null)" || true
   if [ -z "$SYNAPSE_VAULT" ]; then
-    echo "agents.sh: could not locate a vault (cd into one, or set SYNAPSE_VAULT)." >&2
+    echo "❌ [synapse] could not locate a vault (cd into one, or set SYNAPSE_VAULT)." >&2
     return 2
   fi
   export SYNAPSE_VAULT
@@ -423,7 +452,7 @@ __mx_launch() {
   elif [ "${1:-}" = "--profile" ] || [ "${1:-}" = "-P" ]; then
     case "${2:-}" in
       lean|standard|fat) profile="$2"; shift 2 ;;
-      *) echo "profile must be lean|standard|fat (got '${2:-}')" >&2; return 2 ;;
+      *) echo "❌ [synapse] profile must be lean|standard|fat (got '${2:-}')" >&2; return 2 ;;
     esac
   fi
 
@@ -466,15 +495,15 @@ __mx_launch() {
 
   case "$cli" in
     opencode|claude|cursor|clip|clipboard|print|-) ;;
-    *) echo "[synapse] unknown --cli '$cli' — using opencode" >&2; cli=opencode ;;
+    *) echo "⚠️  [synapse] unknown --cli '$cli' — using opencode" >&2; cli=opencode ;;
   esac
   case "$perm_mode" in
     manual|auto|bypass) ;;
-    *) echo "SYNAPSE_PERM_MODE must be manual|auto|bypass (got '$perm_mode')" >&2; return 2 ;;
+    *) echo "❌ [synapse] SYNAPSE_PERM_MODE must be manual|auto|bypass (got '$perm_mode')" >&2; return 2 ;;
   esac
 
   if ! command -v node >/dev/null 2>&1; then
-    echo "node not found — install Node.js to render briefings." >&2; return 127
+    echo "❌ [synapse] node not found — install Node.js to render briefings." >&2; return 127
   fi
 
   # Semantic augment: on when task present (unless --no-semantic / SYNAPSE_SEMANTIC=off).
@@ -528,9 +557,12 @@ __mx_launch() {
     fi
   }
 
+  _mx_agent_ico="$(__mx_agent_emoji "$agent")"
+  _mx_who="${agent#agent-}${target:+ + $target}"
+
   case "$cli" in
     clip|clipboard)
-      echo "[synapse] ${agent#agent-}${target:+ + $target} (${profile}) → clipboard" >&2
+      echo "📋 [synapse] ${_mx_agent_ico} copying ${_mx_who} ($(__mx_profile_emoji "$profile") ${profile}) → clipboard" >&2
       if [ -n "$task" ]; then
         { _mx_emit "" | cat; printf '\n\n---\n\n%s\n' "$task"; } | __mx_clip
       else
@@ -557,23 +589,24 @@ __mx_launch() {
   esac
 
   if ! command -v "$_bin" >/dev/null 2>&1; then
-    echo "[synapse] '$_bin' not found — copying briefing to clipboard. (install $_bin, or use --cli print)" >&2
+    echo "⚠️  [synapse] '${_bin}' not found — 📋 copying briefing to clipboard. (install ${_bin}, or use --cli print)" >&2
     _mx_emit "" --copy 2>/dev/null || _mx_emit "" | __mx_clip
     return $?
   fi
 
+  echo "⏳ [synapse] ${_mx_agent_ico} building briefing for ${_mx_who}…" >&2
   tmp="$(mktemp "${TMPDIR:-/tmp}/synapse.XXXXXX")" || return 1
   if ! _mx_emit "$tmp"; then
     rm -f "$tmp"; return 1
   fi
   tok="$(( $(wc -c < "$tmp" | tr -d ' ') / 4 ))"
-  _eng_tag=""; [ "$engine" = "augment" ] && _eng_tag=" +semantic"
-  echo "[synapse] ${agent#agent-}${target:+ + $target} (${profile}, ~${tok} tok${_eng_tag}, ${perm_mode}) → ${cli}" >&2
+  _eng_tag=""; [ "$engine" = "augment" ] && _eng_tag=" 🔍 +semantic"
   if [ "$tok" -gt 60000 ]; then
-    echo "[synapse] ⚠ briefing is large (~${tok} tok) — try 'standard' or a single note at 'lean'." >&2
+    echo "⚠️  [synapse] briefing is large (~${tok} tok) — try 'standard' or a single note at 'lean'." >&2
   fi
 
   if [ "$clipboard" = "1" ]; then
+    echo "📋 [synapse] ${_mx_agent_ico} ${_mx_who} ($(__mx_profile_emoji "$profile") ${profile}, ~${tok} tok${_eng_tag}) → clipboard" >&2
     if [ -n "$task" ]; then
       { cat "$tmp"; printf '\n\n---\n\n%s\n' "$task"; } | __mx_clip
     else
@@ -582,6 +615,8 @@ __mx_launch() {
     rm -f "$tmp"
     return 0
   fi
+
+  echo "🚀 [synapse] ${_mx_agent_ico} ${_mx_who} ($(__mx_profile_emoji "$profile") ${profile}, ~${tok} tok${_eng_tag}, ${perm_mode}) → $(__mx_cli_emoji "$cli") ${cli}" >&2
 
   # Permission flags per CLI (loaded into $@ via set --)
   set --
@@ -597,7 +632,7 @@ __mx_launch() {
       case "$perm_mode" in
         auto)
           set -- --dangerously-skip-permissions
-          echo "[synapse] note: opencode has no separate 'auto' mode; using its bypass flag." >&2
+          echo "ℹ️  [synapse] opencode has no separate 'auto' mode; using its bypass flag." >&2
           ;;
         bypass) set -- --dangerously-skip-permissions ;;
         manual) ;;
@@ -639,7 +674,7 @@ __mx_launch() {
 
       if __mx_cursor_bedrock_wanted; then
         __mx_cursor_bedrock_ensure 2>/dev/null || \
-          echo "[synapse] note: SYNAPSE_CURSOR_BEDROCK=on but Bedrock unavailable — using Cursor catalog" >&2
+          echo "ℹ️  [synapse] SYNAPSE_CURSOR_BEDROCK=on but Bedrock unavailable — using Cursor catalog" >&2
       fi
       _cursor_model="$(__mx_resolve_model cursor "$model")"
       if [ -n "$task" ]; then
@@ -701,22 +736,36 @@ _mx_wrap() {
     }'
 }
 
+# Register short-name launchers. Core four always exist (cwd-agnostic); vault discovery
+# adds any extra agent-*.md. Completions resolve the vault fresh via __mx_vault each Tab.
+__mx_register_agent() {
+  # shellcheck disable=SC2086,SC2090
+  eval "${1}() { __mx_agent_cmd '${1}' \"\$@\"; }"
+}
+
 _MX_AGENT_NAMES=""
-_mx_agents_root="$(__mx_vault 2>/dev/null || true)"
-[ -n "$_mx_agents_root" ] || _mx_agents_root="${SYNAPSE_VAULT:-}"
 _mx_nullglob_restore=""
 if [ -n "${ZSH_VERSION:-}" ]; then
   # Unmatched globs must not abort sourcing when the vault path is briefly empty.
   [[ -o nullglob ]] && _mx_nullglob_restore=keep || _mx_nullglob_restore=off
   setopt nullglob
 fi
+# Core agents always — Tab / command lookup work even before a vault is found at source time.
+for _mx_name in curator oracle reconciler ingester; do
+  __mx_register_agent "$_mx_name"
+  _MX_AGENT_NAMES="$_MX_AGENT_NAMES $_mx_name"
+done
+_mx_agents_root="$(__mx_vault 2>/dev/null || true)"
+[ -n "$_mx_agents_root" ] || _mx_agents_root="${SYNAPSE_VAULT:-}"
 if [ -n "$_mx_agents_root" ] && [ -d "$_mx_agents_root/agents" ]; then
   for _mx_f in "$_mx_agents_root"/agents/agent-*.md; do
     [ -f "$_mx_f" ] || continue
     _mx_name="$(basename "$_mx_f" .md)"
     _mx_name="${_mx_name#agent-}"
-    # shellcheck disable=SC2086,SC2090
-    eval "${_mx_name}() { __mx_agent_cmd '${_mx_name}' \"\$@\"; }"
+    case " $_MX_AGENT_NAMES " in
+      *" $_mx_name "*) continue ;;
+    esac
+    __mx_register_agent "$_mx_name"
     _MX_AGENT_NAMES="$_MX_AGENT_NAMES $_mx_name"
   done
 fi
@@ -726,8 +775,57 @@ fi
 unset _mx_f _mx_name _mx_agents_root _mx_nullglob_restore
 _MX_AGENT_NAMES="${_MX_AGENT_NAMES# }"
 
-# ── TAB-completion (--model values depend on --cli in the same command) ───────
+# ── TAB-completion (agents · hubs · flags · --model per --cli) ────────────────
+# Vault is re-resolved on every Tab via __mx_vault, so completion works from any
+# cwd as long as $SYNAPSE_VAULT points at a vault (synapse install --write sets it)
+# or you are somewhere under a vault tree.
 _MX_FLAGS="--cli --model --profile --auto --bypass --yolo --no-auto --safe --confirm --manual --no-semantic --clipboard --copy"
+_MX_PROFILES="lean standard fat"
+_MX_CLIS="opencode claude cursor clip print"
+_MX_SYNAPSE_SUBS="render augment lint index views migrate embeddings setup install journal agents hubs profiles models bedrock reload gate help"
+
+__mx_list_agent_names() {
+  _mx_v="$(__mx_vault 2>/dev/null || true)"
+  _mx_found=0
+  if [ -n "$_mx_v" ] && [ -d "$_mx_v/agents" ]; then
+    for _mx_f in "$_mx_v"/agents/agent-*.md; do
+      [ -f "$_mx_f" ] || continue
+      _mx_found=1
+      _mx_n="$(basename "$_mx_f" .md)"
+      printf '%s\n' "${_mx_n#agent-}"
+    done
+  fi
+  if [ "$_mx_found" = 0 ]; then
+    printf '%s\n' curator oracle reconciler ingester
+  fi
+  unset _mx_v _mx_f _mx_n _mx_found
+}
+
+__mx_list_agent_ids() {
+  __mx_list_agent_names | while IFS= read -r _mx_n; do
+    [ -n "$_mx_n" ] || continue
+    printf 'agent-%s\n' "$_mx_n"
+  done
+  unset _mx_n
+}
+
+__mx_list_hub_ids() {
+  _mx_v="$(__mx_vault 2>/dev/null || true)"
+  [ -n "$_mx_v" ] || return 0
+  for _mx_f in "$_mx_v"/hub/hub-*.md "$_mx_v"/hub-synapse.md; do
+    [ -f "$_mx_f" ] || continue
+    basename "$_mx_f" .md
+  done
+  unset _mx_v _mx_f
+}
+
+# True when $1 looks like a render/launch target id (not a bare profile / flag / task word).
+__mx_looks_like_target() {
+  case "$1" in
+    hub-*|agent-*|note-*|journal-*|project-*|plan-*|contact-*|account-*|summary-*|person-*|decision-*|rule-*|loop-*|doc-*|tool-*|skill-*|glossary-*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 __mx_cli_from_words() {
   # $1 = space-separated words (no leading agent name needed for model list)
@@ -745,7 +843,7 @@ __mx_cli_from_words() {
 
 if [ -n "${ZSH_VERSION:-}" ]; then
   __mx_complete_zsh() {
-    local -a models
+    local -a models hubs agents ids
     local cur="${words[CURRENT]}" prev="${words[CURRENT-1]}"
     local cli; cli="$(__mx_cli_from_words "${words[2,-1]}")"
     case "$prev" in
@@ -753,24 +851,62 @@ if [ -n "${ZSH_VERSION:-}" ]; then
         models=(${(f)"$(__mx_cli_model_ids "$cli" 2>/dev/null)"})
         compadd -- $models; return ;;
       --cli)
-        compadd -- opencode claude cursor clip print; return ;;
+        compadd -- ${(z)_MX_CLIS}; return ;;
       --profile|-P)
-        compadd -- lean standard fat; return ;;
+        compadd -- ${(z)_MX_PROFILES}; return ;;
     esac
     case "$cur" in
       --model=*)
         models=(${(f)"$(__mx_cli_model_ids "$cli" 2>/dev/null)"})
         compadd -P '--model=' -- $models; return ;;
       --cli=*)
-        compadd -P '--cli=' -- opencode claude cursor clip print; return ;;
+        compadd -P '--cli=' -- ${(z)_MX_CLIS}; return ;;
+      --*)
+        compadd -- ${(z)_MX_FLAGS}; return ;;
     esac
+
+    # Positional targets: hubs (cwd-agnostic via __mx_vault) + bare profile words.
+    local has_target=0 w i
+    for (( i=2; i < CURRENT; i++ )); do
+      w="${words[i]}"
+      [[ "$w" == -* ]] && continue
+      __mx_looks_like_target "$w" && has_target=1
+    done
+    if [ "$has_target" = 0 ]; then
+      hubs=(${(f)"$(__mx_list_hub_ids 2>/dev/null)"})
+      (( ${#hubs} )) && compadd -- $hubs
+    fi
+    compadd -- ${(z)_MX_PROFILES}
+    compadd -- ${(z)_MX_FLAGS}
   }
   __mx_complete_synapse_zsh() {
+    local -a agents ids hubs
+    local cur="${words[CURRENT]}"
     if [ "${CURRENT:-0}" -eq 2 ]; then
-      compadd -- render augment lint index views migrate embeddings setup install journal \
-                 agents hubs profiles models bedrock reload gate help
+      agents=(${(f)"$(__mx_list_agent_names 2>/dev/null)"})
+      compadd -- ${(z)_MX_SYNAPSE_SUBS} $agents
       return
     fi
+    # synapse render|augment <agent-id|hub-id> …
+    case "${words[2]}" in
+      render|augment)
+        case "$cur" in --*) ;; *)
+          if [[ "${words[CURRENT-1]}" != --profile && "${words[CURRENT-1]}" != -P && \
+                "${words[CURRENT-1]}" != --model && "${words[CURRENT-1]}" != -m && \
+                "${words[CURRENT-1]}" != --cli ]]; then
+            ids=(${(f)"$(__mx_list_agent_ids 2>/dev/null)"})
+            hubs=(${(f)"$(__mx_list_hub_ids 2>/dev/null)"})
+            compadd -- $ids $hubs
+          fi
+          ;;
+        esac
+        ;;
+      bedrock|gate)
+        if [ "${CURRENT:-0}" -eq 3 ]; then
+          compadd -- on off status; return
+        fi
+        ;;
+    esac
     __mx_complete_zsh
   }
   if whence compdef >/dev/null 2>&1 && (( ${+_comps} )); then
@@ -780,7 +916,7 @@ if [ -n "${ZSH_VERSION:-}" ]; then
   fi
 elif [ -n "${BASH_VERSION:-}" ]; then
   __mx_complete_bash() {
-    local cur prev cli
+    local cur prev cli has_target w
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     cli="$(__mx_cli_from_words "${COMP_WORDS[*]}")"
@@ -790,20 +926,61 @@ elif [ -n "${BASH_VERSION:-}" ]; then
         COMPREPLY=($(compgen -W "$(__mx_cli_model_ids "$cli" 2>/dev/null)" -- "$cur")); return ;;
       --cli)
         # shellcheck disable=SC2207
-        COMPREPLY=($(compgen -W "opencode claude cursor clip print" -- "$cur")); return ;;
+        COMPREPLY=($(compgen -W "$_MX_CLIS" -- "$cur")); return ;;
       --profile|-P)
         # shellcheck disable=SC2207
-        COMPREPLY=($(compgen -W "lean standard fat" -- "$cur")); return ;;
+        COMPREPLY=($(compgen -W "$_MX_PROFILES" -- "$cur")); return ;;
     esac
+    case "$cur" in
+      --*)
+        # shellcheck disable=SC2207
+        COMPREPLY=($(compgen -W "$_MX_FLAGS" -- "$cur")); return ;;
+    esac
+    has_target=0
+    local i
+    if [ "${COMP_CWORD:-0}" -gt 1 ]; then
+      for (( i=1; i < COMP_CWORD; i++ )); do
+        w="${COMP_WORDS[i]}"
+        [[ "$w" == -* ]] && continue
+        __mx_looks_like_target "$w" && has_target=1
+      done
+    fi
+    local opts="$_MX_PROFILES $_MX_FLAGS"
+    if [ "$has_target" = 0 ]; then
+      opts="$(__mx_list_hub_ids 2>/dev/null | tr '\n' ' ') $opts"
+    fi
     # shellcheck disable=SC2207
-    COMPREPLY=($(compgen -W "$_MX_FLAGS" -- "$cur"))
+    COMPREPLY=($(compgen -W "$opts" -- "$cur"))
   }
   __mx_complete_synapse_bash() {
-    local cur; cur="${COMP_WORDS[COMP_CWORD]}"
+    local cur prev sub
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
     if [ "${COMP_CWORD:-0}" -eq 1 ]; then
       # shellcheck disable=SC2207
-      COMPREPLY=($(compgen -W "render augment lint index views migrate embeddings setup install journal agents hubs profiles models bedrock reload gate help" -- "$cur")); return
+      COMPREPLY=($(compgen -W "$_MX_SYNAPSE_SUBS $(__mx_list_agent_names 2>/dev/null | tr '\n' ' ')" -- "$cur")); return
     fi
+    sub="${COMP_WORDS[1]}"
+    case "$sub" in
+      render|augment)
+        case "$cur" in --*) ;; *)
+          case "$prev" in
+            --profile|-P|--model|-m|--cli) ;;
+            *)
+              # shellcheck disable=SC2207
+              COMPREPLY=($(compgen -W "$(__mx_list_agent_ids 2>/dev/null | tr '\n' ' ') $(__mx_list_hub_ids 2>/dev/null | tr '\n' ' ')" -- "$cur")); return
+              ;;
+          esac
+          ;;
+        esac
+        ;;
+      bedrock|gate)
+        if [ "${COMP_CWORD:-0}" -eq 2 ]; then
+          # shellcheck disable=SC2207
+          COMPREPLY=($(compgen -W "on off status" -- "$cur")); return
+        fi
+        ;;
+    esac
     __mx_complete_bash
   }
   # shellcheck disable=SC2086
@@ -815,11 +992,11 @@ fi
 
 vault-agents() {
   SYNAPSE_VAULT="$(__mx_vault)"
-  echo "Synapse vault agent commands:"
+  echo "🤖 Synapse agents"
   echo "  Usage: <name> [<target-id>] [--profile lean|standard|fat] [--cli opencode|claude|cursor|clip|print]"
   echo "         [--model <id>] [--auto|--bypass|--manual] [--no-semantic] [--clipboard] [\"task\"]"
   echo "  Permission default: auto. Global: export SYNAPSE_PERM_MODE=manual|auto|bypass"
-  echo "  --model TAB-completes per --cli (see: vault-models --cli <name>)"
+  echo "  --model TAB-completes per --cli; hubs & agents TAB-complete from any cwd (see: synapse models)"
   echo ""
   for f in "$SYNAPSE_VAULT"/agents/agent-*.md; do
     [ -e "$f" ] || continue
@@ -827,7 +1004,7 @@ vault-agents() {
     name="${id#agent-}"
     prof="$(_mx_field "$f" profile)"; prof="${prof:-lean}"
     purpose="$(_mx_field "$f" purpose)"
-    printf '  %-14s [%-8s] ' "$name" "$prof"
+    printf '  %s %-12s [%-8s] ' "$(__mx_agent_emoji "$name")" "$name" "$prof"
     _mx_wrap 28 "$purpose"
   done
   echo ""
@@ -839,7 +1016,7 @@ vault-agents() {
 
 vault-hubs() {
   SYNAPSE_VAULT="$(__mx_vault)"
-  echo "Synapse vault hub targets (pass as the second arg to any agent):"
+  echo "🗺️  Synapse hubs (pass as the second arg to any agent)"
   echo "  Usage: <agent> <hub-id> [--profile standard]"
   echo ""
   for f in "$SYNAPSE_VAULT"/hub/hub-*.md "$SYNAPSE_VAULT"/hub-synapse.md; do
@@ -853,12 +1030,12 @@ vault-hubs() {
 }
 
 vault-profiles() {
-  echo "Synapse vault profiles (context dial — presets of relationship ROLES, not hop counts):"
+  echo "🎚️  Synapse profiles (context dial — presets of relationship ROLES, not hop counts)"
   echo ""
-  printf '  %-10s %-30s %-12s %s\n' "Profile" "Roles pulled" "~Budget" "Best for"
-  printf '  %-10s %-30s %-12s %s\n' "lean" "self + rules/skills/tools/deleg" "~4K tok" "an agent + its rules/skills/tools"
-  printf '  %-10s %-30s %-12s %s\n' "standard" "+ members/attach/navigate/refs" "~15K tok" "a domain hub"
-  printf '  %-10s %-30s %-12s %s\n' "fat" "+ transitive closure" "~30K tok" "deep dives / maximum context"
+  printf '  %-4s %-10s %-30s %-12s %s\n' "" "Profile" "Roles pulled" "~Budget" "Best for"
+  printf '  %-4s %-10s %-30s %-12s %s\n' "$(__mx_profile_emoji lean)" "lean" "self + rules/skills/tools/deleg" "~4K tok" "an agent + its rules/skills/tools"
+  printf '  %-4s %-10s %-30s %-12s %s\n' "$(__mx_profile_emoji standard)" "standard" "+ members/attach/navigate/refs" "~15K tok" "a domain hub"
+  printf '  %-4s %-10s %-30s %-12s %s\n' "$(__mx_profile_emoji fat)" "fat" "+ transitive closure" "~30K tok" "deep dives / maximum context"
   echo ""
   echo "  Rule of thumb: agents → lean; hubs → standard (auto when target is hub-*)."
 }
@@ -876,26 +1053,26 @@ vault-models() {
   done
   if [ "$cli" = "cursor" ]; then
     if __mx_cursor_bedrock_wanted; then
-      echo "── Bedrock status (SYNAPSE_CURSOR_BEDROCK=on) ──"
+      echo "☁️  Bedrock status (SYNAPSE_CURSOR_BEDROCK=on)"
       command -v cursor-agent >/dev/null 2>&1 && cursor-agent bedrock status 2>&1 | sed 's/^/  /' || echo "  cursor-agent not on PATH"
       echo ""
-      echo "── Raw Bedrock model IDs ──"
+      echo "☁️  Raw Bedrock model IDs"
       __mx_cli_model_ids cursor $refresh 2>/dev/null | grep -E '^(us|eu|ap|sa)\.' | sed 's/^/  /' || echo "  (none)"
       echo ""
     elif __mx_cursor_bedrock_is_enabled; then
-      echo "── Bedrock ──"
+      echo "☁️  Bedrock"
       echo "  configured in ~/.cursor/cli-config.json (off by default for Synapse — set SYNAPSE_CURSOR_BEDROCK=on to include tenant IDs)"
       echo ""
     fi
-    echo "── Cursor catalog ──"
+    echo "🧠 Cursor catalog"
     __mx_cli_model_ids cursor $refresh 2>/dev/null | grep -v -E '^(us|eu|ap|sa)\.' | sed 's/^/  /'
   else
-    echo "── Models for --cli $cli ──"
+    echo "🧠 Models for --cli $cli"
     __mx_cli_model_ids "$cli" $refresh | sed 's/^/  /'
   fi
   echo ""
   echo "Use:  <agent> --cli $cli --model <id> ..."
-  echo "Cache: $(__mx_models_cache "$cli")  (TTL ${SYNAPSE_MODELS_TTL:-3600}s; vault-models --cli $cli --refresh)"
+  echo "Cache: $(__mx_models_cache "$cli")  (TTL ${SYNAPSE_MODELS_TTL:-3600}s; synapse models --cli $cli --refresh)"
 }
 
 # Alias for genesis-parity / cursor-focused docs
@@ -907,14 +1084,14 @@ vault-cursor-models() {
 # Toggle / inspect AWS Bedrock via Cursor team-role (org subscription models).
 vault-bedrock() {
   if ! command -v cursor-agent >/dev/null 2>&1; then
-    echo "cursor-agent not on PATH" >&2; return 127
+    echo "❌ [synapse] cursor-agent not on PATH" >&2; return 127
   fi
   case "${1:-status}" in
     on|enable|use-team-role)
       if __mx_cursor_bedrock_ensure; then
         cursor-agent bedrock status 2>&1 | sed 's/^/  /'
       else
-        echo "Could not enable Bedrock team-role. Check: cursor-agent bedrock status" >&2
+        echo "❌ [synapse] Could not enable Bedrock team-role. Check: cursor-agent bedrock status" >&2
         cursor-agent bedrock status 2>&1 | sed 's/^/  /' >&2
         return 1
       fi
@@ -927,16 +1104,16 @@ vault-bedrock() {
       if command -v cursor-agent >/dev/null 2>&1; then
         cursor-agent bedrock status 2>&1 | sed 's/^/  /'
       else
-        echo "  cursor-agent not on PATH" >&2
+        echo "  ❌ cursor-agent not on PATH" >&2
         return 127
       fi
       echo ""
       if __mx_cursor_bedrock_is_enabled; then
-        echo "  Raw Bedrock model IDs:"
+        echo "  ☁️  Raw Bedrock model IDs:"
         __mx_cli_model_ids cursor --refresh 2>/dev/null \
           | grep -E '^(us|eu|ap|sa)\.' | sed 's/^/    /' || echo "    (none)"
       else
-        echo "  Bedrock off (default). Enable: vault-bedrock on  or  SYNAPSE_CURSOR_BEDROCK=on"
+        echo "  ☁️  Bedrock off (default). Enable: vault-bedrock on  or  SYNAPSE_CURSOR_BEDROCK=on"
       fi
       ;;
     *)
@@ -949,7 +1126,7 @@ vault-reload() {
   if [ -f "$_mx_env" ]; then
     # shellcheck disable=SC1090
     . "$_mx_env"
-    echo "[synapse] re-sourced via $_mx_env"
+    echo "🔄 [synapse] re-sourced via $_mx_env"
     return 0
   fi
   if [ -n "${ZSH_VERSION:-}" ]; then
@@ -957,11 +1134,11 @@ vault-reload() {
   elif [ -n "${BASH_VERSION:-}" ]; then
     _mx_self="${BASH_SOURCE[0]}"
   else
-    echo "vault-reload: re-source bin/synapse-env.sh manually" >&2; return 1
+    echo "❌ vault-reload: re-source bin/synapse-env.sh manually" >&2; return 1
   fi
   # shellcheck disable=SC1090
   . "$_mx_self"
-  echo "[synapse] agents.sh re-sourced from $_mx_self"
+  echo "🔄 [synapse] agents.sh re-sourced from $_mx_self"
 }
 
 vault-gate() {
@@ -982,7 +1159,7 @@ __syn_help() {
   cat <<'EOF'
 synapse — Synapse context-vault CLI (@eborja/synapse)
 
-Engine (PATH binary, or package lib/ when no synapse bin on PATH):
+📦 Engine (PATH binary, or package lib/ when no synapse bin on PATH):
   synapse render <id> … [--profile lean|standard|fat] [--dry-run] [--copy]
   synapse augment <id> … --task "…"      render + semantic recall
   synapse lint [--strict]                mechanical vault health-check
@@ -992,7 +1169,7 @@ Engine (PATH binary, or package lib/ when no synapse bin on PATH):
   synapse install [--write]              wire this shell CLI + editor dirs
   synapse journal "slug"                 scaffold journal/<date>-<slug>.md
 
-Shell (need this sourced CLI; vault-* aliases in parentheses):
+🐚 Shell (need this sourced CLI; vault-* aliases in parentheses):
   synapse agents        list agent commands            (vault-agents)
   synapse hubs          list hub targets               (vault-hubs)
   synapse profiles      explain the profiles           (vault-profiles)
@@ -1001,9 +1178,10 @@ Shell (need this sourced CLI; vault-* aliases in parentheses):
   synapse reload        re-source this CLI now         (vault-reload)
   synapse gate …        host privacy gate (on|off|status)       (vault-gate)
 
-Agents (launch a coding CLI seeded with a briefing):
-  curator | oracle | reconciler | ingester  [<hub-id>] [--profile …] ["task"]
-  e.g.  curator hub-finances "regenerate the Q2 summary view"
+🤖 Agents (Tab-completes; also as `synapse <agent>`):
+  🧭 curator | 🔮 oracle | 🔧 reconciler | 📥 ingester  [<hub-id>] [--profile …] ["task"]
+  e.g.  curator hub-<Tab>   or   synapse oracle hub-finances "…"
+  Targets: hub ids Tab-complete from any cwd (via $SYNAPSE_VAULT / vault walk).
 EOF
 }
 
@@ -1017,8 +1195,22 @@ synapse() {
     bedrock)  shift; vault-bedrock  "$@" ;;
     reload)   shift; vault-reload   "$@" ;;
     gate)     shift; vault-gate     "$@" ;;
-    # Engine subcommands: __mx_run uses the PATH binary when available, else node + lib/.
     *)
+      # Agent short name → launcher (so `synapse curator …` matches Tab completion).
+      _syn_as_agent=0
+      case " $(__mx_list_agent_names 2>/dev/null | tr '\n' ' ') " in
+        *" $1 "*) _syn_as_agent=1 ;;
+      esac
+      if [ "$_syn_as_agent" = 1 ]; then
+        _syn_agent="$1"; shift
+        unset _syn_as_agent
+        __mx_agent_cmd "$_syn_agent" "$@"
+        _syn_rc=$?
+        unset _syn_agent
+        return $_syn_rc
+      fi
+      unset _syn_as_agent
+      # Engine subcommands: __mx_run uses the PATH binary when available, else node + lib/.
       _syn_eng="$1"; shift
       __mx_run "$_syn_eng" "$@"
       _syn_rc=$?
