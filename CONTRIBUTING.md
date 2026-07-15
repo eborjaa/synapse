@@ -81,6 +81,7 @@ now overriding the approval requirement" step, never an automerge. Nothing lands
 5. Open a PR using the checklist in the PR template. Update docs if behavior changed.
 6. After merge, **publish the engine** when consumers should bump — follow
    [`docs/doc-npm-release.md`](docs/doc-npm-release.md) (`[[doc-npm-release]]`): CHANGELOG promote → pin
-   bump → `chore(pkg)` + `vX.Y.Z` tag → human `npm publish` → vault `npm install @eborja/synapse@^X.Y.Z`.
+   bump → `chore(pkg)` + `vX.Y.Z` tag → human `npm publish` → **always** vault
+   `npm install @eborja/synapse@^X.Y.Z` (agents do not wait to be asked for the vault bump).
    Agents run that checklist whenever asked to ship/publish; they do **not** run `npm publish` unless the
    human explicitly asks them to with credentials available.

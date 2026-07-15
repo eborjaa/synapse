@@ -6,8 +6,9 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ### Added
 - **`doc-npm-release`** — canonical checklist for shipping `@eborja/synapse` (CHANGELOG → pins → tag →
-  human `npm publish` → vault bump). Linked from [[hub-synapse]], [[doc-fork-and-extend]], and
-  `CONTRIBUTING.md`. Agents follow it whenever asked to publish.
+  human `npm publish` → **mandatory** vault bump). Linked from [[hub-synapse]], [[doc-fork-and-extend]],
+  and `CONTRIBUTING.md`. Agents follow it whenever asked to publish; the vault pin is updated every
+  release without a separate ask.
 
 ## 0.1.6 — 2026-07-15
 

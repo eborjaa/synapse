@@ -12,7 +12,7 @@ related: ["[[hub-synapse]]", "[[rule-framework-docs-current]]"]
 
 # Publishing `@eborja/synapse`
 
-How a framework change becomes a version on the npm registry, then lands in a consumer vault.
+How a framework change becomes a version on the npm registry, then lands in the consumer vault.
 **Agents: follow this note whenever the human asks to publish, bump, or ship the package.** Do not
 improvise a shorter path.
 
@@ -20,11 +20,12 @@ improvise a shorter path.
 
 | Who | Does |
 |---|---|
-| **Agent** | Feature PR → merge → CHANGELOG promote → pin bumps → `chore(pkg)` commit → `vX.Y.Z` tag → push → vault bump (if asked). Docs in the same change ([[rule-framework-docs-current]]). |
+| **Agent** | Feature PR → merge → CHANGELOG promote → pin bumps → `chore(pkg)` commit → `vX.Y.Z` tag → push → print publish commands → **after the version is on npm, always bump the private vault** (no separate ask). Docs in the same change ([[rule-framework-docs-current]]). |
 | **Human** | Reviews/merges the feature PR; runs `npm login` / `npm publish` (credentials stay with the human). |
 
-When the human says "push to npm" / "publish the package", the agent finishes everything *except*
-`npm publish`, then **outputs only the publish commands** for the human to run.
+When the human says "push to npm" / "publish the package", the agent finishes the framework release
+*except* `npm publish`, **outputs only the publish commands**, then **waits for confirmation or verifies
+`npm view @eborja/synapse version`**, and **always** runs the vault bump — do not wait to be reminded.
 
 ## Preconditions
 
@@ -91,7 +92,7 @@ git tag vX.Y.Z
 git push origin main --tags
 ```
 
-### 5. Human publishes (agent stops here and prints these)
+### 5. Human publishes (agent prints these, does not run them)
 
 ```bash
 cd /path/to/synapse-framework
@@ -100,30 +101,36 @@ npm publish --access public
 npm view @eborja/synapse version  # expect X.Y.Z
 ```
 
-## Vault bump (after the version is on npm)
+### 6. Vault bump — **always** (mandatory, not optional)
 
-In the **private vault** (`synapse-vault`), only the engine pin + any vault content that depends on the
-new behavior. Do **not** sweep unrelated dirty health/migration files into the same commit.
+**Every framework version bump includes a vault dependency bump.** Do this as soon as
+`npm view @eborja/synapse version` returns `X.Y.Z` (human said "published", or agent verified). Do not
+leave the vault on the previous pin or on an `npm link` to the framework.
+
+Default vault path: sibling of the framework repo — `../synapse-vault` (e.g.
+`/Users/eborja/synapse/synapse-vault`). If that directory is missing, ask once for the vault path; do not
+skip the bump.
+
+In the **private vault**, only the engine pin (+ README install pins if present) and any vault content
+that ships with this release. Do **not** sweep unrelated dirty health/migration files into the same
+commit.
 
 ```bash
 cd /path/to/synapse-vault
 
-# Drop a local npm link if present
+# Drop a local npm link if present — registry tarball wins
 npm unlink @eborja/synapse 2>/dev/null || true
 npm install @eborja/synapse@^X.Y.Z
 npx synapse install --write
 
-# Stage only the bump (+ intentional content). Example:
-git add package.json package-lock.json README.md   # + manifest/hubs/notes if part of the same ship
+# Stage only the bump (+ intentional release content)
+git add package.json package-lock.json
+# also README.md / manifest / hubs if they pin the version or ship with this release
 git commit -m "chore: bump @eborja/synapse to ^X.Y.Z"
 git push origin main
-
-# Interactive shell must re-source agents.sh
-synapse reload   # or: exec $SHELL
 ```
 
-If the vault was `npm link`'d to the framework for local testing, unlink **after** publish so Tab
-completion and `agents.sh` come from the registry tarball, not a dirty tree.
+Tell the human to `synapse reload` (or `exec $SHELL`) so Tab completion picks up the new `agents.sh`.
 
 ## Agent anti-patterns
 
@@ -132,7 +139,9 @@ completion and `agents.sh` come from the registry tarball, not a dirty tree.
   you to run it.
 - Do **not** publish from a feature branch; publish from tagged `main` that matches the tarball.
 - Do **not** leave `## Unreleased` holding the shipped notes, or bump pins without the CHANGELOG section.
+- Do **not** finish a release without bumping the vault once `X.Y.Z` is on npm.
 - Do **not** commit the private vault's unrelated dirty tree with the bump.
+- Do **not** leave the vault `npm link`'d to the framework after a registry publish.
 
 ## Related
 [[doc-fork-and-extend]] · [[rule-framework-docs-current]] · [[doc-cli-reference]] · [[hub-synapse]]
