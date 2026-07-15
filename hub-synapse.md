@@ -6,7 +6,7 @@ tags:
   - type/hub
   - area/meta
   - status/active
-references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]", "[[doc-cli-reference]]"]
+references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]", "[[doc-cli-reference]]", "[[doc-npm-release]]"]
 related: ["[[hub-finances]]", "[[hub-contacts]]", "[[hub-health]]", "[[hub-places]]", "[[hub-journal]]", "[[hub-projects]]", "[[hub-social-media]]", "[[hub-career]]"]
 ---
 
@@ -32,6 +32,8 @@ The design notes, in reading order:
 - [[doc-security-privacy]] — the privacy boundary (private repo, no public endpoint).
 - [[doc-fork-and-extend]] — engine package (`@eborja/synapse`) vs. your private vault: depend via npm;
   optionally track this repo as `upstream` for reference notes.
+- [[doc-npm-release]] — how to ship a new `@eborja/synapse` version (CHANGELOG → tag → human `npm publish`
+  → vault bump). Agents follow this whenever asked to publish.
 - [[doc-deployment-gate]] — the intended one-parent layout and the host-level privacy gate: an external
   coding agent maintains the framework while the vault stays sealed (local-only, data never leaves your
   hardware).

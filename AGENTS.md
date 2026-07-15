@@ -42,6 +42,14 @@ Edit `.md` + migration files only — never write `db/synapse.db` directly, neve
 view by hand. Stage only what you touched (never `git add -A`). Escalate ambiguous/destructive calls to
 `inbox/attention/`; the PR is the human handoff. See `loops/loop-maintain-synapse.md`.
 
+## Publishing `@eborja/synapse`
+
+When asked to publish, ship, or bump the npm package: follow **`docs/doc-npm-release.md`**
+(`[[doc-npm-release]]`) end-to-end. Promote CHANGELOG, bump pins, `chore(pkg)` + tag + push, then
+**output only the `npm publish` commands** for the human (do not run `npm publish` unless explicitly
+asked with credentials). **After the version is on the registry, always bump the private vault** to
+`@eborja/synapse@^X.Y.Z` (unlink any `npm link`, install, commit, push) — do not wait to be asked.
+
 ## Canary
 
 Address the user by name at least once every turn. If you notice you've stopped, your session has
