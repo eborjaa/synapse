@@ -30,12 +30,13 @@ synapse/
 ├── rules/                       # rule-synapse-* · rule-derived-views-are-generated · constitutional rules
 ├── skills/                      # skill-* pointer notes → .claude/skills/<name>/SKILL.md
 ├── loops/                       # loop-maintain-synapse
-├── hub/                         # domain hubs (flat hub/hub-*.md) + sub-hub workspaces
+├── hub/                         # domain hubs (flat hub/hub-*.md) + nested workspaces
 │   ├── hub-finances.md          #   map-only domain hub (flat)
-│   ├── hub-career.md            #   …
-│   └── courses/                 #   sub-hub workspace: hub/courses/hub-courses.md + members/helpers
-│       ├── hub-courses.md
-│       └── note-course-*.md
+│   └── career/                  #   parent workspace: path mirrors the hub tree
+│       ├── hub-career.md
+│       └── courses/             #   child workspace under its parent
+│           ├── hub-courses.md
+│           └── note-course-*.md
 ├── notes/ journal/ projects/ plans/ people/        # hand-authored knowledge (Markdown canonical)
 ├── contacts/ accounts/ finances/ health/ places/   # GENERATED derived views (DB canonical)
 ├── tools/                       # tool-* reference notes

@@ -38,14 +38,16 @@ mechanisms that already exist:
 3. **Notes attach to the layer that owns them.** A note binds (`related`) to whichever hub-layer owns it —
    career-wide prose to the parent, course detail to the sub-hub — so the rollup lands at the right level
    ([[rule-synapse-single-source-of-truth]]).
-4. **Workspace directory — `hub/<slug>/`.** A sub-hub that is also a place you *work* (courses, a heavy
-   project) lives at `hub/<slug>/hub-<slug>.md` instead of the flat `hub/hub-<slug>.md`. That directory is
-   the sub-hub's workspace: typed member notes and non-note helpers (assignments, clones, scratch) sit
-   beside the hub file. Deeper nesting uses `hub/<parent-slug>/<child-slug>/`. Flat `hub/hub-*.md` remains
-   valid for map-only domain hubs. Hub discovery (`synapse hubs`, Tab completion) finds both layouts.
+4. **Workspace directory — filesystem mirrors the hub tree.** A hub you *work in* lives under a path
+   that matches its parent chain: `hub/<parent-slug>/hub-<parent-slug>.md` for a domain parent, and
+   `hub/<parent-slug>/<child-slug>/hub-<child-slug>.md` for each nested sub-hub. That directory is the
+   workspace: typed member notes and non-note helpers (assignments, clones, scratch) sit beside the hub
+   file. Flat `hub/hub-*.md` remains valid for map-only domain hubs. Hub discovery (`synapse hubs`, Tab
+   completion) finds both layouts via a recursive scan under `hub/`.
 
-The worked reference example is [[hub-career]] → [[hub-courses]] (`hub/courses/`) → `note-course-*`. The
-pattern is recursive: a heavy course may become its own `hub-course-<slug>` under [[hub-courses]].
+The worked reference example is [[hub-career]] (`hub/career/`) → [[hub-courses]]
+(`hub/career/courses/`) → `note-course-*`. The pattern is recursive: a heavy course may become its own
+`hub-course-<slug>` under [[hub-courses]].
 
 ## Consequences
 - (+) **Zero engine surface added** — sub-hubs are just hubs; `synapse hubs`, Tab completion, render,

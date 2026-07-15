@@ -63,9 +63,10 @@ Each note opens with YAML frontmatter terminated by a line that is exactly `---`
   body* but **not** the sub-hub's members until `fat`. Because direction is structural, `curator
   hub-career/<Tab>` navigates one level down into sub-hubs. See [[decision-0007-composable-sub-hubs]]
   (worked example: [[hub-career]] → [[hub-courses]] → course notes).
-- **Sub-hub workspace directory.** A sub-hub you *work in* (courses, a heavy project) lives at
-  `hub/<slug>/hub-<slug>.md` — that directory is its workspace for typed members and non-note helpers.
-  Map-only hubs may stay flat at `hub/hub-<slug>.md`. Discovery finds both.
+- **Hub workspace directory — path mirrors the tree.** A hub you *work in* nests under its parent on
+  disk: `hub/career/hub-career.md`, `hub/career/courses/hub-courses.md`, … — that directory is its
+  workspace for typed members and non-note helpers. Map-only hubs may stay flat at `hub/hub-<slug>.md`.
+  Discovery finds both.
 - Link liberally; a `[[name]]` with no target yet is fine — render just skips it, and it marks intent.
 
 ## 4. Single source of truth — across both substrates

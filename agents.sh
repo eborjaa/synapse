@@ -812,7 +812,7 @@ __mx_list_agent_ids() {
 }
 
 # Emit absolute paths of every hub note: root hub-synapse.md, flat hub/hub-*.md, and
-# nested workspaces hub/<slug>/hub-*.md (see decision-0007). Sorted for stable Tab order.
+# nested workspaces hub/<parent>/…/hub-*.md (see decision-0007). Sorted for stable Tab order.
 __mx_iter_hub_files() {
   _mx_v="$1"
   [ -n "$_mx_v" ] || return 0
@@ -1079,13 +1079,13 @@ vault-hubs() {
   SYNAPSE_VAULT="$(__mx_vault)"
   echo "🗺️  Synapse hubs (pass as the second arg to any agent)"
   echo "  Usage: <agent> <hub-id> [--profile standard]"
-  echo "  Layout: flat hub/hub-<slug>.md  or  workspace hub/<slug>/hub-<slug>.md"
+  echo "  Layout: flat hub/hub-<slug>.md  or  nested hub/<parent>/…/hub-<slug>.md"
   echo ""
   __mx_iter_hub_files "$SYNAPSE_VAULT" | while IFS= read -r f; do
     [ -e "$f" ] || continue
     id="$(basename "$f" .md)"
     title="$(grep -m1 '^title:' "$f" | sed 's/^title:[[:space:]]*//' | tr -d '"')"
-    # Show workspace-relative path when nested (e.g. hub/courses/hub-courses.md).
+    # Show workspace-relative path when nested (e.g. hub/career/courses/hub-courses.md).
     rel="${f#"$SYNAPSE_VAULT"/}"
     case "$rel" in
       hub/*/*) printf '  %-24s %-40s %s\n' "$id" "($rel)" "$title" ;;

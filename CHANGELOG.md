@@ -10,6 +10,12 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   and `CONTRIBUTING.md`. Agents follow it whenever asked to publish; the vault pin is updated every
   release without a separate ask.
 
+### Changed
+- **Nested hub workspaces mirror the parent→child tree** — a working domain lives at
+  `hub/<parent>/hub-<parent>.md` with children under it (e.g. `hub/career/courses/hub-courses.md`), not
+  as a sibling `hub/courses/`. Flat `hub/hub-*.md` remains valid for map-only hubs. Docs and the
+  career→courses reference example updated ([[decision-0007-composable-sub-hubs]]).
+
 ## 0.1.6 — 2026-07-15
 
 ### Added
