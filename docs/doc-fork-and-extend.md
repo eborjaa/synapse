@@ -19,14 +19,14 @@ your knowledge and records stay in a private vault that *consumes* the package.
 
 - **The engine (`@eborja/synapse`).** Published on npm from this repo's `bin/`, `lib/`, `agents.sh`, and
   `schema/`. Manifest-driven render / augment / lint / embeddings / SQL helpers / install. **No personal
-  data.** Install: `npm install @eborja/synapse@^0.1.5` (or pin a git tag: `github:eborjaa/synapse#v0.1.5`).
+  data.** Install: `npm install @eborja/synapse@^0.1.6` (or pin a git tag: `github:eborjaa/synapse#v0.1.6`).
 - **Your vault (a private repo).** Agents, rules, hubs, notes, `migrations/0002+`, `db/`. Depends on the
   engine via `package.json`. Its **`origin` is private**. Optionally track this repo as `upstream` if you
   also want the reference ontology notes — or keep only the npm dependency.
 
 ```sh
 # Engine only (recommended for new vaults):
-npm install @eborja/synapse@^0.1.5
+npm install @eborja/synapse@^0.1.6
 npx synapse install --write
 
 # Or pull framework *content* updates (agents/docs/rules) the old way:

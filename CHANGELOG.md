@@ -4,11 +4,15 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.1.6 — 2026-07-15
+
 ### Added
 - **Sub-hub workspace directories** — a working sub-hub lives at `hub/<slug>/hub-<slug>.md` (e.g.
   `hub/courses/`); that directory is the workspace for typed members and non-note helpers. Flat
   `hub/hub-*.md` remains valid for map-only hubs. `synapse hubs` / Tab completion discover both via a
   recursive scan under `hub/`.
+
+Install: `npm install @eborja/synapse@^0.1.6`
 
 ## 0.1.5 — 2026-07-15
 
@@ -115,8 +119,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.5"
-// or: "github:eborjaa/synapse#v0.1.5"
+"@eborja/synapse": "^0.1.6"
+// or: "github:eborjaa/synapse#v0.1.6"
 ```
 
 ```sh
