@@ -29,11 +29,16 @@ child ([[decision-0007-composable-sub-hubs]]).
   `--profile fat`. That is the point: **each layer knows its sub-layers, but not as deeply as the child
   knows them.**
 
+## Workspace
+This hub lives at **`hub/career/`**. Child workspaces nest under it (e.g. `hub/career/courses/`) so the
+directory tree matches the hub tree.
+
 ## How to work this domain
 - **Author career-wide prose:** a `note-*` with `related: ["[[hub-career]]"]` — Markdown is canonical.
-- **Add a sub-hub:** create a new `hub-<slug>` that lists **this** hub in its `related` (child declares
-  parent — like a note declaring its hub) and mention it under **Sub-hubs** above for humans. That one
-  edge is enough: the parent renders the sub-hub and Tab completion drills into it via
+  Prefer colocating under `hub/career/` when the note belongs to this workspace.
+- **Add a sub-hub:** create `hub/career/<slug>/hub-<slug>.md` that lists **this** hub in its `related`
+  (child declares parent — like a note declaring its hub) and mention it under **Sub-hubs** above for
+  humans. That one edge is enough: the parent renders the sub-hub and Tab completion drills into it via
   `curator hub-career/<Tab>` ([[decision-0007-composable-sub-hubs]], [[rule-synapse-edges-by-role]]).
 - **Ask across layers:** `oracle hub-career "…"` for a wide view; `oracle hub-courses "…"` to drill in.
 
