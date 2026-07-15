@@ -4,6 +4,30 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Fixed
+- **Pre-commit lint gate** — always sets `SYNAPSE_VAULT` to the repo being committed, so an ambient
+  `$SYNAPSE_VAULT` pointing at a private consumer vault no longer redirects the strict lint and falsely
+  blocks framework commits.
+- **zsh Tab completion after an agent name** (hub targets, `--model`, `--cli`, `--profile`) silently
+  fell back to filename completion. zsh does not word-split unquoted parameters, so
+  `compdef __mx_complete_zsh ${_MX_AGENT_NAMES} …` registered the whole name list as one bogus
+  command and never bound the per-agent widget. Now split explicitly with `${=_MX_AGENT_NAMES}`.
+- **`--model` completion ignored a preceding `--cli <x>`** in zsh (always listed the default runtime's
+  models). `__mx_cli_from_words` iterated a single joined scalar; it now iterates its args word-by-word
+  and both call sites pass words individually (`${(@)words[2,-1]}` / `"${COMP_WORDS[@]}"`). bash was
+  unaffected.
+
+### Added
+- **Composable sub-hubs** — a `hub` can nest under a parent hub (and hold its own sub-hubs). A sub-hub
+  **declares its parent** in `related` (child-declares-parent, like a member declares its hub); the
+  `NAVIGATES` role is now **bidirectional** so that one edge renders both ways — a parent shows each
+  sub-hub's map at `standard` but not its members until `fat`. No new type, field, or role. Documented in
+  `_meta/decisions/decision-0007-composable-sub-hubs.md` and `_meta/conventions.md`; reference example:
+  `hub-career` → `hub-courses` → course notes.
+- **Hub-tree Tab completion** — `<agent> hub-parent/<TAB>` drills one level down into that hub's sub-hubs
+  (e.g. `curator hub-career/` → `hub-career/hub-courses`), chainable for deeper nesting; the leaf segment
+  is the real render target. zsh + bash.
+
 ## 0.1.4 — 2026-07-14
 
 ### Changed

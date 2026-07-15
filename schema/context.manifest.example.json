@@ -77,11 +77,11 @@
     },
     "NAVIGATES": {
       "field": "related",
-      "direction": "forward",
+      "direction": "both",
       "endpointTypes": [
         "hub"
       ],
-      "_doc": "hub -> sibling/parent hub. Depth-capped per profile."
+      "_doc": "hub <-> hub composition. A sub-hub declares its PARENT in related (child-declares-parent, like a member declares its hub); bidirectional so a parent renders its sub-hubs (reverse) and a sub-hub renders its parent (forward). Depth-capped per profile."
     }
   },
   "referenceRoles": [

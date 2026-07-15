@@ -444,6 +444,8 @@ __mx_launch() {
   target=""
   if [ -n "${1:-}" ] && ! __mx_is_profile "${1:-}" && [ "${1#--}" = "$1" ] && [ "${1#[a-z]}" != "$1" ]; then
     target="$1"; shift
+    # Hub-tree path (`hub-career/hub-courses`) is a completion aid; the leaf is the real target.
+    case "$target" in */*) target="${target##*/}" ;; esac
     case "$target" in hub-*) [ "$profile" = "lean" ] && profile="standard" ;; esac
   fi
 
@@ -819,6 +821,27 @@ __mx_list_hub_ids() {
   unset _mx_v _mx_f
 }
 
+# Sub-hubs one level under $1: hubs whose `related` frontmatter declares $1 (child-declares-parent —
+# see decision-0007). The master hub-synapse is a curated root index, never a child, so it is excluded.
+# Scans the single-line `related:` field only (never the body) to avoid matching prose wikilinks.
+__mx_child_hubs() {
+  _mx_parent="$1"
+  [ -n "$_mx_parent" ] || return 0
+  _mx_v="$(__mx_vault 2>/dev/null || true)"
+  [ -n "$_mx_v" ] || return 0
+  for _mx_f in "$_mx_v"/hub/hub-*.md "$_mx_v"/hub-synapse.md; do
+    [ -f "$_mx_f" ] || continue
+    _mx_id="$(basename "$_mx_f" .md)"
+    [ "$_mx_id" = "$_mx_parent" ] && continue
+    [ "$_mx_id" = "hub-synapse" ] && continue
+    _mx_rel="$(sed -n 's/^related:[[:space:]]*//p' "$_mx_f" 2>/dev/null | head -1)"
+    case "$_mx_rel" in
+      *"[[$_mx_parent]]"*) printf '%s\n' "$_mx_id" ;;
+    esac
+  done
+  unset _mx_parent _mx_v _mx_f _mx_id _mx_rel
+}
+
 # True when $1 looks like a render/launch target id (not a bare profile / flag / task word).
 __mx_looks_like_target() {
   case "$1" in
@@ -828,14 +851,17 @@ __mx_looks_like_target() {
 }
 
 __mx_cli_from_words() {
-  # $1 = space-separated words (no leading agent name needed for model list)
+  # Args = the command words (each a separate arg). Must be passed word-by-word,
+  # not as one joined scalar: zsh does not word-split an unquoted scalar, so
+  # `for _w in $1` would see the whole line at once and never find `--cli <x>`.
   _w_cli="${SYNAPSE_CLI:-opencode}"
-  for _w in $1; do
+  _mx_next_cli=0
+  for _w in "$@"; do
+    if [ "$_mx_next_cli" = "1" ]; then _w_cli="$_w"; _mx_next_cli=0; continue; fi
     case "$_w" in
       --cli=*) _w_cli="${_w#--cli=}" ;;
-      --cli)   _mx_next_cli=1; continue ;;
+      --cli)   _mx_next_cli=1 ;;
     esac
-    if [ "${_mx_next_cli:-0}" = "1" ]; then _w_cli="$_w"; _mx_next_cli=0; fi
   done
   unset _mx_next_cli
   printf '%s\n' "$_w_cli"
@@ -845,7 +871,7 @@ if [ -n "${ZSH_VERSION:-}" ]; then
   __mx_complete_zsh() {
     local -a models hubs agents ids
     local cur="${words[CURRENT]}" prev="${words[CURRENT-1]}"
-    local cli; cli="$(__mx_cli_from_words "${words[2,-1]}")"
+    local cli; cli="$(__mx_cli_from_words "${(@)words[2,-1]}")"
     case "$prev" in
       --model|-m)
         models=(${(f)"$(__mx_cli_model_ids "$cli" 2>/dev/null)"})
@@ -864,6 +890,15 @@ if [ -n "${ZSH_VERSION:-}" ]; then
       --*)
         compadd -- ${(z)_MX_FLAGS}; return ;;
     esac
+
+    # Hub-tree navigation: `hub-parent/<TAB>` drills one level down into its sub-hubs.
+    if [[ "$cur" == hub-*/* ]]; then
+      local base="${cur%/*}" leaf kids k
+      leaf="${base##*/}"
+      kids=(${(f)"$(__mx_child_hubs "$leaf" 2>/dev/null)"})
+      for k in $kids; do compadd -S '' -- "$base/$k"; done
+      return
+    fi
 
     # Positional targets: hubs (cwd-agnostic via __mx_vault) + bare profile words.
     local has_target=0 w i
@@ -910,8 +945,11 @@ if [ -n "${ZSH_VERSION:-}" ]; then
     __mx_complete_zsh
   }
   if whence compdef >/dev/null 2>&1 && (( ${+_comps} )); then
+    # ${=...} forces word-splitting: zsh does NOT split unquoted params, so without
+    # it the whole name list registers as one bogus command and per-agent Tab
+    # completion (hubs, --model, --cli, --profile) silently dies.
     # shellcheck disable=SC2086
-    compdef __mx_complete_zsh ${_MX_AGENT_NAMES} vault-models vault-cursor-models
+    compdef __mx_complete_zsh ${=_MX_AGENT_NAMES} vault-models vault-cursor-models
     compdef __mx_complete_synapse_zsh synapse
   fi
 elif [ -n "${BASH_VERSION:-}" ]; then
@@ -919,7 +957,7 @@ elif [ -n "${BASH_VERSION:-}" ]; then
     local cur prev cli has_target w
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cli="$(__mx_cli_from_words "${COMP_WORDS[*]}")"
+    cli="$(__mx_cli_from_words "${COMP_WORDS[@]}")"
     case "$prev" in
       --model|-m)
         # shellcheck disable=SC2207
@@ -935,6 +973,17 @@ elif [ -n "${BASH_VERSION:-}" ]; then
       --*)
         # shellcheck disable=SC2207
         COMPREPLY=($(compgen -W "$_MX_FLAGS" -- "$cur")); return ;;
+    esac
+    # Hub-tree navigation: `hub-parent/<TAB>` drills one level down into its sub-hubs.
+    case "$cur" in
+      hub-*/*)
+        local base leaf kids
+        base="${cur%/*}"; leaf="${base##*/}"
+        kids="$(__mx_child_hubs "$leaf" 2>/dev/null | sed "s#^#$base/#")"
+        # shellcheck disable=SC2207
+        COMPREPLY=($(compgen -W "$kids" -- "$cur"))
+        [ "${#COMPREPLY[@]}" -gt 0 ] && compopt -o nospace 2>/dev/null
+        return ;;
     esac
     has_target=0
     local i
