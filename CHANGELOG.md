@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.1.7 — 2026-07-15
+
 ### Added
 - **`doc-npm-release`** — canonical checklist for shipping `@eborja/synapse` (CHANGELOG → pins → tag →
   human `npm publish` → **mandatory** vault bump). Linked from [[hub-synapse]], [[doc-fork-and-extend]],
@@ -15,6 +17,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   `hub/<parent>/hub-<parent>.md` with children under it (e.g. `hub/career/courses/hub-courses.md`), not
   as a sibling `hub/courses/`. Flat `hub/hub-*.md` remains valid for map-only hubs. Docs and the
   career→courses reference example updated ([[decision-0007-composable-sub-hubs]]).
+
+Install: `npm install @eborja/synapse@^0.1.7`
 
 ## 0.1.6 — 2026-07-15
 
@@ -131,8 +135,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.6"
-// or: "github:eborjaa/synapse#v0.1.6"
+"@eborja/synapse": "^0.1.7"
+// or: "github:eborjaa/synapse#v0.1.7"
 ```
 
 ```sh
