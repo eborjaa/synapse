@@ -811,10 +811,22 @@ __mx_list_agent_ids() {
   unset _mx_n
 }
 
+# Emit absolute paths of every hub note: root hub-synapse.md, flat hub/hub-*.md, and
+# nested workspaces hub/<slug>/hub-*.md (see decision-0007). Sorted for stable Tab order.
+__mx_iter_hub_files() {
+  _mx_v="$1"
+  [ -n "$_mx_v" ] || return 0
+  [ -f "$_mx_v/hub-synapse.md" ] && printf '%s\n' "$_mx_v/hub-synapse.md"
+  if [ -d "$_mx_v/hub" ]; then
+    find "$_mx_v/hub" -type f -name 'hub-*.md' 2>/dev/null | LC_ALL=C sort
+  fi
+  unset _mx_v
+}
+
 __mx_list_hub_ids() {
   _mx_v="$(__mx_vault 2>/dev/null || true)"
   [ -n "$_mx_v" ] || return 0
-  for _mx_f in "$_mx_v"/hub/hub-*.md "$_mx_v"/hub-synapse.md; do
+  __mx_iter_hub_files "$_mx_v" | while IFS= read -r _mx_f; do
     [ -f "$_mx_f" ] || continue
     basename "$_mx_f" .md
   done
@@ -829,7 +841,7 @@ __mx_child_hubs() {
   [ -n "$_mx_parent" ] || return 0
   _mx_v="$(__mx_vault 2>/dev/null || true)"
   [ -n "$_mx_v" ] || return 0
-  for _mx_f in "$_mx_v"/hub/hub-*.md "$_mx_v"/hub-synapse.md; do
+  __mx_iter_hub_files "$_mx_v" | while IFS= read -r _mx_f; do
     [ -f "$_mx_f" ] || continue
     _mx_id="$(basename "$_mx_f" .md)"
     [ "$_mx_id" = "$_mx_parent" ] && continue
@@ -1067,12 +1079,18 @@ vault-hubs() {
   SYNAPSE_VAULT="$(__mx_vault)"
   echo "🗺️  Synapse hubs (pass as the second arg to any agent)"
   echo "  Usage: <agent> <hub-id> [--profile standard]"
+  echo "  Layout: flat hub/hub-<slug>.md  or  workspace hub/<slug>/hub-<slug>.md"
   echo ""
-  for f in "$SYNAPSE_VAULT"/hub/hub-*.md "$SYNAPSE_VAULT"/hub-synapse.md; do
+  __mx_iter_hub_files "$SYNAPSE_VAULT" | while IFS= read -r f; do
     [ -e "$f" ] || continue
     id="$(basename "$f" .md)"
     title="$(grep -m1 '^title:' "$f" | sed 's/^title:[[:space:]]*//' | tr -d '"')"
-    printf '  %-24s %s\n' "$id" "$title"
+    # Show workspace-relative path when nested (e.g. hub/courses/hub-courses.md).
+    rel="${f#"$SYNAPSE_VAULT"/}"
+    case "$rel" in
+      hub/*/*) printf '  %-24s %-40s %s\n' "$id" "($rel)" "$title" ;;
+      *)       printf '  %-24s %s\n' "$id" "$title" ;;
+    esac
   done
   echo ""
   echo "  Also valid: project-* / plan-* / note-* / contact-* / account-* / summary-*"
