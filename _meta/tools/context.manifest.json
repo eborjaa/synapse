@@ -22,8 +22,8 @@
     "ATTACHES": { "field": "related", "direction": "both",
       "endpointTypes": ["person", "decision", "tool", "glossary"],
       "_doc": "hub/note -> reference/background notes it hangs off (NOT members). Forward `related:` to a reference-typed endpoint." },
-    "NAVIGATES": { "field": "related", "direction": "forward", "endpointTypes": ["hub"],
-      "_doc": "hub -> sibling/parent hub. Depth-capped per profile." }
+    "NAVIGATES": { "field": "related", "direction": "both", "endpointTypes": ["hub"],
+      "_doc": "hub <-> hub composition. A sub-hub declares its PARENT in related (child-declares-parent, like a member declares its hub); the edge is bidirectional so a parent renders its sub-hubs (reverse) and a sub-hub renders its parent (forward). Depth-capped per profile, so a parent shows a sub-hub's map but not its members until fat." }
   },
 
   "referenceRoles": ["ATTACHES", "NAVIGATES"],

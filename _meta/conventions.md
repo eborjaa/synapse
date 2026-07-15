@@ -55,6 +55,14 @@ Each note opens with YAML frontmatter terminated by a line that is exactly `---`
     is *navigated to*, a `note`/`journal`/`plan`/`project`/`contact`/`account`/`summary` is *bound* (it
     rolls up as a member of any hub it links to), and a `person`/`decision`/`tool`/`glossary` is
     *attached* (bidirectional).
+- **Hubs compose (sub-hubs).** A `hub` → `hub` link is *navigated*, not bound, so hubs nest into trees. A
+  sub-hub **declares its parent** in `related` (child-declares-parent, exactly like a member declares its
+  hub); the parent does not list the child in frontmatter. `NAVIGATES` is **bidirectional**, so that one
+  edge renders both ways — the parent pulls its sub-hubs, a sub-hub pulls its parent — and it is
+  depth-capped per profile (0 `lean` / 1 `standard` / 99 `fat`), so a parent shows each sub-hub's *own
+  body* but **not** the sub-hub's members until `fat`. Because direction is structural, `curator
+  hub-career/<Tab>` navigates one level down into sub-hubs. See [[decision-0007-composable-sub-hubs]]
+  (worked example: [[hub-career]] → [[hub-courses]] → course notes).
 - Link liberally; a `[[name]]` with no target yet is fine — render just skips it, and it marks intent.
 
 ## 4. Single source of truth — across both substrates
@@ -70,7 +78,7 @@ is **generated, not authored** (§6).
 ## 5. Note types (the taxonomy)
 | Layer | Types | Substrate | Notes |
 |---|---|---|---|
-| **Map** | `hub` | Markdown | one hub per domain (`hub-finances`, `hub-contacts`, `hub-<project>`) + the master `hub-synapse` |
+| **Map** | `hub` | Markdown | one hub per domain (`hub-finances`, `hub-contacts`, `hub-<project>`) + the master `hub-synapse`; hubs **nest** — a sub-hub lists its parent in `related` ([[decision-0007-composable-sub-hubs]]) |
 | **Knowledge** | `note` `journal` `project` `plan` | Markdown (canonical) | the prose second brain; members of a domain hub |
 | **People** | `person` `contact` | `person` = Markdown narrative; `contact` = generated view | record + optional narrative, **linked, never duplicated** |
 | **Records** | `contact` `account` `summary` | SQL (canonical) → generated Markdown view | per-row views (`contact`, `account`) + aggregate summaries (finance/health/geo) |

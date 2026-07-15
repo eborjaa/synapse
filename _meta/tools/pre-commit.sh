@@ -18,12 +18,15 @@ staged="$(git diff --cached --name-only)"
 # Vault touch = any staged Markdown note, the migrations dir, the manifest, or AGENTS.md.
 if echo "$staged" | grep -qE '(\.md$|^migrations/|^_meta/tools/context\.manifest\.json$|^AGENTS\.md$)'; then
   echo "[pre-commit] vault touched -> linting (strict)..."
+  # Always lint THIS repo. An ambient $SYNAPSE_VAULT (e.g. a private consumer vault)
+  # must not redirect the gate — that falsely fails framework commits when the other
+  # vault has unrelated drift or missing notes.
   if command -v synapse >/dev/null 2>&1; then
     _lint_cmd=(synapse lint --strict)
   else
     _lint_cmd=(node "$REPO/bin/synapse.mjs" lint --strict)
   fi
-  if ! "${_lint_cmd[@]}"; then
+  if ! env SYNAPSE_VAULT="$REPO" "${_lint_cmd[@]}"; then
     echo "[pre-commit] FAIL: vault lint failed. Fix the errors above, or bypass with 'git commit --no-verify'." >&2
     exit 1
   fi

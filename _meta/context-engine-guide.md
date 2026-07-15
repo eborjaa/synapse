@@ -36,12 +36,16 @@ traverses to that target's `type:` ([[rule-synapse-edges-by-role]]):
 | DELEGATES | `delegates_to` | forward | `agent` |
 | BINDS (reverse name `members`) | `related` | reverse | `note` `journal` `project` `plan` `contact` `account` `summary` |
 | ATTACHES | `related` | both | `person` `decision` `tool` `glossary` |
-| NAVIGATES | `related` | forward | `hub` |
+| NAVIGATES | `related` | both | `hub` |
 | REFERENCES | `references_docs` | forward | `doc` |
 
 BINDS and ATTACHES share the `related` field but are **disjoint by endpoint type**: a target type is
 either a member that rolls up under a hub (BINDS, surfaced in reverse as `members`) or a bidirectional
-attachment (ATTACHES) — never both.
+attachment (ATTACHES) — never both. A `hub` → `hub` link is neither: it is **NAVIGATES**, which is how
+hubs compose into parent/sub-hub trees. A sub-hub declares its **parent** in `related`; NAVIGATES is
+**bidirectional**, so that one edge lets a parent render its sub-hubs (reverse) and a sub-hub render its
+parent (forward) — depth-capped so a parent shows a sub-hub's map but not its members until `fat`
+([[decision-0007-composable-sub-hubs]]).
 
 ## The three profiles and their token budgets
 A profile selects which **roles** to include (and optional `pointerRoles` / per-role `depth`). Token budgets

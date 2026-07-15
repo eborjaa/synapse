@@ -7,7 +7,7 @@ tags:
   - area/meta
   - status/active
 references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]", "[[doc-cli-reference]]"]
-related: ["[[hub-finances]]", "[[hub-contacts]]", "[[hub-health]]", "[[hub-places]]", "[[hub-journal]]", "[[hub-projects]]", "[[hub-social-media]]"]
+related: ["[[hub-finances]]", "[[hub-contacts]]", "[[hub-health]]", "[[hub-places]]", "[[hub-journal]]", "[[hub-projects]]", "[[hub-social-media]]", "[[hub-career]]"]
 ---
 
 # Synapse — master hub
@@ -39,8 +39,9 @@ The design notes, in reading order:
 
 ## Domains — what's inside
 One hub per domain; each gathers its own notes and records as *members* via reverse-`BINDS` (a note that
-declares the hub in its `related:` field rolls up as a member of that hub). They are intentionally
-near-empty until data lands.
+declares the hub in its `related:` field rolls up as a member of that hub). Hubs also **compose**: a hub
+can nest under a parent hub and hold its own sub-hubs, each layer carrying just enough about the next to
+orient ([[decision-0007-composable-sub-hubs]]). They are intentionally near-empty until data lands.
 
 **Knowledge (Markdown-canonical):**
 [[hub-journal]] (dated entries) · [[hub-projects]] (projects + plans) · [[hub-social-media]] (posts, drafts)
@@ -48,6 +49,10 @@ near-empty until data lands.
 **Records (SQL-canonical, surfaced as generated views + summaries):**
 [[hub-finances]] (accounts, transactions) · [[hub-contacts]] (people) · [[hub-health]] (metrics,
 workouts) · [[hub-places]] (gazetteer + visits)
+
+**Composable (a hub unit with sub-hubs):**
+[[hub-career]] (top layer) → [[hub-courses]] (sub-hub) → course notes — the reference example of nesting
+([[decision-0007-composable-sub-hubs]]).
 
 ## Method — how it runs
 The HOW layer the agents obey and the engine that briefs them:
