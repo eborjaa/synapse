@@ -59,5 +59,11 @@ Resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD` ([[tool-render]], `li
 Knowledge is Markdown-in-git, records ride migration files, and every change is a reviewable diff
 ([[doc-governance-model]]). Updating the engine is an npm bump — it cannot overwrite your notes.
 
+## Releasing a new engine version
+
+When shipping framework changes to npm (and then into a consumer vault), follow the checklist in
+[[doc-npm-release]]: feature PR merges first → CHANGELOG + pins → tag → human `npm publish` → vault
+`npm install @eborja/synapse@^X.Y.Z`. Agents own every step except `npm publish`.
+
 ## Related
-[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-repo-layout]] · [[doc-cli-reference]] · [[hub-synapse]]
+[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-repo-layout]] · [[doc-cli-reference]] · [[doc-npm-release]] · [[hub-synapse]]

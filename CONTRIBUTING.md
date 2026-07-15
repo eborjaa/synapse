@@ -79,4 +79,8 @@ now overriding the approval requirement" step, never an automerge. Nothing lands
 3. `npm test` (when engine code changed) and `synapse lint --strict` → errors=0.
 4. If you touched the schema, add a forward-only migration (never edit `0001-init-schema.sql` destructively).
 5. Open a PR using the checklist in the PR template. Update docs if behavior changed.
-6. After merge, tag a release (`v0.x.y`) when consumers should bump the npm pin.
+6. After merge, **publish the engine** when consumers should bump — follow
+   [`docs/doc-npm-release.md`](docs/doc-npm-release.md) (`[[doc-npm-release]]`): CHANGELOG promote → pin
+   bump → `chore(pkg)` + `vX.Y.Z` tag → human `npm publish` → vault `npm install @eborja/synapse@^X.Y.Z`.
+   Agents run that checklist whenever asked to ship/publish; they do **not** run `npm publish` unless the
+   human explicitly asks them to with credentials available.
