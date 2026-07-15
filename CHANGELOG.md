@@ -4,6 +4,12 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Added
+- **Sub-hub workspace directories** — a working sub-hub lives at `hub/<slug>/hub-<slug>.md` (e.g.
+  `hub/courses/`); that directory is the workspace for typed members and non-note helpers. Flat
+  `hub/hub-*.md` remains valid for map-only hubs. `synapse hubs` / Tab completion discover both via a
+  recursive scan under `hub/`.
+
 ## 0.1.5 — 2026-07-15
 
 ### Fixed

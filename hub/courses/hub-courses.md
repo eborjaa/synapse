@@ -17,12 +17,18 @@ gathers its own members and can itself hold further sub-hubs — but it declares
 in `related`, so the two navigate to each other while their members stay separate
 ([[decision-0007-composable-sub-hubs]]).
 
+## Workspace
+This hub lives at **`hub/courses/`** — that directory *is* the sub-hub's workspace. Colocate typed
+`note-course-*` members here, plus any non-note helpers (assignments, clones, scratch). Flat
+`hub/hub-courses.md` is still valid for map-only hubs; a workspace directory is the recommended layout
+when the sub-hub is something you *work in*.
+
 ## What lives here
 - **Course notes** — `note-course-*` notes, one idea per file (e.g. [[note-course-ml-foundations]]), each
   wired here via `related`. These are the *detail* the parent [[hub-career]] deliberately does **not**
   pull at `standard`.
-- **(Optional) deeper sub-hubs** — a heavy course can become its own `hub-course-<slug>` that lists this
-  hub as its parent, nesting one level further. The pattern is recursive.
+- **(Optional) deeper sub-hubs** — a heavy course can become its own
+  `hub/courses/<slug>/hub-course-<slug>.md` that lists this hub as its parent. The pattern is recursive.
 
 ## How the layers render
 - `oracle hub-courses` (or `--profile standard`) → this hub's own body **plus its course notes** (its
