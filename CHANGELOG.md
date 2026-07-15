@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.1.5 — 2026-07-15
+
 ### Fixed
 - **Pre-commit lint gate** — always sets `SYNAPSE_VAULT` to the repo being committed, so an ambient
   `$SYNAPSE_VAULT` pointing at a private consumer vault no longer redirects the strict lint and falsely
@@ -27,6 +29,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 - **Hub-tree Tab completion** — `<agent> hub-parent/<TAB>` drills one level down into that hub's sub-hubs
   (e.g. `curator hub-career/` → `hub-career/hub-courses`), chainable for deeper nesting; the leaf segment
   is the real render target. zsh + bash.
+
+Install: `npm install @eborja/synapse@^0.1.5`
 
 ## 0.1.4 — 2026-07-14
 
@@ -105,8 +109,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.4"
-// or: "github:eborjaa/synapse#v0.1.4"
+"@eborja/synapse": "^0.1.5"
+// or: "github:eborjaa/synapse#v0.1.5"
 ```
 
 ```sh
