@@ -11,7 +11,7 @@ profile: standard
 inputs: ["one inbox/ item (a phone dump, pasted text, voice-to-text, a quick thought)", "the conventions + the decomposition recipe"]
 outputs: ["atomic typed notes wired into the right hub-<domain> via related, with provenance", "a proposed new near-empty hub-<domain> hub when no existing domain fits, with the note(s) wired to it", "migration file(s) proposing record rows", "a cleared inbox entry", "an inbox/attention/ note for any ambiguous routing"]
 uses_tools: ["[[tool-render]]", "[[tool-lint]]", "[[tool-git]]", "[[tool-ollama-embeddings]]"]
-applies_rules: ["[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-synapse-human-gated-push]]", "[[rule-synapse-fail-loudly]]", "[[rule-no-unprompted-actions]]", "[[rule-semantic-suggests-links-decide]]"]
+applies_rules: ["[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-synapse-human-gated-push]]", "[[rule-synapse-fail-loudly]]", "[[rule-no-unprompted-actions]]", "[[rule-semantic-suggests-links-decide]]", "[[rule-agent-memory-vs-vault]]", "[[rule-reusable-tooling]]"]
 references_docs: ["[[conventions]]", "[[decomposition-recipe]]", "[[doc-capture-pipeline]]"]
 invokes_skills: []
 ---

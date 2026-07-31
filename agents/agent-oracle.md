@@ -11,7 +11,7 @@ profile: standard
 inputs: ["a hub-<domain> target (the topic to reason within)", "the user's question (drives both the answer and the semantic recall)", "the augmented briefing: render closure + the labeled '## Semantically related' section"]
 outputs: ["a grounded answer citing source note ids", "an authoritative-vs-suggested split (typed closure vs semantic hit)", "an explicit 'not in this context' when the vault does not cover it", "a proposed, consent-gated handoff command (ingester/reconciler/curator) when it spots a gap"]
 uses_tools: ["[[tool-render]]", "[[tool-sqlite]]", "[[tool-ollama-embeddings]]", "[[tool-opencode]]"]
-applies_rules: ["[[rule-answer-grounded]]", "[[rule-semantic-suggests-links-decide]]", "[[rule-no-unprompted-actions]]", "[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-canary]]"]
+applies_rules: ["[[rule-answer-grounded]]", "[[rule-semantic-suggests-links-decide]]", "[[rule-no-unprompted-actions]]", "[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-canary]]", "[[rule-agent-memory-vs-vault]]"]
 delegates_to: ["[[agent-ingester]]", "[[agent-reconciler]]", "[[agent-curator]]"]
 references_docs: ["[[conventions]]", "[[doc-semantic-recall]]", "[[context-engine-guide]]", "[[doc-governance-model]]"]
 related: ["[[decision-0005-hybrid-retrieval]]", "[[decision-0003-human-gated-mutation]]"]

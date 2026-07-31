@@ -35,6 +35,7 @@ const CMDS = {
   journal: "journal-new.mjs",
   new: "new-note.mjs",
   "mcp-config": "mcp-config.mjs",
+  init: "init.mjs",
 };
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -57,6 +58,7 @@ commands:
   journal "slug"         scaffold journal/<date>-<slug>.md for a work-session log
   new <kind> <name>      scaffold a wired note: hub | agent | note | handover
                          (dry-run; --write to create — see: synapse new --help)
+  init [dir] [--write]   scaffold a new vault from the notes this package ships
   mcp-config [--write]   generate .mcp.json / .cursor/mcp.json for THIS vault
                          (points at the vault's own synapse-mcp bin; plugins auto-discovered)
 

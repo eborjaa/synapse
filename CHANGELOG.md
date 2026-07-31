@@ -9,6 +9,14 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   exporting `register(server, ctx)` and it loads — no env var, no absolute paths, nothing to
   maintain per machine. Every vault and sub-vault carries its own tools. `SYNAPSE_MCP_PLUGINS`
   still adds paths for plugins living outside the vault.
+- **`synapse init [dir] [--write]`** — scaffold a new vault from the notes this package now ships
+  (the manifest, `_meta/conventions.md`, the four agents, all `rule-*`, the `tool-*`/`skill-*`
+  notes, `hub-synapse`), plus the empty domain dirs and a `package.json`. Never overwrites, so it
+  is safe to re-run to pick up newly shipped notes. Previously `npm i @eborja/synapse` gave you an
+  engine with nothing to render.
+- **The generic content layer ships in the package** — `_meta/`, `agents/`, `rules/`, `tools/`,
+  `skills/`, `hub-synapse.md` added to `files`. `init` copies the framework's *own* notes rather
+  than a duplicated `starter/` tree, so what consumers get is exactly what this repo lints.
 - **`synapse mcp-config [--write]`** — generates `.mcp.json` (Claude Code) and `.cursor/mcp.json`
   for the vault you are standing in, pointing at the `synapse-mcp` bin npm installed *into that
   vault*. Idempotent, dry-run by default, `--client claude|cursor`, `--surface <name>`. Replaces

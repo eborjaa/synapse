@@ -11,7 +11,7 @@ profile: standard
 inputs: ["the vault", "lint.mjs findings", "DB ↔ derived-view divergence", "inbox/ items awaiting ingestion or human-resolved escalations"]
 outputs: ["applied safe .md fixes", "regenerated derived views (via the reconciler)", "inbox/attention/ escalations with Options", "a human-gated PR to main", "a logs/ heartbeat"]
 uses_tools: ["[[tool-lint]]", "[[tool-render]]", "[[tool-git]]", "[[tool-gh]]", "[[tool-sqlite]]", "[[tool-ollama-embeddings]]"]
-applies_rules: ["[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-human-gated-push]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-no-unprompted-actions]]", "[[rule-context-handover]]", "[[rule-canary]]", "[[rule-semantic-suggests-links-decide]]"]
+applies_rules: ["[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-human-gated-push]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-no-unprompted-actions]]", "[[rule-context-handover]]", "[[rule-canary]]", "[[rule-semantic-suggests-links-decide]]", "[[rule-agent-memory-vs-vault]]"]
 delegates_to: ["[[agent-reconciler]]"]
 references_docs: ["[[conventions]]", "[[context-engine-guide]]", "[[doc-maintainer-loop]]", "[[doc-governance-model]]"]
 related: ["[[decision-0003-human-gated-mutation]]", "[[decision-0006-self-healing-vault]]", "[[decision-0004-opencode-local-ollama-runtime]]"]
