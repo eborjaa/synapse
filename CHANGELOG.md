@@ -4,6 +4,28 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.3.0 — 2026-07-31
+
+### Added
+- **`synapse new <kind> <name>`** — scaffold correctly-wired notes: `hub`, `agent`, `note --type
+  <type>`, `handover`. Dry-run by default, `--write` to create. Built on `lib/scaffold.mjs`, which
+  reads `lib/schema.mjs`, so generated notes satisfy the schema the linter enforces.
+- **`--used-by <agent-ids>`** — writes the **inbound** edge into each agent's frontmatter
+  (`rule → applies_rules`, `tool → uses_tools`, `skill → invokes_skills`). This is what prevents
+  orphans: a new rule is only reachable once an agent cites it, and that link lives in the agent's
+  file, so creating the note alone leaves it valid but invisible to briefings.
+- **`synapse_create_{hub,agent,note,handover}`** MCP tools (full surface), sharing the same core.
+  They **propose by default** — path + rendered content + planned inbound edges — and write only
+  when called with `write: true` ([[rule-synapse-human-gated-push]]). Running an agent on the
+  `standard` surface leaves them unregistered, making "the read front door never mutates" a
+  property of the surface rather than a prompt instruction.
+
+### Fixed
+- Scaffolding resolves the vault with `preferCwd`, so an exported `SYNAPSE_VAULT` pointing at
+  another vault can no longer silently misdirect a write; the destination is echoed on every run.
+
+Install: `npm install @eborja/synapse@^0.3.0`
+
 ## 0.2.0 — 2026-07-31
 
 ### Added
@@ -161,8 +183,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.2.0"
-// or: "github:eborjaa/synapse#v0.2.0"
+"@eborja/synapse": "^0.3.0"
+// or: "github:eborjaa/synapse#v0.3.0"
 ```
 
 ```sh
