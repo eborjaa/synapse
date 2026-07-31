@@ -4,6 +4,31 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.2.0 — 2026-07-31
+
+### Added
+- **MCP server ships in the package.** `mcp/` + a second bin, `synapse-mcp` — the vault as MCP tools
+  over stdio (13 built-ins across `skeleton` / `standard` / `full`). Previously this lived only in a
+  private, unpublished vault package. `@modelcontextprotocol/sdk` + `zod` are now dependencies;
+  `npm run smoke` drives the server against this repo.
+- **`SYNAPSE_MCP_PLUGINS`** — consumer-specific MCP tools without forking. Comma-separated ESM paths,
+  each exporting `register(server, ctx)` where
+  `ctx = { server, surface, VAULT, runSynapse, asToolResult, manifest }` — the same helpers the
+  built-in tool modules use. Plugins register after the built-ins and fail loudly if malformed.
+- **`lib/schema.mjs`** (exported as `@eborja/synapse/schema`) — `PREFIX_TYPE`, `REQUIRED`,
+  `typeForId()`, `requiredFields()`, `knownTypes()`, `rolesFromManifest()`, and `fieldForLink()`.
+  The last resolves which frontmatter field a link belongs in from **both** endpoints (an `agent`
+  cites a `tool` via `uses_tools`; a `note` cites the same tool via `related`), derived from the
+  manifest `roles` block rather than hardcoded.
+
+### Changed
+- `lib/lint.mjs` imports `PREFIX_TYPE` / `REQUIRED` from `lib/schema.mjs` instead of declaring them,
+  so the checker and the generators cannot drift. Lint output is byte-identical.
+- **No longer dependency-free.** The MCP server needs `@modelcontextprotocol/sdk` and `zod`; the CLI
+  and engine paths themselves still add nothing at runtime.
+
+Install: `npm install @eborja/synapse@^0.2.0`
+
 ## 0.1.7 — 2026-07-15
 
 ### Added
@@ -129,14 +154,15 @@ Initial distributable release of the context-vault engine as an npm package. The
 
 ### Compatibility
 
-- **`engines.node`: `>=22`** (built-in `node:sqlite`). Zero runtime dependencies.
+- **`engines.node`: `>=22`** (built-in `node:sqlite`). Runtime deps as of 0.2.0:
+  `@modelcontextprotocol/sdk` + `zod`, required by the `synapse-mcp` server only.
 - Existing flat vaults (this template) keep working: put (or keep) `context.manifest.json` under `_meta/tools/` and run from the vault root.
 
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.1.7"
-// or: "github:eborjaa/synapse#v0.1.7"
+"@eborja/synapse": "^0.2.0"
+// or: "github:eborjaa/synapse#v0.2.0"
 ```
 
 ```sh
