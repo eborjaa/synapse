@@ -11,6 +11,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { existsSync } from "node:fs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, "server.mjs");
@@ -38,6 +39,7 @@ const EXPECTED = {
     "synapse_lint",
     "synapse_handover_list", "synapse_handover_resolve", "synapse_handover_read",
     "synapse_handover_write", "synapse_resume_from_handover",
+    "synapse_create_hub", "synapse_create_agent", "synapse_create_note", "synapse_create_handover",
   ],
 };
 
@@ -103,6 +105,19 @@ if (surface === "full") {
   console.log("\nsynapse_handover_list");
   await client.callTool({ name: "synapse_handover_list", arguments: { limit: 5 } });
   pass("handover_list ok");
+
+  // The human gate: a create call without write:true must render the note and touch nothing.
+  console.log("\nsynapse_create_note (propose-only)");
+  const probe = join(vault, "rules", "rule-smoke-probe.md");
+  const proposed = text(await client.callTool({
+    name: "synapse_create_note",
+    arguments: { slug: "smoke-probe", type: "rule", used_by: ["curator"] },
+  }));
+  /PROPOSED \(nothing written\)/.test(proposed) ? pass("proposes") : fail(proposed.slice(0, 200));
+  /applies_rules \+= \[\[rule-smoke-probe\]\]/.test(proposed)
+    ? pass("plans the inbound edge into agent-curator.applies_rules")
+    : fail("inbound edge not planned");
+  existsSync(probe) ? fail("propose WROTE a file — the human gate leaks") : pass("nothing written to disk");
 }
 
 await client.close();

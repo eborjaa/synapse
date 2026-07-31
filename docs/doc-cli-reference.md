@@ -68,7 +68,43 @@ synapse embeddings [--all]
 synapse augment agent-curator hub-finances --profile standard --task "…"
 synapse setup [--write]
 synapse install [--write]
+synapse journal "slug"
+synapse new <kind> <name> [--write]          # hub | agent | note | handover
 ```
+
+### `synapse new` — scaffolding
+
+Generates notes that satisfy the schema `synapse lint` enforces (both read `lib/schema.mjs`, so the
+generator and the checker cannot drift). **Dry-run by default; `--write` creates.**
+
+```bash
+synapse new hub climbing --parent hub-synapse --write
+synapse new agent scribe --purpose "Draft release notes" --rules rule-canary --tools tool-git --write
+synapse new note zone2-pacing --type note --hub hub-health --write
+synapse new handover continue-gate-6 --plan plan-buzz-gated-learning --write
+```
+
+Links are routed to the frontmatter field their **target type** requires — `rule → applies_rules`,
+`tool → uses_tools`, `skill → invokes_skills`, `agent → delegates_to`, `doc → references_docs`,
+everything else `related` — read from the manifest `roles` block, not hardcoded.
+
+**`--used-by <agent-ids>` is what prevents orphans.** A new rule or tool is only reachable once an
+agent *cites* it, and that edge lives in the agent's frontmatter. Without `--used-by` the note is
+valid but invisible, and lint reports `orphan (no inbound links)`:
+
+```bash
+synapse new note my-rule --type rule --used-by curator,oracle --write
+#   wired: agent-curator.applies_rules += rule-my-rule
+```
+
+(The wired value is a real wikilink; it is written unbracketed here because `synapse lint` scans
+fenced code too, and a sample link would register as an unresolved one.)
+
+Writes resolve the vault from the **current directory first**, so a stale exported `SYNAPSE_VAULT`
+cannot silently create the note in another vault; the destination is echoed on every run.
+
+Over MCP the same core is exposed as `synapse_create_{hub,agent,note,handover}` on the **full**
+surface, which **propose by default** and write only when called with `write: true`.
 
 Engine subcommands resolve via the `synapse` CLI (`bin/synapse.mjs` in this repo, or
 `node_modules/@eborja/synapse` in a consumer vault). During package development you can also run

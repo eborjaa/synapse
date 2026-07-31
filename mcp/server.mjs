@@ -23,6 +23,7 @@ import { registerSkeletonTools, registerBriefTool } from "./tools/agents.mjs";
 import { registerRetrievalTools } from "./tools/retrieval.mjs";
 import { registerHealthTools } from "./tools/health.mjs";
 import { registerHandoverTools } from "./tools/handover.mjs";
+import { registerAuthoringTools } from "./tools/authoring.mjs";
 
 assertVault();
 
@@ -47,8 +48,10 @@ const instructions = {
     + "Never call synapse_embeddings_rebuild unless the user asks.\n"
     + "All tools return text — they do NOT start an agent chat session.",
   full:
-    "Synapse context vault — full surface (standard + handover).\n\n"
+    "Synapse context vault — full surface (standard + handover + authoring).\n\n"
     + "Same one-hub + augment + lint rules as standard.\n"
+    + "synapse_create_* PROPOSE by default — they write only when called with write:true, and a new "
+    + "rule/tool needs used_by:[<agent-id>] or it lands as an orphan.\n"
     + "Handover write is human-triggered only — never call synapse_handover_write unless asked.\n"
     + "All tools return text — they do NOT start an agent chat session.",
 }[surface];
@@ -63,6 +66,7 @@ if (surface === "standard" || surface === "full") {
 }
 if (surface === "full") {
   registerHandoverTools(server);
+  registerAuthoringTools(server);
 }
 
 // Consumer plugins — registered last so they can extend the surface. Failures throw rather than
