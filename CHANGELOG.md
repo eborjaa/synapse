@@ -4,6 +4,16 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Added
+- **MCP plugins are auto-discovered** from `<vault>/_meta/mcp-plugins/*.mjs`. Drop in a module
+  exporting `register(server, ctx)` and it loads — no env var, no absolute paths, nothing to
+  maintain per machine. Every vault and sub-vault carries its own tools. `SYNAPSE_MCP_PLUGINS`
+  still adds paths for plugins living outside the vault.
+- **`synapse mcp-config [--write]`** — generates `.mcp.json` (Claude Code) and `.cursor/mcp.json`
+  for the vault you are standing in, pointing at the `synapse-mcp` bin npm installed *into that
+  vault*. Idempotent, dry-run by default, `--client claude|cursor`, `--surface <name>`. Replaces
+  hand-written configs that hardcoded one machine's paths and broke on every move.
+
 ## 0.3.0 — 2026-07-31
 
 ### Added

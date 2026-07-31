@@ -70,7 +70,24 @@ synapse setup [--write]
 synapse install [--write]
 synapse journal "slug"
 synapse new <kind> <name> [--write]          # hub | agent | note | handover
+synapse mcp-config [--write]                 # MCP client config for this vault
 ```
+
+### `synapse mcp-config` — wiring a vault for MCP
+
+```bash
+npm install                    # installs the synapse-mcp bin into this vault
+synapse mcp-config --write     # writes .mcp.json + .cursor/mcp.json
+```
+
+Generates config pointing at **this vault's own** `node_modules/.bin/synapse-mcp`, so the identical
+two commands wire any vault or sub-vault on the machine — nothing is hand-edited and nothing
+hardcodes another machine's layout. `--client claude|cursor` narrows the target; `--surface
+skeleton|standard|full` picks the tool set (use `standard` for read-only agents).
+
+**Vault plugins** need no config entry: any `_meta/mcp-plugins/*.mjs` exporting
+`register(server, ctx)` is auto-discovered and registered after the built-ins. Use it for tools
+specific to one vault, so nothing consumer-specific has to enter the package.
 
 ### `synapse new` — scaffolding
 

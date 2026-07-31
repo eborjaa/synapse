@@ -5,15 +5,16 @@
 //   standard — + brief, augment, embeddings_*, lint          ← recommended for read-only agents
 //   full     — default: + handover tools (incl. handover_write)
 //
-// Consumer-specific tools do NOT belong in this package. Point SYNAPSE_MCP_PLUGINS at one or more
-// ESM modules exporting `register(server, ctx)` and they are registered after the built-ins:
-//
-//   SYNAPSE_MCP_PLUGINS=/path/to/vault/_meta/mcp-plugins/factory.mjs
+// Consumer-specific tools do NOT belong in this package. Drop an ESM module exporting
+// `register(server, ctx)` into <vault>/_meta/mcp-plugins/ and it is discovered automatically —
+// every vault carries its own tools with no per-machine configuration. SYNAPSE_MCP_PLUGINS adds
+// extra paths on top, for plugins that live outside the vault.
 //
 // ctx = { server, surface, VAULT, runSynapse, asToolResult, manifest } — the same helpers the
 // built-in tool modules use, so a plugin is written exactly like `tools/health.mjs`.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -72,8 +73,23 @@ if (surface === "full") {
 // Consumer plugins — registered last so they can extend the surface. Failures throw rather than
 // degrade silently ([[rule-synapse-fail-loudly]]): a bot must never report a clean tool list while
 // the tool it was asked for is quietly missing.
-const pluginPaths = (process.env.SYNAPSE_MCP_PLUGINS || "")
-  .split(",").map((s) => s.trim()).filter(Boolean);
+//
+// Discovered BY CONVENTION from <vault>/_meta/mcp-plugins/*.mjs, so any vault (or sub-vault) gets
+// its own tools by dropping a file there — no per-machine config to maintain. SYNAPSE_MCP_PLUGINS
+// still adds explicit paths on top, for plugins living outside the vault.
+function discoverPlugins() {
+  const dir = join(VAULT, "_meta", "mcp-plugins");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".mjs") && !f.startsWith(".") && !f.endsWith(".test.mjs"))
+    .sort()
+    .map((f) => join(dir, f));
+}
+
+const pluginPaths = [...new Set([
+  ...discoverPlugins(),
+  ...(process.env.SYNAPSE_MCP_PLUGINS || "").split(",").map((s) => s.trim()).filter(Boolean),
+])];
 const loaded = [];
 for (const p of pluginPaths) {
   const mod = await import(pathToFileURL(p).href);

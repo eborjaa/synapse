@@ -34,6 +34,7 @@ const CMDS = {
   install: "install.mjs",
   journal: "journal-new.mjs",
   new: "new-note.mjs",
+  "mcp-config": "mcp-config.mjs",
 };
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -56,6 +57,8 @@ commands:
   journal "slug"         scaffold journal/<date>-<slug>.md for a work-session log
   new <kind> <name>      scaffold a wired note: hub | agent | note | handover
                          (dry-run; --write to create — see: synapse new --help)
+  mcp-config [--write]   generate .mcp.json / .cursor/mcp.json for THIS vault
+                         (points at the vault's own synapse-mcp bin; plugins auto-discovered)
 
 Shell-only subcommands (agents · hubs · profiles · models · bedrock · reload · gate)
 and the agent launchers (curator · oracle · reconciler · ingester) live in the sourced
