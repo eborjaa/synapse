@@ -170,6 +170,13 @@ approves it. Click a name to open and tune its file.
 | 📥 [`agent-ingester`](agents/agent-ingester.md) | **capture** — atomize one `inbox/` dump into typed notes + proposed migration rows |
 | 🔮 [`agent-oracle`](agents/agent-oracle.md) | **reader** — grounded, cited Q&A over a domain's closure + semantic recall (never writes) |
 
+**Run agents as chat-able standing bots.** The same four agents can run as always-on bots you
+@mention in chat (an `oracle` that answers, a `curator` that maintains), briefing from this vault over
+MCP. That operator layer is its own package — **[Cortex](https://github.com/eborjaa/cortex)**
+(`@eborja/cortex`): `init` an instance, `provision` the agents, `start` them, `doctor` the stack.
+Cortex renders each bot's prompt from `synapse render` and gives each its own MCP surface (so a
+read-only `oracle` literally can't see the write tools). Synapse is the brain; Cortex is the operator.
+
 **The graph is hub-and-spoke.** One master hub links out to seven domain hubs; members roll up
 automatically (a note's `related: ["[[hub-x]]"]` *makes* it a member of `hub-x` — the hub is never edited
 by hand).
@@ -285,6 +292,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 - **Engine package** (`@eborja/synapse` vs your private vault; npm bump to update tooling) → [`doc-fork-and-extend`](docs/doc-fork-and-extend.md)
 - **Extending** (new note / rule / agent / domain / migration) → [`_meta/conventions.md`](_meta/conventions.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **The vision & full architecture** → [`doc-vision`](docs/doc-vision.md) · [`hub-synapse`](hub-synapse.md)
+- **Run standing agents on your vault** (chat-able `oracle`/`curator` over Buzz) → **[Cortex](https://github.com/eborjaa/cortex)** (`@eborja/cortex`)
 
 ---
 
