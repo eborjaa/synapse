@@ -82,6 +82,10 @@ const common = {
     .describe("Note ids to link; each is placed in the frontmatter field its target type requires"),
   used_by: z.array(z.string()).optional()
     .describe("Agent ids that should cite this note — adds the INBOUND edge, which is what prevents an orphan"),
+  body: z.string().optional()
+    .describe("Full Markdown body below the H1. When given, it replaces the TODO-stub scaffold; a "
+      + "## Related section for the hub/parent links is appended unless you write your own. Omit it to "
+      + "get the per-type stub."),
   write: z.boolean().optional().describe("false (default) proposes; true creates the file"),
 };
 
