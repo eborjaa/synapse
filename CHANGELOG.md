@@ -4,6 +4,19 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.5.0 — 2026-08-03
+
+### Added
+- **`body` on the `synapse_create_*` authoring tools (and `build()`)** — a note can now be created
+  with its full Markdown body in one propose call instead of scaffold-then-edit. A supplied `body`
+  replaces the per-type stub; the `## Related` hub/parent wiring is still appended unless the author
+  writes their own. Backward compatible — omit `body` and you get the identical stub. Same human
+  gate: proposes by default, writes only on `write: true`.
+
+Install: `npm install @eborja/synapse@^0.5.0`
+
+## 0.4.0 — 2026-07-31
+
 ### Added
 - **MCP plugins are auto-discovered** from `<vault>/_meta/mcp-plugins/*.mjs`. Drop in a module
   exporting `register(server, ctx)` and it loads — no env var, no absolute paths, nothing to
@@ -21,6 +34,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   for the vault you are standing in, pointing at the `synapse-mcp` bin npm installed *into that
   vault*. Idempotent, dry-run by default, `--client claude|cursor`, `--surface <name>`. Replaces
   hand-written configs that hardcoded one machine's paths and broke on every move.
+
+Install: `npm install @eborja/synapse@^0.4.0`
 
 ## 0.3.0 — 2026-07-31
 
@@ -201,8 +216,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.3.0"
-// or: "github:eborjaa/synapse#v0.3.0"
+"@eborja/synapse": "^0.5.0"
+// or: "github:eborjaa/synapse#v0.5.0"
 ```
 
 ```sh
