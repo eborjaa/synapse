@@ -4,6 +4,23 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.6.0 — 2026-08-03
+
+### Added
+- **`rule-buzz-reply-contract`** — a standing agent MUST publish its result every turn via the `buzz
+  messages send` CLI (`--reply-to` threads the reply; `--mention` hands off to the next agent).
+  `SendMessage` is agent-to-agent, **not** the Buzz channel reply. Wired into `agent-curator` and
+  `agent-oracle`.
+- **`rule-agent-orchestration`** — claim-or-delegate → score → re-delegate, one level deep. Wired into
+  `agent-curator`.
+- **Framework pattern notes** now ship: `note-synapse-harness-playbook` and `note-synapse-mcp-backlog`
+  moved to their canonical home in the framework, and `notes/` is added to the package `files`.
+
+These rules and notes were previously authored in a consuming vault by mistake; the framework is their
+source of truth, and consumers pick them up on `npm install`.
+
+Install: `npm install @eborja/synapse@^0.6.0`
+
 ## 0.5.0 — 2026-08-03
 
 ### Added
