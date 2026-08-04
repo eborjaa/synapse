@@ -16,12 +16,16 @@ export function registerSkeletonTools(server) {
     {
       title: "List Synapse agents",
       description:
-        "List every agent defined in the vault (agents/agent-*.md) with id, title, purpose. "
-        + "Call this first when you don't know which agent id to use.",
+        "List every agent defined in the vault (agents/agent-*.md) with id, title, purpose, and its "
+        + "declared capabilities: `addressable` (holds a chat identity — delegate to it by @mentioning "
+        + "it in a thread, so the handoff is observable) and `autonomous` (runs on its own clock). "
+        + "Call this first when you don't know which agent id to use, or to decide HOW to hand off.",
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
     async () => {
+      // Frontmatter values arrive as strings — `addressable: true` parses to "true", not true.
+      const flag = (v) => String(v).trim() === "true";
       const agents = listAgentFiles().map((f) => {
         const fm = readFrontmatter(join(AGENTS_DIR, f));
         return {
@@ -29,13 +33,24 @@ export function registerSkeletonTools(server) {
           short: (fm.id || f).replace(/^agent-/, "").replace(/\.md$/, ""),
           title: fm.title || "",
           purpose: fm.purpose || "",
+          addressable: flag(fm.addressable),
+          autonomous: flag(fm.autonomous),
         };
       });
+      // The capability line is what lets an orchestrator route the handoff (decision-0008): an
+      // addressable target is delegated to on the chat channel, everything else via a subagent spawn.
+      const caps = (a) => [
+        a.addressable ? "addressable" : "not-addressable",
+        a.autonomous ? "autonomous" : "on-demand",
+      ].join(", ");
       return {
         content: [{
           type: "text",
           text: `${agents.length} agents:\n\n`
-            + agents.map((a) => `- **${a.short}** (\`${a.id}\`) — ${a.purpose || a.title}`).join("\n"),
+            + agents.map((a) => `- **${a.short}** (\`${a.id}\`) [${caps(a)}] — ${a.purpose || a.title}`).join("\n")
+            + "\n\nHanding off: **addressable** agents are reachable in chat — @mention one in a thread "
+            + "and it replies there, so a human can watch the exchange. A non-addressable agent has no "
+            + "chat identity; spawn it as a subagent and publish its result yourself.",
         }],
       };
     },

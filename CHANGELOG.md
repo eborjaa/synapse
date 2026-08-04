@@ -4,6 +4,20 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.7.1 — 2026-08-03
+
+### Fixed
+- **`synapse_list_agents` now reports each agent's `addressable` / `autonomous` capabilities.** It read
+  the frontmatter but returned only `id`/`title`/`purpose`, so the flags added in 0.7.0 were invisible
+  to callers. `rule-agent-orchestration` tells an orchestrator to pick its handoff channel from the
+  target's `addressable` flag — via a registry that never emitted it, making the rule unsatisfiable: an
+  orchestrator fell back to a silent subagent spawn even when the target held a chat identity. Caught by
+  observing a live handoff. Each agent now renders as
+  `- **reconciler** (\`agent-reconciler\`) [addressable, on-demand] — …`, and the tool explains how the
+  capability picks the handoff channel.
+
+Install: `npm install @eborja/synapse@^0.7.1`
+
 ## 0.7.0 — 2026-08-03
 
 ### Added
