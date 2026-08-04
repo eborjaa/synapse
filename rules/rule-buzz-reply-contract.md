@@ -39,9 +39,13 @@ buzz messages send --channel <CHANNEL_UUID> --content "<your reply>" --reply-to 
   produces the in-thread `e`-tag). Omit it only for a deliberate new top-level post.
 - `--mention <pubkey>` — when the task belongs to another agent, start a **fresh thread** and
   `--mention` the next agent, handing it only the context it needs. That mention is the handover.
-- **Credentials.** The CLI reads `BUZZ_PRIVATE_KEY` and `BUZZ_RELAY_URL` from your environment. If it
-  reports no key / an auth error, source your Buzz agent env (the per-agent env file the harness
-  reads) and retry — your key is stored there as `SEC`, which maps to `BUZZ_PRIVATE_KEY`.
+- **Credentials — you need BOTH a key and a relay URL.** The CLI reads `BUZZ_PRIVATE_KEY` and
+  `BUZZ_RELAY_URL` from your environment, and **neither is guaranteed to be set** in the shell your
+  tools run in. Source your per-agent env file (the one the harness provisions) and retry: it holds
+  your key as `SEC` → `BUZZ_PRIVATE_KEY`, and `BUZZ_RELAY_URL`. If an older env file predates that and
+  carries no relay URL, the machine-local relay config beside it does — read it, don't invent one.
+  **Never guess a relay URL.** A wrong one fails as a *mention-preflight / exit-4* error rather than an
+  obvious auth error, so it reads as a permissions problem and sends you down the wrong path.
 
 ## The contract
 

@@ -4,6 +4,36 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.7.2 — 2026-08-03
+
+### Fixed
+- **`rule-buzz-reply-contract` no longer implies the relay URL is already in the environment.** It told
+  an agent to source its per-agent env "for the key", while `buzz messages send` needs a key **and** a
+  relay URL — and neither is guaranteed in the shell an agent's tools run in. An agent with no memory of
+  a previous run would authenticate and still fail to publish, then *guess* a URL. The rule now says
+  both credentials come from the provisioned env file, that a wrong relay URL surfaces as a
+  **mention-preflight / exit-4** failure rather than an auth error (which misdirects the diagnosis), and
+  that a relay URL must never be invented.
+
+Found by running the choreography end to end: a freshly provisioned `reconciler` was mentioned, did the
+work, and burned two `messages send` attempts before locating the relay config unaided.
+
+Install: `npm install @eborja/synapse@^0.7.2`
+
+## 0.7.1 — 2026-08-03
+
+### Fixed
+- **`synapse_list_agents` now reports each agent's `addressable` / `autonomous` capabilities.** It read
+  the frontmatter but returned only `id`/`title`/`purpose`, so the flags added in 0.7.0 were invisible
+  to callers. `rule-agent-orchestration` tells an orchestrator to pick its handoff channel from the
+  target's `addressable` flag — via a registry that never emitted it, making the rule unsatisfiable: an
+  orchestrator fell back to a silent subagent spawn even when the target held a chat identity. Caught by
+  observing a live handoff. Each agent now renders as
+  `- **reconciler** (\`agent-reconciler\`) [addressable, on-demand] — …`, and the tool explains how the
+  capability picks the handoff channel.
+
+Install: `npm install @eborja/synapse@^0.7.1`
+
 ## 0.7.0 — 2026-08-03
 
 ### Added
