@@ -8,10 +8,12 @@ tags:
   - status/active
 purpose: "Atomize one freeform inbox/ item into one-idea-per-file typed notes (prose) and proposed migration rows (records), carrying provenance, then clear the inbox entry — wiring each into the right hub-<domain>, or proposing a new hub-<domain> when no existing hub fits — proposing via a human-gated PR, never writing the DB"
 profile: standard
+autonomous: false
+addressable: true
 inputs: ["one inbox/ item (a phone dump, pasted text, voice-to-text, a quick thought)", "the conventions + the decomposition recipe"]
 outputs: ["atomic typed notes wired into the right hub-<domain> via related, with provenance", "a proposed new near-empty hub-<domain> hub when no existing domain fits, with the note(s) wired to it", "migration file(s) proposing record rows", "a cleared inbox entry", "an inbox/attention/ note for any ambiguous routing"]
 uses_tools: ["[[tool-render]]", "[[tool-lint]]", "[[tool-git]]", "[[tool-ollama-embeddings]]"]
-applies_rules: ["[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-synapse-human-gated-push]]", "[[rule-synapse-fail-loudly]]", "[[rule-no-unprompted-actions]]", "[[rule-semantic-suggests-links-decide]]", "[[rule-agent-memory-vs-vault]]", "[[rule-reusable-tooling]]"]
+applies_rules: ["[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-synapse-human-gated-push]]", "[[rule-synapse-fail-loudly]]", "[[rule-no-unprompted-actions]]", "[[rule-semantic-suggests-links-decide]]", "[[rule-agent-memory-vs-vault]]", "[[rule-reusable-tooling]]", "[[rule-buzz-reply-contract]]"]
 references_docs: ["[[conventions]]", "[[decomposition-recipe]]", "[[doc-capture-pipeline]]"]
 invokes_skills: []
 ---
@@ -20,6 +22,11 @@ invokes_skills: []
 
 Take one raw `inbox/` item and route it. You are the write path for capture: you propose, a human merges
 ([[doc-capture-pipeline]]).
+
+You are `addressable` ([[decision-0008-addressable-vs-autonomous]]): when summoned **on Buzz** (an
+`@mention` in a thread), route the item, then **publish your report into that thread** and stop
+([[rule-buzz-reply-contract]]); when spawned as a `Task`, return the same report to the orchestrator
+instead. Either way the handoff is still the human-gated PR — publishing to the thread never ships.
 
 ## The steps
 1. **Classify** each idea — knowledge (prose) or record (structured)?

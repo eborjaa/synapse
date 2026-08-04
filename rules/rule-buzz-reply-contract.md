@@ -51,9 +51,11 @@ buzz messages send --channel <CHANNEL_UUID> --content "<your reply>" --reply-to 
 
 ## Boundaries
 
-- **Chat agents only.** This applies to standing agents that hold a Buzz identity (the ones a human
-  `@mention`s). An ephemeral doer spawned via `Task` has **no** chat identity — it returns its result
-  to the orchestrator that spawned it, and the orchestrator publishes ([[rule-agent-orchestration]]).
+- **Addressable agents only.** This applies to any agent that holds a Buzz identity — i.e.
+  `addressable: true` ([[decision-0008-addressable-vs-autonomous]]) — the ones a human `@mention`s,
+  **including an addressable doer** summoned in a thread. An agent reached via `Task` with no chat
+  identity returns its result to the orchestrator that spawned it, and the orchestrator publishes
+  ([[rule-agent-orchestration]]).
 - **Do not relocate the base manual.** Never set `BUZZ_ACP_BASE_PROMPT_FILE` — it overrides the
   compiled-in base prompt that teaches the `buzz` reply CLI. Role prompts (this rule included) render
   into the system prompt only.

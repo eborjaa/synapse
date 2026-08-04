@@ -19,9 +19,18 @@ done or a bounded budget is spent — never more than one delegation level deep.
 1. **Claim or delegate.** Compare the task to your own `purpose`. If it is yours, do it with your tools.
    If not, call the vault MCP's `synapse_list_agents`, read each agent's `purpose`, and pick the
    single best fit. Never hardcode who does what — the registry is the source.
-2. **Spawn.** Spawn that agent as a subagent (Claude Code Task tool) **by its name**; it runs with the
-   full synapse toolset and its own vault-rendered role. Hand it the task plus only the context it needs.
-3. **Score the result.** Judge what it returns, and be explicit about which mode you used:
+2. **Hand off — the channel is chosen by the target's `addressable` flag**
+   ([[decision-0008-addressable-vs-autonomous]]). Read the picked agent's flags from the registry:
+   - **`addressable: true` → hand off on Buzz (visible).** Open a fresh thread and `--mention` the agent
+     on the channel, handing it only the context it needs; it replies in-thread
+     ([[rule-buzz-reply-contract]]). The handoff is watchable — this is the default when the target is
+     addressable, so a human can supervise the interaction.
+   - **`addressable: false` → spawn quietly via `Task`.** Spawn it as a subagent (Claude Code Task tool)
+     **by its name**; it runs with the full synapse toolset and its own vault-rendered role and returns
+     its result to you.
+   Either way, hand it the task plus only the context it needs, and never more than one level deep.
+3. **Score the result.** Judge what it returns — its in-thread Buzz reply, or its `Task` return value —
+   and be explicit about which mode you used:
    - **Qualitative (default).** Does the result satisfy the task as stated — grounded and cited, inside the
      agent's remit, no overreach, no fabrication?
    - **Quantitative (when the agent's design defines a signal).** If the delegated agent's role names a
