@@ -4,6 +4,22 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.7.3 — 2026-08-04
+
+### Added
+- **`rule-one-writer-per-worktree`** — a git working tree has one writer at a time. Check
+  `git status --porcelain` before a checkout, branch, stash, or stage; if the tree holds changes you did
+  not author, do not switch branches (a switch **relocates** every uncommitted change onto the new
+  branch), never `git add -A`, and never revert or stash a foreign diff. Stage by explicit path, or
+  report the contention. Notes that per-agent checkout isolation removes the hazard outright rather than
+  relying on etiquette. Wired into `agent-curator`, `agent-reconciler`, `agent-ingester`.
+
+Found live 2026-08-04: an orchestrator ran `git checkout -b` in a shared repo where another session held
+an uncommitted edit. The edit silently moved onto the new branch, and the orchestrator then spent turn
+budget investigating a diff it had not made. Quiet in both directions — git warns neither writer.
+
+Install: `npm install @eborja/synapse@^0.7.3`
+
 ## 0.7.2 — 2026-08-03
 
 ### Fixed
