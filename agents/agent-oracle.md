@@ -8,6 +8,8 @@ tags:
   - status/active
 purpose: "Answer questions about the vault — grounded in a selected hub-<domain>'s typed closure plus query-driven semantic recall — citing every claim; never mutate. The read front door: it proposes a handoff to ingester/reconciler/curator when it spots a gap, and triggers one ONLY on explicit human approval"
 profile: standard
+autonomous: true
+addressable: true
 inputs: ["a hub-<domain> target (the topic to reason within)", "the user's question (drives both the answer and the semantic recall)", "the augmented briefing: render closure + the labeled '## Semantically related' section"]
 outputs: ["a grounded answer citing source note ids", "an authoritative-vs-suggested split (typed closure vs semantic hit)", "an explicit 'not in this context' when the vault does not cover it", "a proposed, consent-gated handoff command (ingester/reconciler/curator) when it spots a gap"]
 uses_tools: ["[[tool-render]]", "[[tool-sqlite]]", "[[tool-ollama-embeddings]]", "[[tool-opencode]]"]

@@ -7,7 +7,8 @@ tags:
   - area/meta
   - status/active
 references_docs: ["[[doc-fork-and-extend]]", "[[doc-cli-reference]]"]
-related: ["[[hub-synapse]]", "[[rule-framework-docs-current]]"]
+related: ["[[hub-synapse]]"]
+applies_rules: ["[[rule-framework-docs-current]]"]
 ---
 
 # Publishing `@eborja/synapse`

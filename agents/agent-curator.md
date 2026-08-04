@@ -8,6 +8,8 @@ tags:
   - status/active
 purpose: "Maintain the whole vault — detect drift (lint + DB↔view divergence + orphans + inbox), autofix the unambiguous, dispatch a reconciler per drifted unit and verify its diff, escalate the rest, open one human-gated PR"
 profile: standard
+autonomous: true
+addressable: true
 inputs: ["the vault", "lint.mjs findings", "DB ↔ derived-view divergence", "inbox/ items awaiting ingestion or human-resolved escalations"]
 outputs: ["applied safe .md fixes", "regenerated derived views (via the reconciler)", "inbox/attention/ escalations with Options", "a human-gated PR to main", "a logs/ heartbeat"]
 uses_tools: ["[[tool-lint]]", "[[tool-render]]", "[[tool-git]]", "[[tool-gh]]", "[[tool-sqlite]]", "[[tool-ollama-embeddings]]"]

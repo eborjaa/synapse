@@ -4,6 +4,38 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.7.0 — 2026-08-03
+
+### Added
+- **Two orthogonal agent capability flags** — `autonomous` (runs on its own clock) and `addressable`
+  (holds a Buzz identity, can be `@mention`ed and replies in-thread). Both default to `false`. They
+  replace the implicit, conflated notion of a "standing" agent, which forced an agent to be
+  self-running in order to be watchable. Declared per agent, so **the package owns the roster** and a
+  conforming harness reads the flags instead of a hand-maintained list of names.
+- **`decision-0008-addressable-vs-autonomous`** — the ADR recording why the two properties split, and
+  the contract a conforming harness implements (provision an identity for each `addressable` agent;
+  schedule each `autonomous` one).
+
+### Changed
+- **`agent-reconciler` and `agent-ingester` are now `addressable: true` (and `autonomous: false`)** —
+  dispatch-only doers that nonetheless hold a Buzz identity, so their handoffs are **observable** in a
+  thread rather than hidden inside an orchestrator's `Task` spawn. `rule-buzz-reply-contract` is wired
+  into both: summoned on Buzz → publish the report into that thread; spawned via `Task` → return it to
+  the orchestrator. Their remit is unchanged — still propose-only, never the DB, never a PR.
+- **`agent-oracle` and `agent-curator`** declare `autonomous: true, addressable: true` (their existing
+  behaviour, now explicit).
+- **`rule-agent-orchestration` picks the handoff channel from the target's `addressable` flag** —
+  addressable → hand off **on Buzz** (`@mention` in-thread, then score its posted reply); otherwise
+  spawn quietly via `Task`. Visibility is now a property of *who* you delegate to, so it generalises to
+  any future agent.
+- **`rule-buzz-reply-contract` keys on `addressable`, not on role** — the publish-every-turn obligation
+  binds to holding a Buzz identity, explicitly including an addressable doer.
+
+Delegation still moves work, not authorization: publishing to a thread never bypasses the human gate on
+irreversible actions.
+
+Install: `npm install @eborja/synapse@^0.7.0`
+
 ## 0.6.0 — 2026-08-03
 
 ### Added
