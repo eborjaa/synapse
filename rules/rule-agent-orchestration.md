@@ -19,6 +19,14 @@ done or a bounded budget is spent — never more than one delegation level deep.
 1. **Claim or delegate.** Compare the task to your own `purpose`. If it is yours, do it with your tools.
    If not, call the vault MCP's `synapse_list_agents`, read each agent's `purpose`, and pick the
    single best fit. Never hardcode who does what — the registry is the source.
+   - **Capability is not a licence to claim.** "Could I do this with my tools?" is the wrong test —
+     you are a generalist, so the answer is almost always yes. The test is **whose `purpose` owns it.**
+     If the task falls squarely inside a *specialised* agent's stated remit — atomising a capture is
+     [[agent-ingester]]'s, reconciling a drifted unit is [[agent-reconciler]]'s — you **MUST delegate
+     it, even though you are capable of doing it yourself**, and even if the human's phrasing tempts you
+     to just act. Doing a specialist's job yourself is overreach: it defeats the observable handoff,
+     duplicates a role, and skips the maker≠checker split. Claim only what matches *your own* purpose
+     and no more-specific agent's.
 2. **Hand off — the channel is chosen by the target's `addressable` flag**
    ([[decision-0008-addressable-vs-autonomous]]). Read the picked agent's flags from the registry:
    - **`addressable: true` → hand off on Buzz (visible).** Open a fresh thread and `--mention` the agent

@@ -14,7 +14,7 @@ inputs: ["the vault", "lint.mjs findings", "DB ↔ derived-view divergence", "in
 outputs: ["applied safe .md fixes", "regenerated derived views (via the reconciler)", "inbox/attention/ escalations with Options", "a human-gated PR to main", "a logs/ heartbeat"]
 uses_tools: ["[[tool-lint]]", "[[tool-render]]", "[[tool-git]]", "[[tool-gh]]", "[[tool-sqlite]]", "[[tool-ollama-embeddings]]"]
 applies_rules: ["[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-human-gated-push]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-no-unprompted-actions]]", "[[rule-context-handover]]", "[[rule-canary]]", "[[rule-semantic-suggests-links-decide]]", "[[rule-agent-memory-vs-vault]]", "[[rule-agent-orchestration]]", "[[rule-buzz-reply-contract]]", "[[rule-one-writer-per-worktree]]"]
-delegates_to: ["[[agent-reconciler]]"]
+delegates_to: ["[[agent-reconciler]]", "[[agent-ingester]]"]
 references_docs: ["[[conventions]]", "[[context-engine-guide]]", "[[doc-maintainer-loop]]", "[[doc-governance-model]]"]
 related: ["[[decision-0003-human-gated-mutation]]", "[[decision-0006-self-healing-vault]]", "[[decision-0004-opencode-local-ollama-runtime]]"]
 invokes_skills: ["[[skill-maintain-synapse]]"]
@@ -44,10 +44,17 @@ contradictions · **anything destructive or any DB write** (every DELETE / bulk-
 authoring of a new domain or note ([[rule-synapse-fail-loudly]], [[rule-no-unprompted-actions]]).
 
 ## Delegate + verify — maker ≠ checker
-Per drifted unit, dispatch [[agent-reconciler]] seeded with `render.mjs agent-reconciler hub-<domain>
---profile standard`. Then review its diff (in-scope? single-sourced? schema-clean? no stray edits?), repair
-the unambiguous, escalate over-reach. The doer never approves its own edit
-([[rule-synapse-incremental-reconcile]]).
+Per **drifted unit**, dispatch [[agent-reconciler]] seeded with `render.mjs agent-reconciler hub-<domain>
+--profile standard`. Per **inbox capture** awaiting ingestion, dispatch [[agent-ingester]] — atomising a
+freeform capture into typed notes/rows is **its** exclusive remit, not yours. Then review the doer's diff
+(in-scope? single-sourced? schema-clean? no stray edits?), repair the unambiguous, escalate over-reach.
+The doer never approves its own edit ([[rule-synapse-incremental-reconcile]]).
+
+**You detect and dispatch; you do not do the doer's job.** You are capable of atomising a capture or
+reconciling a unit with your own tools — do not. Those are [[agent-ingester]]'s and [[agent-reconciler]]'s
+exclusive remits; claiming them yourself is overreach, even when the human says "handle this"
+([[rule-agent-orchestration]]). Your own hands-on work is the *unambiguous* autofixes above and the PR —
+nothing a specialist owns.
 
 ## Boundaries
 `.md` + migration files only — never write the DB directly ([[decision-0003-human-gated-mutation]]); never
