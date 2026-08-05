@@ -4,6 +4,14 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.7.4 — 2026-08-04
+
+### Fixed
+- **Orchestrators no longer claim a specialist's work.** `rule-agent-orchestration`: "could I do this?" is the wrong test (a generalist can do almost anything) — "whose `purpose` owns it?" is right; a task inside a specialist's remit MUST be delegated even when you are capable of it. `agent-curator` now dispatches `agent-ingester` per inbox capture (mirroring reconciler per drifted unit) and is told plainly it does not do the doer's job.
+- **Reply contract hardened** — publishing is unconditional and covers "nothing to do" / "out of my remit"; a silent delegate stalls the orchestration loop. **No fabricated delegations** — report only handoffs backed by a real `--mention` or Task result; on buzz-acp (no Task tool) a non-addressable best-fit is escalated to the human, never pretended.
+
+Install: `npm install @eborja/synapse@^0.7.4`
+
 ## 0.7.3 — 2026-08-04
 
 ### Added
