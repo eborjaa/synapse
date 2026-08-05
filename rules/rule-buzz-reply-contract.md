@@ -22,8 +22,16 @@ turn without sending has answered **into the void**: the human sees nothing.
 
 This is **role-independent**. It bit the orchestrator role, whose rendered prompt framed output as
 filesystem / PR / escalation actions — so it considered the task done and never sent — while a
-read-front-door role (which naturally ends by answering) sent fine on the same base prompt. The
-obligation therefore lives here, in a shared rule, not in any one role.
+read-front-door role (which naturally ends by answering) sent fine on the same base prompt. It bit a
+**doer** the same way: summoned to act, it investigated, decided the work was out of its remit, and
+ended **silently** — a thorough turn that published nothing. The obligation therefore lives here, in a
+shared rule, not in any one role.
+
+**A silent turn breaks orchestration.** The delegation loop is claim-or-delegate → **score** →
+re-delegate ([[rule-agent-orchestration]]). An orchestrator that hands you a task on Buzz has nothing to
+score until you post back — so a delegate that goes quiet doesn't just fail its own turn, it **stalls
+the whole chain**: the orchestrator waits on a reply that never comes. Your published reply — done,
+declined, or escalated — is the return value the loop runs on.
 
 ## How to publish — the `buzz` CLI (a shell command, not a tool)
 
@@ -49,9 +57,14 @@ buzz messages send --channel <CHANNEL_UUID> --content "<your reply>" --reply-to 
 
 ## The contract
 
-1. **Publish every turn** — send before you end the turn.
-2. **Thread it** with `--reply-to`; **hand off** with a new thread + `--mention`.
-3. **Unposted = failed.** Before ending, verify you actually ran a successful `buzz messages send`.
+1. **Publish every turn** — send before you end the turn. This is **unconditional**: it does not depend
+   on having produced a file, a note, or a PR. Working (or investigating) without posting is a failed
+   turn, however thorough the work.
+2. **Publish even to say no.** "Nothing to do", "already handled", or "this is outside my remit — it
+   belongs to `<agent/human>`" are all valid replies and all MUST be posted. Deciding a task isn't yours
+   is a *conclusion to report*, never a reason to go silent.
+3. **Thread it** with `--reply-to`; **hand off** with a new thread + `--mention`.
+4. **Unposted = failed.** Before ending, verify you actually ran a successful `buzz messages send`.
 
 ## Boundaries
 
