@@ -4,6 +4,16 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.8.0 — 2026-08-11
+
+### Added
+- **`addressable` agents — a created agent is now one an operator will actually run.** An agent note was only half of a standing agent: Cortex derives its run roster by scanning `agents/` for `addressable: true`, and nothing in Synapse could set that flag. `synapse new agent` and `synapse_create_agent` both produced notes that lint clean, render fine, and are **never started by anybody** — silent in both directions, with no warning at create time and no mention of the agent at start time.
+  - `scaffold`: an `addressable` option, emitted as frontmatter for agent notes only. Opt-in, so a persona note used purely for rendering stays the default.
+  - CLI: `synapse new agent <id> --addressable`.
+  - MCP: `addressable` on `synapse_create_agent`. Because creating the note is only step 1 of 4, the success message now spells out the operator steps that remain (start → attest → sync-mcp-auth), **each of which fails silently when skipped** — an unattested agent replies normally while its activity stays invisible to clients.
+
+Install: `npm install @eborja/synapse@^0.8.0`
+
 ## 0.7.4 — 2026-08-04
 
 ### Fixed

@@ -71,8 +71,29 @@ function run({ kind, args }) {
 
   return asText(
     `Created ${out.path}${done.length ? `\n${done.join("\n")}` : ""}${orphanWarning}\n\n`
-    + `Next: fill the TODOs, then run synapse_lint.`,
+    + `Next: fill the TODOs, then run synapse_lint.${operatorSteps(out, args)}`,
   );
+}
+
+/**
+ * Creating the note is only step 1 of standing up a runnable agent. The remaining steps belong to
+ * the OPERATOR (Cortex), and every one of them fails silently when skipped — the agent looks healthy
+ * while being un-runnable, unobservable, or toolless. Spelling them out here is the difference
+ * between "an agent was created" and "an agent is running", which is what the caller actually wanted.
+ */
+function operatorSteps(out, args) {
+  if (out.type !== "agent" || !args.addressable) return "";
+  const name = out.id.replace(/^agent-/, "");
+  return "\n\nThis agent is `addressable: true`, so an operator can run it. Remaining steps "
+    + "(from the Cortex instance directory):\n"
+    + `  1. cortex start ${name}          — provisions keys, registers on the relay, joins channels\n`
+    + `  2. cortex attest ${name}         — owner attestation + kind:10100 directory record;\n`
+    + "                                     needs the OWNER's secret key, so a human runs it.\n"
+    + "                                     Skip it and the agent replies fine but its activity is\n"
+    + "                                     invisible to the client — nothing logs the omission.\n"
+    + `  3. cortex sync-mcp-auth          — copies MCP OAuth into the new agent's project store\n`
+    + "                                     (auth is per-CWD; a human's login does not cover agents).\n"
+    + "Run `cortex doctor` to confirm all three landed.";
 }
 
 const common = {
@@ -104,9 +125,16 @@ export function registerAuthoringTools(server) {
     description:
       "Scaffold a new agent-<id> note with the lint-required purpose + invokes_skills. Rules, tools, "
       + "skills and delegate agents passed in `links` are routed to applies_rules / uses_tools / "
-      + "invokes_skills / delegates_to automatically. Proposes by default.",
+      + "invokes_skills / delegates_to automatically. Proposes by default.\n\n"
+      + "Pass addressable:true to make it a STANDING agent an operator (Cortex) will actually run — "
+      + "without that flag the note is a valid agent that nothing ever starts. Creating the note is "
+      + "step 1 of 3; the tool tells you the remaining operator steps.",
     inputSchema: { slug: z.string().describe("Agent id without the agent- prefix"),
-      purpose: z.string().optional().describe("One sentence: what this agent is for"), ...common },
+      purpose: z.string().optional().describe("One sentence: what this agent is for"),
+      addressable: z.boolean().optional()
+        .describe("true = a standing agent Cortex should provision and run (adds `addressable: true`). "
+          + "Default false: a role/persona note used only for rendering briefings."),
+      ...common },
   }, async (args) => run({ kind: "agent", args }));
 
   server.registerTool("synapse_create_note", {
