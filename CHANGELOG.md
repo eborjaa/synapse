@@ -4,6 +4,17 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.9.1 — 2026-08-13
+
+### Fixed
+- **durable-spawn lint no longer false-positives on ordinary prose.** The `file-time-decides-liveness`
+  check flagged any line where a time word sat near a liveness word — so a Zephyr test-case row like
+  "stale case + dead selector" tripped it (`stale` near `dead`), with no file or transcript in sight.
+  Split time words into **concrete file-timestamps** (`mtime`, `last-modified`, `timestamp`, …) vs
+  **soft staleness** (`stale`, `last-updated`): soft words now only signal the anti-pattern when
+  anchored to a transcript/output file; a concrete file-time word still trips on its own near a
+  liveness word. Every genuine incident phrasing is still caught (8 lint tests).
+
 ## 0.9.0 — 2026-08-13
 
 ### Added
