@@ -103,15 +103,17 @@ export function registerSpawnTools(
         job: z.string().describe("Canonical dedup key from stable ids — NOT free-text prose"),
         target: z.string().optional().describe("A hub or note id to scope the briefing"),
         cli: z.enum(["cursor", "claude", "opencode"]).optional().describe("Runtime sink (default SYNAPSE_CLI or cursor)"),
+        cwd: z.string().optional().describe("Working dir for the doer — a CODE checkout for a code task; defaults to the vault"),
         profile: z.enum(["lean", "standard", "fat"]).optional(),
         ttlMs: z.number().optional().describe("Lease TTL in ms (default 1h). Must exceed the doer's max runtime."),
         force: z.boolean().optional().describe("Skip the semantic same-task pre-check (the lease still applies)"),
       },
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async ({ agent, task, job, target, cli, profile, ttlMs, force }) => {
+    async ({ agent, task, job, target, cli, cwd, profile, ttlMs, force }) => {
       const d = db();
       cli = cli || process.env.SYNAPSE_CLI || "cursor";
+      cwd = cwd || VAULT;
       profile = profile || "standard";
       ttlMs = ttlMs || DEFAULT_TTL_MS;
 
@@ -149,7 +151,7 @@ export function registerSpawnTools(
         ({ pid } = launch({
           cli, briefing: r.briefing, task, statusFile, logFile,
           vault: VAULT, model: "", permMode: "auto",
-          job, owner, token: acq.token, dbPath: DB_PATH, cwd: VAULT,
+          job, owner, token: acq.token, dbPath: DB_PATH, cwd,
         }));
       } catch (e) {
         lease.release(d, job, owner, acq.token);
