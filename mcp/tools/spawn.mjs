@@ -104,16 +104,18 @@ export function registerSpawnTools(
         target: z.string().optional().describe("A hub or note id to scope the briefing"),
         cli: z.enum(["cursor", "claude", "opencode"]).optional().describe("Runtime sink (default SYNAPSE_CLI or cursor)"),
         cwd: z.string().optional().describe("Working dir for the doer — a CODE checkout for a code task; defaults to the vault"),
+        model: z.string().optional().describe("Model id for the doer, in the runtime's own naming (e.g. claude 'sonnet', opencode 'anthropic/claude-sonnet-4-5'); default = runtime's configured model"),
         profile: z.enum(["lean", "standard", "fat"]).optional(),
         ttlMs: z.number().optional().describe("Lease TTL in ms (default 1h). Must exceed the doer's max runtime."),
         force: z.boolean().optional().describe("Skip the semantic same-task pre-check (the lease still applies)"),
       },
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async ({ agent, task, job, target, cli, cwd, profile, ttlMs, force }) => {
+    async ({ agent, task, job, target, cli, cwd, model, profile, ttlMs, force }) => {
       const d = db();
       cli = cli || process.env.SYNAPSE_CLI || "cursor";
       cwd = cwd || VAULT;
+      model = model || "";
       profile = profile || "standard";
       ttlMs = ttlMs || DEFAULT_TTL_MS;
 
@@ -150,7 +152,7 @@ export function registerSpawnTools(
       try {
         ({ pid } = launch({
           cli, briefing: r.briefing, task, statusFile, logFile,
-          vault: VAULT, model: "", permMode: "auto",
+          vault: VAULT, model, permMode: "auto",
           job, owner, token: acq.token, dbPath: DB_PATH, cwd,
         }));
       } catch (e) {
