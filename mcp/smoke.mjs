@@ -22,7 +22,9 @@ const surface = process.argv.includes("--skeleton")
   ? "skeleton"
   : process.argv.includes("--standard")
     ? "standard"
-    : "full";
+    : process.argv.includes("--orchestrator")
+      ? "orchestrator"
+      : "full";
 
 const EXPECTED = {
   skeleton: ["synapse_list_agents", "synapse_list_hubs", "synapse_render"],
@@ -42,6 +44,12 @@ const EXPECTED = {
     "synapse_create_hub", "synapse_create_agent", "synapse_create_note", "synapse_create_handover",
   ],
 };
+// orchestrator = full + the durable-spawn tools.
+EXPECTED.orchestrator = [
+  ...EXPECTED.full,
+  "synapse_spawn", "synapse_spawn_status", "synapse_spawn_list",
+  "synapse_spawn_renew", "synapse_spawn_release",
+];
 
 const pass = (m) => console.log(`  \x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`  \x1b[31m✗\x1b[0m ${m}`); failures++; };
@@ -101,7 +109,7 @@ if (surface !== "skeleton") {
   brief.length > 800 ? pass(`brief ${brief.length} bytes`) : fail(`brief short ${brief.length}`);
 }
 
-if (surface === "full") {
+if (surface === "full" || surface === "orchestrator") {
   console.log("\nsynapse_handover_list");
   await client.callTool({ name: "synapse_handover_list", arguments: { limit: 5 } });
   pass("handover_list ok");

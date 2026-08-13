@@ -42,7 +42,7 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ```bash
 cd /path/to/your-vault
-npm install @eborja/synapse@^0.5.0   # or: npm install ../path/to/synapse-framework
+npm install @eborja/synapse@^0.9.0   # or: npm install ../path/to/synapse-framework
 npx synapse install                        # dry-run
 npx synapse install --write                # wire agents.sh + editor dirs
 exec $SHELL
@@ -212,7 +212,7 @@ Synapse ships **two layers**:
 ```bash
 mkdir my-vault && cd my-vault
 npm init -y
-npm install @eborja/synapse@^0.5.0
+npm install @eborja/synapse@^0.9.0
 # copy schema example → your ontology dial
 mkdir -p _meta/tools
 cp node_modules/@eborja/synapse/schema/context.manifest.example.json \
@@ -246,7 +246,7 @@ Distribute and update the **engine** without forking vault content:
 ```jsonc
 {
   "dependencies": {
-    "@eborja/synapse": "^0.5.0"
+    "@eborja/synapse": "^0.9.0"
   },
   "scripts": {
     "vault:render": "synapse render",
@@ -263,7 +263,7 @@ npx synapse setup --write     # Ollama + embed model (optional; deterministic to
 npx synapse install --write   # shell + editor wiring
 ```
 
-Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.5.0` or
+Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.9.0` or
 `file:../synapse-framework`.
 
 The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`
@@ -293,6 +293,11 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 - **Extending** (new note / rule / agent / domain / migration) → [`_meta/conventions.md`](_meta/conventions.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **The vision & full architecture** → [`doc-vision`](docs/doc-vision.md) · [`hub-synapse`](hub-synapse.md)
 - **Run standing agents on your vault** (chat-able `oracle`/`curator` over Buzz) → **[Cortex](https://github.com/eborjaa/cortex)** (`@eborja/cortex`)
+- **Delegate to durable background doers** — the MCP `orchestrator` surface adds `synapse_spawn`: one
+  agent launches another as a detached, CLI-agnostic doer (cursor/claude/opencode), deduped in code by a
+  SQLite lease on a canonical `job` id (+ a semantic same-task pre-check). `synapse_spawn_status`/`_list`
+  track liveness by lease + heartbeats — a stale doer escalates to a human, never an auto-kill. See
+  [`CHANGELOG.md`](CHANGELOG.md) (0.9.0) and `mcp/tools/spawn.mjs`.
 
 ---
 
