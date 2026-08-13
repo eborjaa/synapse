@@ -4,6 +4,28 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.9.0 — 2026-08-13
+
+### Added
+- **`synapse_spawn` — durable, CLI-agnostic, dedup-safe agent delegation (new `orchestrator` MCP surface).**
+  Until now an orchestrator agent (e.g. a QA lead) delegated by prompt convention — "don't double-dispatch"
+  is advice a model can forget, and a restarted orchestrator can spawn a duplicate. That class of bug is
+  now impossible in code.
+  - **`orchestrator` surface** = `full` + the spawn tools. It is the ONLY surface where a tool starts work
+    rather than returning text; read-only agents on `standard`/`full` never see it.
+  - **`synapse_spawn`** renders `<agent>`'s briefing and launches it as a **detached background doer** via
+    `--cli` (cursor / claude / opencode), so the doer outlives the tool call. Dedup is guaranteed by a
+    SQLite **lease** keyed on a **canonical `job` id the caller supplies from stable facts**
+    (`agent:TICKET:suite:branch`) — a live job is refused atomically (`BEGIN IMMEDIATE`, one row per job).
+    A **semantic "same task?" pre-check** (local Ollama embeddings) catches a differently-worded duplicate
+    before the lease and **fails open** when Ollama is down (the lease stays the hard guarantee).
+  - **`synapse_spawn_status` / `_list` / `_renew` / `_release`** — liveness via lease + status-file
+    heartbeats (`hang-suspected → escalate-human`, never auto-kill), restart reconciliation via `staleSpawns`.
+  - **`synapse spawn-emit`** — the sqlite-free doer command to report `HEARTBEAT/WAITING/DONE/FAILED`.
+  - **`lib/durable-spawn/`** — the lease/registry/heartbeat/liveness primitives (ported, 37 tests), the
+    enforced cure for the transcript-mtime-as-liveness incident. Its anti-pattern **lint is now wired into
+    `synapse lint`**, so a briefing/rule that reinstates it fails CI.
+
 ## 0.8.0 — 2026-08-11
 
 ### Added

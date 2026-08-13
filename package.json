@@ -1,6 +1,6 @@
 {
   "name": "@eborja/synapse",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Synapse — the context-vault engine: a manifest-driven, role-based knowledge-graph renderer with semantic recall, SQL records tooling, linting, and a pluggable agent CLI. Package-agnostic; consumers keep their own vault + context.manifest.json.",
   "type": "module",
   "engines": {
@@ -37,7 +37,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "test": "node --test lib/*.test.mjs",
+    "test": "node --experimental-sqlite --test lib/*.test.mjs lib/durable-spawn/*.test.mjs mcp/tools/*.test.mjs",
     "smoke": "node --experimental-sqlite mcp/smoke.mjs",
     "vault:render": "synapse render",
     "vault:augment": "synapse augment",

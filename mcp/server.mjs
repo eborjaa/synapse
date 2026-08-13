@@ -25,6 +25,7 @@ import { registerRetrievalTools } from "./tools/retrieval.mjs";
 import { registerHealthTools } from "./tools/health.mjs";
 import { registerHandoverTools } from "./tools/handover.mjs";
 import { registerAuthoringTools } from "./tools/authoring.mjs";
+import { registerSpawnTools } from "./tools/spawn.mjs";
 
 assertVault();
 
@@ -33,7 +34,7 @@ const { version } = JSON.parse(
 );
 
 const raw = (process.env.SYNAPSE_MCP_SURFACE || "full").toLowerCase();
-const surface = ["skeleton", "standard", "full"].includes(raw) ? raw : "full";
+const surface = ["skeleton", "standard", "full", "orchestrator"].includes(raw) ? raw : "full";
 
 const instructions = {
   skeleton:
@@ -55,19 +56,30 @@ const instructions = {
     + "rule/tool needs used_by:[<agent-id>] or it lands as an orphan.\n"
     + "Handover write is human-triggered only — never call synapse_handover_write unless asked.\n"
     + "All tools return text — they do NOT start an agent chat session.",
+  orchestrator:
+    "Synapse context vault — orchestrator surface (full + durable delegation).\n\n"
+    + "Same one-hub + augment + lint + authoring rules as full.\n"
+    + "PLUS synapse_spawn — launch a DETACHED, dedup-safe background doer via --cli. This is the ONE "
+    + "tool that starts work rather than returning text.\n"
+    + "CRITICAL: synapse_spawn's `job` MUST be a canonical id from stable facts "
+    + "(agent:TICKET:suite:branch) — extract the ticket/branch, never name it from prose, or two "
+    + "phrasings of the same task both run. A live/near-identical job is refused; poll synapse_spawn_status.",
 }[surface];
 
 const server = new McpServer({ name: "synapse", version }, { instructions });
 
 registerSkeletonTools(server);
-if (surface === "standard" || surface === "full") {
+if (surface !== "skeleton") {
   registerBriefTool(server);
   registerRetrievalTools(server);
   registerHealthTools(server);
 }
-if (surface === "full") {
+if (surface === "full" || surface === "orchestrator") {
   registerHandoverTools(server);
   registerAuthoringTools(server);
+}
+if (surface === "orchestrator") {
+  registerSpawnTools(server);
 }
 
 // Consumer plugins — registered last so they can extend the surface. Failures throw rather than

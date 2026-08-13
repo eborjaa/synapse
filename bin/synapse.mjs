@@ -36,6 +36,7 @@ const CMDS = {
   new: "new-note.mjs",
   "mcp-config": "mcp-config.mjs",
   init: "init.mjs",
+  "spawn-emit": "spawn-emit.mjs", // doer side of durable-spawn (append a status line)
 };
 
 const [cmd, ...rest] = process.argv.slice(2);
