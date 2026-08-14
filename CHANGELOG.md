@@ -4,6 +4,32 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.10.0 — 2026-08-14
+
+### Added
+- **`synapse_claim_and_brief` — the primary way to delegate, with no loss of harness features.** 0.9.0
+  fused two separable things: *dedup* and *launching*. Because `synapse_spawn` owned the launch, taking
+  the dedup guarantee also meant taking a **detached** process — which is invisible to the host CLI's
+  task panel and sends no completion notification. Observed live: an orchestrator called `synapse_spawn`,
+  could not see the doer in Cursor's Tasks panel, and killed + relaunched it as a native Task — throwing
+  away the very guarantee it had just acquired.
+
+  `synapse_claim_and_brief` unbundles them: it runs the **same enforced gate** (semantic pre-check →
+  lease `acquire` → render) and returns the briefing plus `{spawnId, owner, token}` — then **you** launch
+  with your own harness (Task tool, `@mention`, terminal). You keep the task panel, streaming and
+  completion notification; dedup is still enforced, because the briefing is only obtainable *through*
+  the claim, and a doer may never start without one. Release with `synapse_spawn_release`.
+
+  The gate is shared, so a job claimed by either tool blocks the other — dedup holds across every
+  delegation style, including `@mention`-based fleets that neither tool launches.
+
+### Changed
+- **`synapse_spawn` is now the specialist path**, not the default. Use it only when the work must
+  outlive your session/turn, or when there is no harness to launch with (cron, a script, a headless
+  run) — it is the only path that accepts losing task-panel visibility in exchange for durability.
+  `synapse_spawn_status` now reports `via: "harness-native (yours)" | "detached (synapse)"` so the
+  caller knows which liveness channel applies (harness notification vs status-file heartbeats).
+
 ## 0.9.1 — 2026-08-13
 
 ### Fixed

@@ -47,6 +47,7 @@ const EXPECTED = {
 // orchestrator = full + the durable-spawn tools.
 EXPECTED.orchestrator = [
   ...EXPECTED.full,
+  "synapse_claim_and_brief",
   "synapse_spawn", "synapse_spawn_status", "synapse_spawn_list",
   "synapse_spawn_renew", "synapse_spawn_release",
 ];

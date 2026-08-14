@@ -57,13 +57,17 @@ const instructions = {
     + "Handover write is human-triggered only — never call synapse_handover_write unless asked.\n"
     + "All tools return text — they do NOT start an agent chat session.",
   orchestrator:
-    "Synapse context vault — orchestrator surface (full + durable delegation).\n\n"
+    "Synapse context vault — orchestrator surface (full + dedup-safe delegation).\n\n"
     + "Same one-hub + augment + lint + authoring rules as full.\n"
-    + "PLUS synapse_spawn — launch a DETACHED, dedup-safe background doer via --cli. This is the ONE "
-    + "tool that starts work rather than returning text.\n"
-    + "CRITICAL: synapse_spawn's `job` MUST be a canonical id from stable facts "
-    + "(agent:TICKET:suite:branch) — extract the ticket/branch, never name it from prose, or two "
-    + "phrasings of the same task both run. A live/near-identical job is refused; poll synapse_spawn_status.",
+    + "DELEGATE WITH synapse_claim_and_brief: it claims the job (lease) and returns the doer's briefing; "
+    + "YOU launch with your own harness (Task tool, @mention, terminal) so you keep every native feature "
+    + "— task panel, streaming, completion notification — while dedup is still enforced. Release with "
+    + "synapse_spawn_release when the doer finishes.\n"
+    + "synapse_spawn is the SPECIALIST alternative: synapse launches a DETACHED process that outlives "
+    + "your session but is invisible to your harness (poll synapse_spawn_status). Use it only for work "
+    + "that must survive your session, or when there is no harness to launch with.\n"
+    + "CRITICAL for both: `job` MUST be a canonical id from stable facts (agent:TICKET:suite:branch) — "
+    + "extract the ticket/branch, never name it from prose, or two phrasings of the same task both run.",
 }[surface];
 
 const server = new McpServer({ name: "synapse", version }, { instructions });
