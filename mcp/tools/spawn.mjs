@@ -78,7 +78,45 @@ function statusFacts(d, spawn) {
     : "";
   const parsed = parseStatus(raw, Date.now());
   const verdict = classify({ registryState: spawn.state, leaseLive, ...parsed });
-  return { leaseLive, ...verdict };
+  // No status file = the caller's own harness launched it (synapse_claim_and_brief), so completion
+  // arrives through that harness, not heartbeats. `alive` here means "claimed and not yet released".
+  const via = spawn.status_file ? "detached (synapse)" : "harness-native (yours)";
+  return { via, leaseLive, ...verdict };
+}
+
+/**
+ * The shared gate both delegation tools run: semantic pre-check → lease acquire → render the briefing.
+ * This is where dedup is ENFORCED — and because it is what hands back the briefing (which a doer may
+ * never start without), routing delegation through it makes the lease unskippable regardless of who
+ * performs the launch. Returns {ok:true, owner, token, briefing} or {refusal} / {failure}.
+ */
+async function claimAndRender(d, { agent, task, job, target, profile, ttlMs, force }, render) {
+  if (!force) {
+    const dup = await semanticDuplicate(d, task);
+    if (dup) {
+      return {
+        ok: false,
+        body: {
+          refused: "looks-like-duplicate",
+          ...dup,
+          hint: `A live job '${dup.similarJob}' looks like the same task (sim ${dup.similarity}). Reuse it, or call again with force:true if it is genuinely different.`,
+        },
+      };
+    }
+  }
+
+  const owner = randomUUID();
+  const acq = lease.acquire(d, job, owner, ttlMs);
+  if (!acq.ok) {
+    return { ok: false, body: { refused: "held", reason: acq.reason, holder: acq.holder ?? null, job } };
+  }
+
+  const r = await render({ agent, target, task, profile });
+  if (!r.ok) {
+    lease.release(d, job, owner, acq.token); // never strand a lease on a job that never started
+    return { ok: false, isError: true, body: { error: "render-failed", job, detail: r.error } };
+  }
+  return { ok: true, owner, token: acq.token, briefing: r.briefing };
 }
 
 // `launch`/`render` are injectable so tests can drive the tools without a real runtime or vault render.
@@ -87,16 +125,73 @@ export function registerSpawnTools(
   { launch = launchDetached, render = (opts) => renderBriefing(runSynapse, opts) } = {},
 ) {
   server.registerTool(
+    "synapse_claim_and_brief",
+    {
+      title: "Claim a job + get the doer's briefing (PRIMARY delegation path)",
+      description:
+        "THE DEFAULT WAY TO DELEGATE. Atomically claims `job` (SQLite lease — a live or near-identical "
+        + "job is REFUSED) and returns the doer's fully-rendered briefing. YOU then launch the doer with "
+        + "your own harness (Cursor/Claude Task tool, an @mention, a terminal) using "
+        + "prompt = <briefing>\\n\\n---\\n\\n<task> — so you keep every native feature (task panel, "
+        + "streaming, completion notification) while dedup is still enforced. CRITICAL: `job` MUST be a "
+        + "CANONICAL id from stable facts (e.g. 'spec-builder:REL-38837:report-suite:<branch>'), never "
+        + "named from your prose. When the doer finishes, call synapse_spawn_release with "
+        + "{job, owner, token, spawnId}. Use synapse_spawn instead ONLY when the work must outlive your "
+        + "session or there is no harness to launch it.",
+      inputSchema: {
+        agent: z.string().describe("Agent id, e.g. 'spec-builder' or 'agent-spec-builder'"),
+        task: z.string().describe("What the doer should do (append it after the briefing when you launch)"),
+        job: z.string().describe("Canonical dedup key from stable ids — NOT free-text prose"),
+        target: z.string().optional().describe("A hub or note id to scope the briefing"),
+        profile: z.enum(["lean", "standard", "fat"]).optional().describe("Default standard — never starve a fresh window with lean"),
+        ttlMs: z.number().optional().describe("Lease TTL in ms (default 1h). Must exceed the doer's expected runtime."),
+        force: z.boolean().optional().describe("Skip the semantic same-task pre-check (the lease still applies)"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
+    async ({ agent, task, job, target, profile, ttlMs, force }) => {
+      const d = db();
+      const claim = await claimAndRender(
+        d,
+        { agent, task, job, target, profile: profile || "standard", ttlMs: ttlMs || DEFAULT_TTL_MS, force },
+        render,
+      );
+      if (!claim.ok) return claim.isError ? fail(claim.body) : text(claim.body);
+
+      // Registered with NO status file: a harness-launched doer reports completion through the harness
+      // (liveness.classify's registryState channel), so it never needs the heartbeat protocol.
+      const spawnId = randomUUID();
+      registry.record(
+        d,
+        { spawnId, job, owner: claim.owner, epoch: EPOCH, token: claim.token, statusFile: null, task },
+        lease.dbNow(d),
+      );
+
+      return text({
+        ok: true,
+        spawnId,
+        job,
+        owner: claim.owner,
+        token: claim.token,
+        launcher: "yours (harness-native)",
+        next: "Launch the doer yourself with prompt = briefing + '\\n\\n---\\n\\n' + task, then call synapse_spawn_release({job, owner, token, spawnId}) when it finishes.",
+        briefing: claim.briefing,
+      });
+    },
+  );
+
+  server.registerTool(
     "synapse_spawn",
     {
-      title: "Launch a durable, dedup-safe background doer",
+      title: "Launch a DETACHED durable doer (specialist — prefer synapse_claim_and_brief)",
       description:
-        "Render <agent>'s briefing and launch it as a DETACHED background doer via --cli, deduped by a "
-        + "SQLite lease on `job`. CRITICAL: `job` MUST be a CANONICAL id built from stable facts "
-        + "(e.g. 'spec-builder:REL-38837:report-suite:<branch>') — extract the ticket/branch, do NOT "
-        + "name it from your prose, or two phrasings of the same task will both run. Returns "
-        + "{ok, spawnId, token, ...} on launch, or {refused:'held'|'looks-like-duplicate', ...} when a "
-        + "live or near-identical job already runs. Poll with synapse_spawn_status.",
+        "SPECIALIST PATH. Same claim + briefing as synapse_claim_and_brief, but SYNAPSE performs the "
+        + "launch: a detached OS process via --cli (cursor/claude/opencode). It therefore survives your "
+        + "session ending — and is INVISIBLE to your harness's task panel, with no completion "
+        + "notification (poll synapse_spawn_status instead). Use it ONLY when (a) the work must outlive "
+        + "your session/turn, or (b) there is no harness to launch with (cron, a script, a headless run). "
+        + "Otherwise use synapse_claim_and_brief and launch natively so you keep your harness's features. "
+        + "CRITICAL: `job` MUST be a CANONICAL id from stable facts, never named from your prose.",
       inputSchema: {
         agent: z.string().describe("Agent id, e.g. 'spec-builder' or 'agent-spec-builder'"),
         task: z.string().describe("What the doer should do (the user message)"),
@@ -119,31 +214,14 @@ export function registerSpawnTools(
       profile = profile || "standard";
       ttlMs = ttlMs || DEFAULT_TTL_MS;
 
-      // 1. Soft semantic net (skippable with force).
-      if (!force) {
-        const dup = await semanticDuplicate(d, task);
-        if (dup) {
-          return text({
-            refused: "looks-like-duplicate",
-            ...dup,
-            hint: `A live job '${dup.similarJob}' looks like the same task (sim ${dup.similarity}). Reuse it, or call again with force:true if it is genuinely different.`,
-          });
-        }
-      }
+      // 1-3. The same enforced gate the primary path uses: semantic net → lease → briefing.
+      const claim = await claimAndRender(d, { agent, task, job, target, profile, ttlMs, force }, render);
+      if (!claim.ok) return claim.isError ? fail(claim.body) : text(claim.body);
+      const owner = claim.owner;
+      const acq = { token: claim.token };
+      const r = { briefing: claim.briefing };
 
-      // 2. Hard dedup: the lease. A live lease is refused for any owner.
-      const owner = randomUUID();
-      const acq = lease.acquire(d, job, owner, ttlMs);
-      if (!acq.ok) return text({ refused: "held", reason: acq.reason, holder: acq.holder ?? null, job });
-
-      // 3. Render the briefing; release the lease if we cannot even brief.
-      const r = await render({ agent, target, task, profile });
-      if (!r.ok) {
-        lease.release(d, job, owner, acq.token);
-        return fail({ error: "render-failed", job, detail: r.error });
-      }
-
-      // 4. Launch detached.
+      // 4. Launch detached — the one thing this path does that claim_and_brief leaves to the caller.
       const spawnId = randomUUID();
       const runDir = join(VAULT, "db", "spawn", spawnId);
       const statusFile = join(runDir, "status.log");

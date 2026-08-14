@@ -88,6 +88,54 @@ test("render failure releases the lease so the job can be retried", async () => 
   assert.equal(r2.ok, true);
 });
 
+test("synapse_claim_and_brief returns the briefing and launches NOTHING", async () => {
+  const { call, launched } = harness();
+  const r = await call("synapse_claim_and_brief", {
+    agent: "spec-builder", task: "flip the report specs", job: "spec-builder:CB-1:report", force: true,
+  });
+  assert.equal(r.ok, true);
+  assert.match(r.briefing, /stub briefing/);
+  assert.ok(r.owner && r.token, "must return the lease handle so the caller can release it");
+  assert.equal(launched.length, 0, "the caller launches — synapse must not");
+});
+
+test("claim_and_brief enforces dedup without launching (second claim refused)", async () => {
+  const { call } = harness();
+  const job = "spec-builder:CB-2:sensors";
+  const a = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "fix sensors", job, force: true });
+  assert.equal(a.ok, true);
+  const b = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "fix sensors", job, force: true });
+  assert.equal(b.refused, "held");
+});
+
+test("the gate is SHARED: a job claimed by claim_and_brief blocks synapse_spawn too", async () => {
+  const { call, launched } = harness();
+  const job = "spec-builder:CB-3:shared";
+  const a = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "shared job", job, force: true });
+  assert.equal(a.ok, true);
+  const b = await call("synapse_spawn", { agent: "spec-builder", task: "shared job", job, force: true });
+  assert.equal(b.refused, "held", "dedup must hold across BOTH delegation paths");
+  assert.equal(launched.length, 0, "the refused spawn must not have launched anything");
+});
+
+test("release frees a claim_and_brief job for re-claiming", async () => {
+  const { call } = harness();
+  const job = "spec-builder:CB-4:release";
+  const a = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job, force: true });
+  const rel = await call("synapse_spawn_release", { job, owner: a.owner, token: a.token, spawnId: a.spawnId });
+  assert.equal(rel.released, true);
+  const b = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job, force: true });
+  assert.equal(b.ok, true, "after release the job is claimable again");
+});
+
+test("status reports a harness-native claim as such (no heartbeat channel)", async () => {
+  const { call } = harness();
+  const a = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job: "spec-builder:CB-5:via", force: true });
+  const st = await call("synapse_spawn_status", { spawnId: a.spawnId });
+  assert.match(st.via, /harness-native/);
+  assert.ok(["alive", "waiting"].includes(st.state));
+});
+
 test("semantic pre-check: a paraphrase of a live task is caught (or fails open when Ollama is down)", async () => {
   const { call } = harness();
   const a = await call("synapse_spawn", {
