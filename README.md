@@ -176,6 +176,9 @@ MCP. That operator layer is its own package — **[Cortex](https://github.com/eb
 (`@eborja/cortex`): `init` an instance, `provision` the agents, `start` them, `doctor` the stack.
 Cortex renders each bot's prompt from `synapse render` and gives each its own MCP surface (so a
 read-only `oracle` literally can't see the write tools). Synapse is the brain; Cortex is the operator.
+Cortex derives its roster from the vault: any agent note with `addressable: true` is a standing bot.
+Scaffold one ready to run with **`synapse new agent <id> --addressable`** (0.8+), or add the flag to
+an existing note.
 
 **The graph is hub-and-spoke.** One master hub links out to seven domain hubs; members roll up
 automatically (a note's `related: ["[[hub-x]]"]` *makes* it a member of `hub-x` — the hub is never edited
@@ -275,6 +278,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 |---|---|
 | `synapse render <id> …` | Typed-ontology briefing |
 | `synapse augment … --task` | render + semantic recall |
+| `synapse new agent <id> --addressable` | Scaffold an agent note runnable as a Cortex standing bot |
 | `synapse lint [--strict]` | Vault health-check |
 | `synapse embeddings` | Rebuild `note_vectors` |
 | `synapse index` / `views` / `migrate` | SQL projections + migrations |
