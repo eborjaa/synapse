@@ -90,9 +90,22 @@ whole vault, regardless of links or wording, and appends them under a clearly-la
 **Turn it on (all local, no new deps):**
 
 ```bash
-ollama pull mxbai-embed-large          # one-time, on the Ollama host that serves your model
-synapse embeddings    # build db/synapse.db's note_vectors index (the maintainer keeps it fresh)
+ollama pull mxbai-embed-large   # one-time, on the Ollama host that serves your model
+synapse setup --write           # provisions the runtime AND builds the index
 ```
+
+**Staying fresh is not your job.** The index is derived from the markdown, so it goes out of date every
+time you edit a note — and a stale index does not error, it just quietly ranks against the vault as it
+was. So `synapse augment` checks before it reads, re-embeds incrementally when it is behind, and when it
+cannot (offline, or a rebuild is already running) says so **in the briefing itself**:
+
+```
+> ⚠ semantic index is 42 note(s) behind the vault — run `synapse embeddings` (…).
+```
+
+Ask any time with `synapse embeddings-status` (or the `synapse_embeddings_status` MCP tool, which reports
+`staleCount`). A fleet of agents sharing one vault is safe: a lock collapses simultaneous rebuilds into
+one. Disable the self-heal with `SYNAPSE_NO_REFRESH=1` — the warning still prints.
 
 Embeddings come from the **same local Ollama** that runs the agents — no API key, no cloud. Results are
 **additive, labeled, and non-authoritative**: a similarity hit never silently drives a change, and when a
@@ -266,7 +279,7 @@ npx synapse setup --write     # Ollama + embed model (optional; deterministic to
 npx synapse install --write   # shell + editor wiring
 ```
 
-Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.10.0` or
+Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.11.0` or
 `file:../synapse-framework`.
 
 The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`
@@ -281,6 +294,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 | `synapse new agent <id> --addressable` | Scaffold an agent note runnable as a Cortex standing bot |
 | `synapse lint [--strict]` | Vault health-check |
 | `synapse embeddings` | Rebuild `note_vectors` |
+| `synapse embeddings-status` | Is that index current? (`--json` / `--refresh`) |
 | `synapse index` / `views` / `migrate` | SQL projections + migrations |
 | `synapse setup` / `install` | Runtime + shell wiring |
 | `synapse agents` / `hubs` / `help` | Shell discovery (after `install --write`; `vault-*` equals) |

@@ -4,6 +4,61 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.11.0 — 2026-08-19
+
+### Added
+- **The embeddings index now says when it is out of date — and fixes itself.** A *missing* index has
+  always been loud (`augment` prints a skip note); a *stale* one was completely silent. Recall went on
+  ranking against the vault as it was weeks ago, with nothing in the output to say so. `augment` now
+  checks freshness, refreshes incrementally when it is behind, and — when it cannot (offline Ollama,
+  `SYNAPSE_NO_REFRESH`, a rebuild already running) — prints the warning **in the briefing itself**:
+
+  ```
+  > ⚠ semantic index is 42 note(s) behind the vault — run `synapse embeddings` (…).
+  ```
+
+- **`lib/index-freshness.mjs`** — the freshness engine, usable directly. `embeddingsStatus()` answers
+  "is the index current, and by how many notes"; `refreshIfStale()` rebuilds only when it is not. Both
+  are best-effort by contract: they never throw and never block the caller's real work.
+
+- **`synapse embeddings-status`** — the same answer from the CLI. `--json` for machines, `--refresh` to
+  act on it, `--fast` to skip the exact count. Named for the *embeddings* cache, deliberately distinct
+  from `synapse index` (the SQL projections) — two different indexes that were easy to confuse.
+
+- **A cooperative rebuild lock** (`db/.embed.lock`). `gen-embeddings` takes no lock of its own, so a
+  fleet of standing agents sharing one vault could all notice staleness and all start rebuilding into
+  one SQLite file. Now the first one in does the work and the rest carry on with the existing index. An
+  expired lock (30 min) is broken, so a process that dies mid-rebuild cannot wedge the fleet.
+
+- **`synapse setup` builds the index.** It used to provision Ollama and the model, print `✅ GO`, and
+  leave `db/synapse.db` non-existent — so a fully "set up" vault still had semantic recall switched off.
+
+### Changed
+- **`synapse_embeddings_status` (MCP) reports freshness, not just presence.** It previously checked that
+  a DB file existed and ran an offline math self-test, then said `verdict: healthy-or-ok` — which a
+  two-month-old index passes. It now returns `staleCount`, `indexed`, `corpusNotes` and the model.
+- **`synapse_embeddings_rebuild` (MCP) is detached and returns immediately.** It used to run in-band
+  with a 600s timeout, freezing the calling agent's turn for the whole rebuild with no progress channel.
+  It now starts the job and hands back a log path; poll `synapse_embeddings_status` until `stale=false`.
+
+### Fixed
+- **Vendored notes are no longer embedded into a consumer's index.** `gen-embeddings` walked
+  `node_modules`, so this package's own example vault (`agents/`, `rules/`, `hub-synapse.md` — all
+  shipped in `files[]`) was indexed into every consumer that installed it, and `agent-oracle` /
+  `hub-finances` surfaced as semantic hits in unrelated vaults. `node_modules` and `db` are now hard-
+  skipped by a walker (`lib/note-walk.mjs`) shared with the freshness check, so the two can never
+  disagree about what the corpus is. The next `synapse embeddings` run prunes the stale rows.
+
+### Notes
+- Freshness compares each note against the **mtime stored in `note_vectors`**, not the DB *file's*
+  mtime. The file-mtime approach needs a corrective `utimes` after every run — an incremental rebuild
+  with nothing to do writes nothing, so the file's mtime never advances and "stale" stays true forever.
+- A two-tier check keeps it cheap: a stat-only pass (~25ms on 2.5k notes) proves freshness in the common
+  case; the exact per-note comparison (~400ms) runs only when that pass is inconclusive, and its verdict
+  is cached in `db/.embed-check.json`. That second tier is what stops an untyped file (a `README.md`,
+  which is never indexed) from reading as permanently stale.
+- Disable the self-heal with `SYNAPSE_NO_REFRESH=1` — the warning still prints.
+
 ## 0.10.0 — 2026-08-14
 
 ### Added

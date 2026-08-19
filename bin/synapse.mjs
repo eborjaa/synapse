@@ -5,6 +5,7 @@
 //   synapse augment <id> … --task "…"  render + semantic recall
 //   synapse lint [--strict]            mechanical vault health-check
 //   synapse embeddings [--all]         (re)build the embeddings cache
+//   synapse embeddings-status          is the embeddings cache current with the corpus?
 //   synapse index                      rebuild Markdown → SQL projections
 //   synapse views                      regenerate SQL → Markdown derived views
 //   synapse migrate [--status]         apply pending SQL migrations
@@ -27,6 +28,7 @@ const CMDS = {
   augment: "augment.mjs",
   lint: "lint.mjs",
   embeddings: "gen-embeddings.mjs",
+  "embeddings-status": "index-freshness.mjs", // NOTE: the EMBEDDINGS cache, not `synapse index` (SQL projections)
   index: "gen-index.mjs",
   views: "gen-views.mjs",
   migrate: "apply-migrations.mjs",
@@ -51,6 +53,7 @@ commands:
   augment <id> … --task  render + semantic recall (needs Ollama; degrades gracefully)
   lint [--strict]        mechanical vault health-check
   embeddings [--all]     (re)build the local embeddings cache
+  embeddings-status      is that cache current? [--json] [--refresh] [--force] [--fast]
   index                  rebuild Markdown → SQL projections (notes / note_links / plans)
   views                  regenerate SQL → Markdown derived views (contacts / accounts / summaries)
   migrate [--status]     apply pending migrations/NNNN-*.sql (the only DB writer)
