@@ -37,6 +37,19 @@ const { version } = JSON.parse(
 const raw = (process.env.SYNAPSE_MCP_SURFACE || "full").toLowerCase();
 const surface = ["skeleton", "standard", "full", "orchestrator"].includes(raw) ? raw : "full";
 
+const MEMORY_BRIEF =
+  "\n\nMEMORY — three stores you should actually use, not just have:\n"
+  + "• Your briefing was built ONCE, at the start. When the work moves to a NEW subtask, call "
+  + "synapse_recall(task) with what you are doing now — it returns only the delta (relevant notes, any "
+  + "rule that now applies, whether it was already done), never your whole briefing. Cheap; call it "
+  + "whenever the topic shifts. A stale briefing is how agents drift.\n"
+  + "• A briefing carries a 'Fetch before you act' checklist of on-demand notes — only their triggers, "
+  + "not their bodies. When a trigger matches what you are about to do, fetch that note FIRST "
+  + "(synapse_brief note:<id>); do not improvise it from memory.\n"
+  + "• Before starting work that might already be done, call synapse_history(query). An empty result "
+  + "means it was not RECORDED, not that it never happened. Record your own finished work with "
+  + "synapse_log (delegated work is recorded for you by claim_and_brief + spawn_release).";
+
 const instructions = {
   skeleton:
     "Synapse context vault — skeleton surface.\n\n"
@@ -49,14 +62,16 @@ const instructions = {
     + "Cross-domain hints: synapse_augment (or brief with task) — suggestions to verify.\n"
     + "synapse_lint = mechanical health (read-only). "
     + "Never call synapse_embeddings_rebuild unless the user asks.\n"
-    + "All tools return text — they do NOT start an agent chat session.",
+    + "All tools return text — they do NOT start an agent chat session."
+    + MEMORY_BRIEF,
   full:
     "Synapse context vault — full surface (standard + handover + authoring).\n\n"
     + "Same one-hub + augment + lint rules as standard.\n"
     + "synapse_create_* PROPOSE by default — they write only when called with write:true, and a new "
     + "rule/tool needs used_by:[<agent-id>] or it lands as an orphan.\n"
     + "Handover write is human-triggered only — never call synapse_handover_write unless asked.\n"
-    + "All tools return text — they do NOT start an agent chat session.",
+    + "All tools return text — they do NOT start an agent chat session."
+    + MEMORY_BRIEF,
   orchestrator:
     "Synapse context vault — orchestrator surface (full + dedup-safe delegation).\n\n"
     + "Same one-hub + augment + lint + authoring rules as full.\n"
@@ -68,7 +83,8 @@ const instructions = {
     + "your session but is invisible to your harness (poll synapse_spawn_status). Use it only for work "
     + "that must survive your session, or when there is no harness to launch with.\n"
     + "CRITICAL for both: `job` MUST be a canonical id from stable facts (agent:TICKET:suite:branch) — "
-    + "extract the ticket/branch, never name it from prose, or two phrasings of the same task both run.",
+    + "extract the ticket/branch, never name it from prose, or two phrasings of the same task both run."
+    + MEMORY_BRIEF,
 }[surface];
 
 const server = new McpServer({ name: "synapse", version }, { instructions });
