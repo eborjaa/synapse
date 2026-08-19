@@ -17,14 +17,13 @@ import { VAULT } from "../vault.mjs";
 import * as lease from "../../lib/durable-spawn/lease.mjs";
 import * as episodes from "../../lib/durable-spawn/episodes.mjs";
 
-const DB_PATH = join(VAULT, "db", "durable-spawn.db");
+const DB_PATH = join(VAULT, "db", "episodes.db");
 
 let _db = null;
 function db() {
   if (_db) return _db;
   mkdirSync(join(VAULT, "db"), { recursive: true });
-  _db = lease.openDb(DB_PATH);
-  episodes.migrate(_db);
+  _db = episodes.openEpisodeDb(DB_PATH);
   return _db;
 }
 

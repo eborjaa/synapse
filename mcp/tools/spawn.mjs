@@ -23,6 +23,7 @@ import { resolveOllamaBase, resolveEmbedModel, embedText, cosine } from "../../l
 
 const EPOCH = randomUUID(); // per MCP-server boot — the reconciliation key for staleSpawns()
 const DB_PATH = join(VAULT, "db", "durable-spawn.db");
+const EPISODE_DB_PATH = join(VAULT, "db", "episodes.db");
 const SIM_THRESHOLD = Number(process.env.SYNAPSE_SPAWN_SIM_THRESHOLD || 0.86);
 const DEFAULT_TTL_MS = Number(process.env.SYNAPSE_SPAWN_TTL_MS || 60 * 60 * 1000); // 1h > a long turn
 
@@ -32,8 +33,17 @@ function db() {
   mkdirSync(join(VAULT, "db"), { recursive: true });
   _db = lease.openDb(DB_PATH);
   registry.migrate(_db);
-  episodes.migrate(_db);
   return _db;
+}
+
+// Episodes live in their OWN file: db/durable-spawn.db is disposable runtime state (a stuck lease is
+// cleared by deleting it), and permanent memory must not ride along with something people delete.
+let _edb = null;
+function edb() {
+  if (_edb) return _edb;
+  mkdirSync(join(VAULT, "db"), { recursive: true });
+  _edb = episodes.openEpisodeDb(EPISODE_DB_PATH);
+  return _edb;
 }
 
 const text = (obj) => ({
@@ -123,7 +133,7 @@ async function claimAndRender(d, { agent, task, job, target, profile, ttlMs, for
   // triage next week is legitimate work; re-running it UNKNOWINGLY is the waste worth naming.
   let priorRun = null;
   try {
-    const prev = episodes.lastForJob(d, job);
+    const prev = episodes.lastForJob(edb(), job);
     if (prev && prev.outcome !== "open") {
       priorRun = {
         outcome: prev.outcome,
@@ -189,7 +199,7 @@ export function registerSpawnTools(
       // Episodic memory: the episode opens HERE, at claim time, not at completion — so work that dies
       // mid-flight still leaves a record, which is exactly the case a later agent most needs.
       const { episodeId } = episodes.open(
-        d, { agent, job, spawnId, task, hub: target ?? null }, lease.dbNow(d),
+        edb(), { agent, job, spawnId, task, hub: target ?? null }, lease.dbNow(d),
       );
 
       return text({
@@ -267,7 +277,7 @@ export function registerSpawnTools(
 
       // 5. Durable record (survives an orchestrator restart → staleSpawns reconciliation) + the episode.
       registry.record(d, { spawnId, job, owner, epoch: EPOCH, token: acq.token, statusFile, task }, lease.dbNow(d));
-      const { episodeId } = episodes.open(d, { agent, job, spawnId, task, hub: target ?? null }, lease.dbNow(d));
+      const { episodeId } = episodes.open(edb(), { agent, job, spawnId, task, hub: target ?? null }, lease.dbNow(d));
 
       return text({ ok: true, spawnId, episodeId, job, token: acq.token, owner, pid, cli, statusFile,
         note: "Poll synapse_spawn_status. The doer heartbeats to its status file; a stale heartbeat escalates to you, never auto-kills." });
@@ -364,7 +374,7 @@ export function registerSpawnTools(
       const state = outcome === "failed" ? "failed" : "done";
       if (spawnId) registry.markState(d, spawnId, state, lease.dbNow(d));
       const ep = episodes.close(
-        d, { episodeId: episodeId ?? null, job, outcome: outcome || "done", summary: summary ?? null, refs: refs ?? null },
+        edb(), { episodeId: episodeId ?? null, job, outcome: outcome || "done", summary: summary ?? null, refs: refs ?? null },
         lease.dbNow(d),
       );
       return text({
