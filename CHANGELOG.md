@@ -4,6 +4,25 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.15.0 — 2026-08-19
+
+### Added
+- **Suite-affinity routing in `synapse_recall`.** When a task NAMES a suite (its `suite/<x>` vocabulary
+  appears in the task text), recall biases its semantic hits toward that suite. Raw cosine could rank an
+  adjacent suite higher — an "alerts" task returning *sensors*-notification notes because both mention
+  "notifications" — and this corrects the ORDER without hard-filtering, so a genuinely relevant
+  cross-suite note still surfaces. The chosen suites are returned as `routedToSuites` so a wrong route
+  is visible. `suitesNamedBy()` is exported and is a pure, deterministic keyword match (no model, no
+  index) — the same family as hub inference.
+
+### Changed
+- Suite routing is computed in `recall()` itself, independent of the semantic layer, so `routedToSuites`
+  is reported even when there is no index/Ollama (the boost simply has nothing to reorder).
+
+### Notes
+- Verified live: "the alerts fanout list is missing notifications after retraining" returned
+  sensors-notification notes before, and `workflow-alerts-*` / `user-story-alerts-*` after — routed to
+  `alerts`, no change to the other domains, and a task naming no suite is unaffected.
 ## 0.14.0 — 2026-08-19
 
 ### Added
