@@ -124,6 +124,8 @@ __mx_cli_to_tool() {
     views)      printf '%s\n' gen-views ;;
     migrate)    printf '%s\n' apply-migrations ;;
     journal)    printf '%s\n' journal-new ;;
+    embeddings-status) printf '%s\n' index-freshness ;;
+    handover-task)     printf '%s\n' note-as-task ;;
     *)          printf '%s\n' "$1" ;;
   esac
 }
@@ -472,19 +474,40 @@ __mx_launch() {
   __mx_kept=""
   __mx_want_cli=0
   __mx_want_model=0
+  __mx_want_handover=0
+  __mx_want_promptfile=0
+  __mx_want_profile=0
+  handover_ref=""
+  promptfile_ref=""
   for __mx_a in "$@"; do
     if [ "$__mx_want_cli" = "1" ]; then
       cli="$__mx_a"; __mx_want_cli=0; continue
     fi
+    if [ "$__mx_want_profile" = "1" ]; then
+      case "$__mx_a" in lean|standard|fat) profile="$__mx_a" ;; *) echo "❌ [synapse] profile must be lean|standard|fat (got '$__mx_a')" >&2; return 2 ;; esac
+      __mx_want_profile=0; continue
+    fi
     if [ "$__mx_want_model" = "1" ]; then
       model="$__mx_a"; __mx_want_model=0; continue
+    fi
+    if [ "$__mx_want_handover" = "1" ]; then
+      handover_ref="$__mx_a"; __mx_want_handover=0; continue
+    fi
+    if [ "$__mx_want_promptfile" = "1" ]; then
+      promptfile_ref="$__mx_a"; __mx_want_promptfile=0; continue
     fi
     case "$__mx_a" in
       --no-semantic)     no_semantic=1; continue ;;
       --cli)             __mx_want_cli=1; continue ;;
       --cli=*)           cli="${__mx_a#--cli=}"; continue ;;
+      --profile|-P)      __mx_want_profile=1; continue ;;
+      --profile=*)       case "${__mx_a#--profile=}" in lean|standard|fat) profile="${__mx_a#--profile=}" ;; *) echo "❌ [synapse] profile must be lean|standard|fat" >&2; return 2 ;; esac; continue ;;
       --model|-m)        __mx_want_model=1; continue ;;
       --model=*)         model="${__mx_a#--model=}"; continue ;;
+      --handover)        __mx_want_handover=1; continue ;;
+      --handover=*)      handover_ref="${__mx_a#--handover=}"; continue ;;
+      --prompt-file)     __mx_want_promptfile=1; continue ;;
+      --prompt-file=*)   promptfile_ref="${__mx_a#--prompt-file=}"; continue ;;
       --auto|-y)         perm_mode="auto"; continue ;;
       --bypass|--yolo|--dangerously-skip-permissions) perm_mode="bypass"; continue ;;
       --no-auto|--safe|--confirm|--manual) perm_mode="manual"; continue ;;
@@ -494,6 +517,17 @@ __mx_launch() {
   done
 
   task="$__mx_kept"
+
+  # --handover <ref> / --prompt-file <path>: the NOTE becomes the task (a handover boots the agent FROM
+  # the note — read it, confirm locked decisions, resume). Resolved by the package so the CLI flag, this
+  # launcher flag, and the MCP tool share one behavior. A bare task string still works and wins if both.
+  if [ -z "$task" ] && { [ -n "$handover_ref" ] || [ -n "$promptfile_ref" ]; }; then
+    if [ -n "$handover_ref" ]; then
+      task="$(__mx_run handover-task "$handover_ref")" || { echo "❌ [synapse] --handover: could not resolve '$handover_ref'" >&2; return 2; }
+    else
+      task="$(__mx_run handover-task "$promptfile_ref" --plain)" || { echo "❌ [synapse] --prompt-file: could not resolve '$promptfile_ref'" >&2; return 2; }
+    fi
+  fi
 
   case "$cli" in
     opencode|claude|cursor|clip|clipboard|print|-) ;;

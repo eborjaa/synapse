@@ -4,6 +4,31 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.16.0 — 2026-08-19
+
+### Added
+- **Boot an agent FROM a handover note — `--handover` / `synapse handover-task`.** A handover note IS a
+  task ("read this, confirm the locked decisions, resume from Next actions"). Synapse could render and
+  augment a `--task` string, but had no user-friendly way to say "use THIS note as the task" — so it
+  leaned on the REL launcher's `--handover`. Now it is first-class and shared across all three surfaces:
+  - **launcher:** `qa-lead --handover <ref> --cli cursor` (also `--prompt-file <path>` for any note, no
+    protocol prepend). `--profile` is now consumed from ANY position, not only first.
+  - **CLI:** `synapse handover-task <ref> [--plain]` prints the note as a task; `synapse augment <agent>
+    --handover <ref>` briefs directly from it.
+  - **MCP:** `synapse_resume_from_handover` now resolves an arbitrary path (incl. a skipDir like
+    `journal/`), strips frontmatter, and briefs via **augment** (the note text becomes the recall query),
+    where before it only read `inbox/handovers/` and used render.
+  - `lib/note-as-task.mjs` is the shared core: `resolveNoteRef` (path anywhere → fuzzy slug in
+    inbox/handovers/) + `taskFromNote` (strip frontmatter, prepend the successor protocol).
+
+### Notes
+- Resolution tries the ref as a PATH first (as-is / cwd-relative / vault-relative), so a handover kept
+  anywhere resolves — then, for a handover, a fuzzy slug match inside `inbox/handovers/`. Ambiguous slugs
+  are reported, never guessed.
+- This is the synapse-native equivalent of the REL launcher's `--handover`, and it carries synapse's own
+  render features the REL engine lacks — the same launch surfaces the on-demand "Fetch before you act"
+  checklist and the memory brief. Verified live on rel-context-eb against a handover in `journal/`:
+  14 rules, the handover as the task + recall query, the on-demand checklist, and semantic recall.
 ## 0.15.0 — 2026-08-19
 
 ### Added

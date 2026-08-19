@@ -147,7 +147,10 @@ tools close that gap:
   line under a **"Fetch before you act"** checklist instead of its body. A 6,000-token comment template
   becomes one trigger the agent can't miss, and the body is fetched only at the moment it applies.
 
-The common thread: **push what an agent cannot know to ask for; let it pull the rest.** The deterministic
+The common thread: **push what an agent cannot know to ask for; let it pull the rest.**
+
+**Boot from a handover:** `qa-lead --handover <ref> --cli cursor` (or `synapse handover-task <ref>`) turns a handover note into the agent's task — read-it-first protocol prepended, its text used as the recall query — resolving a note kept anywhere, including `journal/`.
+ The deterministic
 keyword match behind suite routing, on-demand triggers, and hub inference is one small function doing
 triple duty.
 
