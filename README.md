@@ -135,6 +135,22 @@ synapse_history({ query: "REL-38837" })
 → agent-debug-triager · done · "root cause = stale anchor in the grid POM; parked 2 specs" · [PR#41]
 ```
 
+**Keeping context live as the task moves.** A briefing is rendered once, at dispatch — ten turns later
+the agent has moved to a new subtask with its context frozen at turn 1, which is how agents drift. Two
+tools close that gap:
+
+- **`synapse_recall({task})`** (v0.14) — the top-up. Given what the agent is doing *now*, it returns only
+  the delta: notes relevant to the subtask, any rule that now applies, and whether it was already done —
+  never the whole briefing. When a task names a suite it routes toward it (v0.15), and if nothing is
+  relevant it says so rather than inventing filler.
+- **On-demand notes** (v0.13) — a note marked `on_demand: true` with a `trigger:` renders as a ~35-token
+  line under a **"Fetch before you act"** checklist instead of its body. A 6,000-token comment template
+  becomes one trigger the agent can't miss, and the body is fetched only at the moment it applies.
+
+The common thread: **push what an agent cannot know to ask for; let it pull the rest.** The deterministic
+keyword match behind suite routing, on-demand triggers, and hub inference is one small function doing
+triple duty.
+
 ## 🔌 Pluggable runtime (`--cli`)
 
 OpenCode is the **default** runtime, not the only one. The *same* rendered briefing can be handed to a
@@ -321,6 +337,8 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 ---
 
 ## 📚 More
+
+- **What's shipped and what's next** → [ROADMAP.md](ROADMAP.md)
 
 - **Full command reference** (every command, env var, flag, runtime sink) → [`doc-cli-reference`](docs/doc-cli-reference.md)
 - **Browse the graph in Obsidian** (color-coded by type) → [`doc-repo-layout`](docs/doc-repo-layout.md)
