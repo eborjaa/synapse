@@ -7,6 +7,14 @@ db/*.db-shm
 db/*.sqlite
 db/*.sqlite3
 
+# Episodic memory is per-machine PRIMARY data (db/episodes.db) — matched by db/*.db above.
+# Unlike the embeddings cache it is NOT rebuildable: back it up if the history matters to you.
+
+# Embeddings-freshness runtime artifacts (all per-machine, all rebuildable)
+db/.embed.lock/
+db/.embed-check.json
+db/embed-rebuild.log
+
 # Tooling
 node_modules/
 dist/

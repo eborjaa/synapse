@@ -90,9 +90,22 @@ whole vault, regardless of links or wording, and appends them under a clearly-la
 **Turn it on (all local, no new deps):**
 
 ```bash
-ollama pull mxbai-embed-large          # one-time, on the Ollama host that serves your model
-synapse embeddings    # build db/synapse.db's note_vectors index (the maintainer keeps it fresh)
+ollama pull mxbai-embed-large   # one-time, on the Ollama host that serves your model
+synapse setup --write           # provisions the runtime AND builds the index
 ```
+
+**Staying fresh is not your job.** The index is derived from the markdown, so it goes out of date every
+time you edit a note — and a stale index does not error, it just quietly ranks against the vault as it
+was. So `synapse augment` checks before it reads, re-embeds incrementally when it is behind, and when it
+cannot (offline, or a rebuild is already running) says so **in the briefing itself**:
+
+```
+> ⚠ semantic index is 42 note(s) behind the vault — run `synapse embeddings` (…).
+```
+
+Ask any time with `synapse embeddings-status` (or the `synapse_embeddings_status` MCP tool, which reports
+`staleCount`). A fleet of agents sharing one vault is safe: a lock collapses simultaneous rebuilds into
+one. Disable the self-heal with `SYNAPSE_NO_REFRESH=1` — the warning still prints.
 
 Embeddings come from the **same local Ollama** that runs the agents — no API key, no cloud. Results are
 **additive, labeled, and non-authoritative**: a similarity hit never silently drives a change, and when a
@@ -102,6 +115,41 @@ hit is genuinely relevant the agent **promotes it to a typed `related:` link** �
 → Full detail: [`doc-semantic-recall`](docs/doc-semantic-recall.md) ·
 [`rule-semantic-suggests-links-decide`](rules/rule-semantic-suggests-links-decide.md) ·
 [`tool-ollama-embeddings`](tools/tool-ollama-embeddings.md).
+
+## 🧠 Three kinds of memory
+
+| Memory | What it holds | Where it lives |
+|---|---|---|
+| **Procedural** | how to act — agents, rules, skills | typed notes, walked by `render` |
+| **Semantic** | what is true — your notes | typed notes + `augment`'s embedding recall |
+| **Episodic** | what already happened | `synapse_history` / `synapse_log` (v0.12) |
+
+Episodic memory is the one most agent stacks skip, and its absence is why every session starts
+amnesiac — a lead re-plans work a doer finished yesterday. Delegated work records itself: an episode
+opens inside `synapse_claim_and_brief` and closes inside `synapse_spawn_release`, the two calls a
+delegation cannot skip. Re-claiming a job that already ran returns what came of it (`priorRun`) instead
+of silently repeating it.
+
+```
+synapse_history({ query: "REL-38837" })
+→ agent-debug-triager · done · "root cause = stale anchor in the grid POM; parked 2 specs" · [PR#41]
+```
+
+**Keeping context live as the task moves.** A briefing is rendered once, at dispatch — ten turns later
+the agent has moved to a new subtask with its context frozen at turn 1, which is how agents drift. Two
+tools close that gap:
+
+- **`synapse_recall({task})`** (v0.14) — the top-up. Given what the agent is doing *now*, it returns only
+  the delta: notes relevant to the subtask, any rule that now applies, and whether it was already done —
+  never the whole briefing. When a task names a suite it routes toward it (v0.15), and if nothing is
+  relevant it says so rather than inventing filler.
+- **On-demand notes** (v0.13) — a note marked `on_demand: true` with a `trigger:` renders as a ~35-token
+  line under a **"Fetch before you act"** checklist instead of its body. A 6,000-token comment template
+  becomes one trigger the agent can't miss, and the body is fetched only at the moment it applies.
+
+The common thread: **push what an agent cannot know to ask for; let it pull the rest.** The deterministic
+keyword match behind suite routing, on-demand triggers, and hub inference is one small function doing
+triple duty.
 
 ## 🔌 Pluggable runtime (`--cli`)
 
@@ -266,7 +314,7 @@ npx synapse setup --write     # Ollama + embed model (optional; deterministic to
 npx synapse install --write   # shell + editor wiring
 ```
 
-Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.10.0` or
+Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.12.0` or
 `file:../synapse-framework`.
 
 The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`
@@ -281,6 +329,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 | `synapse new agent <id> --addressable` | Scaffold an agent note runnable as a Cortex standing bot |
 | `synapse lint [--strict]` | Vault health-check |
 | `synapse embeddings` | Rebuild `note_vectors` |
+| `synapse embeddings-status` | Is that index current? (`--json` / `--refresh`) |
 | `synapse index` / `views` / `migrate` | SQL projections + migrations |
 | `synapse setup` / `install` | Runtime + shell wiring |
 | `synapse agents` / `hubs` / `help` | Shell discovery (after `install --write`; `vault-*` equals) |
@@ -288,6 +337,8 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 ---
 
 ## 📚 More
+
+- **What's shipped and what's next** → [ROADMAP.md](ROADMAP.md)
 
 - **Full command reference** (every command, env var, flag, runtime sink) → [`doc-cli-reference`](docs/doc-cli-reference.md)
 - **Browse the graph in Obsidian** (color-coded by type) → [`doc-repo-layout`](docs/doc-repo-layout.md)

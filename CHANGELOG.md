@@ -4,6 +4,199 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.15.0 — 2026-08-19
+
+### Added
+- **Suite-affinity routing in `synapse_recall`.** When a task NAMES a suite (its `suite/<x>` vocabulary
+  appears in the task text), recall biases its semantic hits toward that suite. Raw cosine could rank an
+  adjacent suite higher — an "alerts" task returning *sensors*-notification notes because both mention
+  "notifications" — and this corrects the ORDER without hard-filtering, so a genuinely relevant
+  cross-suite note still surfaces. The chosen suites are returned as `routedToSuites` so a wrong route
+  is visible. `suitesNamedBy()` is exported and is a pure, deterministic keyword match (no model, no
+  index) — the same family as hub inference.
+
+### Changed
+- Suite routing is computed in `recall()` itself, independent of the semantic layer, so `routedToSuites`
+  is reported even when there is no index/Ollama (the boost simply has nothing to reorder).
+
+### Notes
+- Verified live: "the alerts fanout list is missing notifications after retraining" returned
+  sensors-notification notes before, and `workflow-alerts-*` / `user-story-alerts-*` after — routed to
+  `alerts`, no change to the other domains, and a task naming no suite is unaffected.
+## 0.14.0 — 2026-08-19
+
+### Added
+- **`synapse_recall` — the top-up when the task shifts mid-session.** A briefing is rendered ONCE, from
+  (agent, hub, task) at dispatch. Ten turns later the agent has moved to a different subtask with its
+  context frozen at turn 1 — the root cause of drift. `synapse_recall({task})` returns only the DELTA
+  for the current subtask, never the spine the agent already holds, unifying all three memories:
+
+  - **semantic** — notes relevant to the new subtask (embedding recall)
+  - **procedural** — on-demand rules the subtask now triggers (deterministic keyword match — the same
+    logic validated for hub inference; offline, no model, a wrong guess is visible)
+  - **episodic** — whether this was already done, from `synapse_history`
+
+  **The gate is built in:** if nothing clears the bars — no hit above the similarity floor, no trigger
+  matched, no prior episode — it says *"Nothing new — your current briefing already covers this"* rather
+  than manufacturing filler. That is the "does this turn need memory at all?" check, answered from the
+  result instead of a separate model call. Registered on every read surface; call it whenever the topic
+  shifts. `lib/recall.mjs` exposes `recall()` and `triggeredRules()` directly.
+
+### Notes
+- Recall degrades exactly like augment: no index or no Ollama → the semantic half returns a skip note
+  and the deterministic halves (triggered rules, prior work) still answer. It never throws.
+- `triggeredRules` considers ONLY `on_demand` notes, so an ordinary always-loaded rule never fires a
+  spurious "fetch me" — the trigger list is precisely the rules whose bodies are NOT already in context.
+
+## 0.13.0 — 2026-08-19
+
+### Added
+- **On-demand notes: carry the trigger, fetch the body.** A note (usually a rule or doc) can declare
+
+  ```yaml
+  on_demand: true
+  trigger: "before posting a Zephyr execution comment"
+  ```
+
+  and `render` emits, in EVERY profile, a ~35-token pointer under a **"Fetch before you act"** checklist
+  instead of the body:
+
+  ```
+  - **before posting a Zephyr execution comment** → `synapse_brief(note: "rule-...")`
+  ```
+
+  The failure mode this fixes is not "the agent forgot a rule it could see" — it is "the agent never
+  knew the rule existed". A trigger names the SITUATION, so it is short by nature, and the payload (a
+  template, a long procedure) stays out of context until the moment it applies. Measured motivation: one
+  formatting rule in a live vault was ~5,900 rendered tokens — larger than most agents' entire briefing
+  — and it pushed ALL of an agent's rules out of every render.
+
+  - **Reading it** is just asking for it by id (`synapse render <id>` / `synapse_brief`) — that renders
+    the full body. Requesting a note explicitly is the fetch.
+  - **Triggers are STICKY**: an on-demand note referenced by ANY note already in the closure joins it,
+    regardless of hop distance or profile depth — because a rule that reached the briefing and says
+    "fetch X before writing" must have X's trigger reach the agent too, or the pointer dangles. They are
+    never budget-trimmed (a ~35-token pointer is not worth cutting) and `on_demand` outranks
+    `mandatoryFull` (a template that must be followed exactly is best read fresh, not recalled).
+
+### Notes
+- `on_demand` is orthogonal to `mandatoryFull`: "always included" and "always inlined" are different
+  claims. A guardrail can be both binding AND on-demand — its trigger always reaches the agent, its
+  template does not.
+- The sticky pass follows the outbound link fields of the profile's enabled roles, derived from the
+  profile itself — not from the optional `referenceRoles` manifest key, which many vaults omit.
+
+## 0.12.0 — 2026-08-19
+
+### Added
+- **Episodic memory — synapse now remembers what agents actually did.** It had procedural memory
+  (agents/rules/skills — *how to act*) and semantic memory (notes + embeddings — *what is true*), but no
+  record of what *happened*. Every session started amnesiac: a lead re-planned work a doer finished
+  yesterday, and the only cure was a human writing a handover note by hand.
+
+  - **`synapse_history`** (read surfaces) — search the record of completed work: the task, how it ended,
+    a summary, and what it touched. Keyword search, so exact ids (`REL-38837`) match reliably.
+  - **`synapse_log`** (read surfaces) — record work you did yourself.
+  - **`lib/durable-spawn/episodes.mjs`** — the store, usable directly.
+
+- **Capture is automatic for delegated work.** An episode opens inside `synapse_claim_and_brief` and
+  closes inside `synapse_spawn_release` — the two calls a delegation *cannot skip*, because the briefing
+  is only obtainable through the claim. Memory that relies on an agent remembering to write it is the
+  same discipline problem that makes agents drift; this one cannot be forgotten without also failing to
+  get a briefing. The episode opens at CLAIM time, so work that dies mid-flight still leaves a record —
+  the case a later agent most needs.
+
+- **Historical dedup.** `synapse_claim_and_brief` already refuses a job running *now* (the lease). It now
+  also reports a job that already RAN, with its outcome and summary, as `priorRun`. It **warns rather
+  than refuses**: re-running a triage next week is legitimate work; re-running it *unknowingly* is the
+  waste worth naming.
+
+### Changed
+- `synapse_spawn_release` takes `summary`, `refs`, `outcome` and `episodeId`. Releasing without a
+  summary returns a note saying so — a run recorded with no account of itself is nearly useless to the
+  agent that finds it later.
+
+### Notes
+- Episodes are **primary data**, stored in `db/durable-spawn.db` beside the leases — never in
+  `db/synapse.db`, which is a rebuildable embeddings cache any `--all` run may discard.
+- Retrieval is **FTS5 keyword, not embeddings**. Episodes are short, recent, and full of exact tokens
+  that matter — ticket ids, branch names, spec paths. Keyword finds `REL-38837`; cosine does not. It
+  also works offline with no index to keep fresh. `searchEpisodes` is shaped so an embedding ranker can
+  be fused in later.
+- `synapse_log` is registered on the read-only `standard` surface deliberately: it records a fact about
+  a run, authors no vault content, and needs no review gate. A doer restricted to `standard` must still
+  be able to say what it did, or the memory has a hole exactly where the work happens.
+- An empty result says the work was **not recorded**, not that it never happened — absence of a record
+  is not evidence of absence.
+
+## 0.11.0 — 2026-08-19
+
+### Added
+- **The embeddings index now says when it is out of date — and fixes itself.** A *missing* index has
+  always been loud (`augment` prints a skip note); a *stale* one was completely silent. Recall went on
+  ranking against the vault as it was weeks ago, with nothing in the output to say so. `augment` now
+  checks freshness, refreshes incrementally when it is behind, and — when it cannot (offline Ollama,
+  `SYNAPSE_NO_REFRESH`, a rebuild already running) — prints the warning **in the briefing itself**:
+
+  ```
+  > ⚠ semantic index is 42 note(s) behind the vault — run `synapse embeddings` (…).
+  ```
+
+- **`lib/index-freshness.mjs`** — the freshness engine, usable directly. `embeddingsStatus()` answers
+  "is the index current, and by how many notes"; `refreshIfStale()` rebuilds only when it is not. Both
+  are best-effort by contract: they never throw and never block the caller's real work.
+
+- **`synapse embeddings-status`** — the same answer from the CLI. `--json` for machines, `--refresh` to
+  act on it, `--fast` to skip the exact count. Named for the *embeddings* cache, deliberately distinct
+  from `synapse index` (the SQL projections) — two different indexes that were easy to confuse.
+
+- **A cooperative rebuild lock** (`db/.embed.lock`). `gen-embeddings` takes no lock of its own, so a
+  fleet of standing agents sharing one vault could all notice staleness and all start rebuilding into
+  one SQLite file. Now the first one in does the work and the rest carry on with the existing index. An
+  expired lock (30 min) is broken, so a process that dies mid-rebuild cannot wedge the fleet.
+
+- **`synapse setup` builds the index.** It used to provision Ollama and the model, print `✅ GO`, and
+  leave `db/synapse.db` non-existent — so a fully "set up" vault still had semantic recall switched off.
+
+### Changed
+- **`synapse_embeddings_status` (MCP) reports freshness, not just presence.** It previously checked that
+  a DB file existed and ran an offline math self-test, then said `verdict: healthy-or-ok` — which a
+  two-month-old index passes. It now returns `staleCount`, `indexed`, `corpusNotes` and the model.
+- **`synapse_embeddings_rebuild` (MCP) is detached and returns immediately.** It used to run in-band
+  with a 600s timeout, freezing the calling agent's turn for the whole rebuild with no progress channel.
+  It now starts the job and hands back a log path; poll `synapse_embeddings_status` until `stale=false`.
+
+### Fixed
+- **Id collisions no longer read as permanent staleness.** Note ids are basenames and are global, so
+  when two files share one (`plans/alerts/step-01.md` and `plans/cases/step-01.md`) only the last one
+  walked is embedded. Comparing every *file* against that single row reported notes as behind on an
+  index built seconds earlier — and no rebuild could ever clear them, so the self-heal would fire on
+  every call and accomplish nothing. Freshness now de-duplicates by id exactly the way `gen-embeddings`
+  does. The collisions are still surfaced, as what they actually are: `⚠ 23 note(s) share an id with
+  another and are NOT indexed`. Found against a live 2,616-note vault, where 13 ids shadowed 23 notes.
+- **An embed-model change is detected.** No amount of mtime comparison can see it — the files are
+  untouched, only the embedding space moved — so a model swap used to report "current" while every
+  cosine in the index was meaningless. It is now checked before the time-based tiers.
+- **Mtimes are compared in the form they are stored in.** Sub-millisecond precision survives in
+  `mtimeMs` but not in the persisted ISO string, and the two do not round the same way, so comparing
+  across the formats could flip the verdict on a sub-millisecond difference.
+- **Vendored notes are no longer embedded into a consumer's index.** `gen-embeddings` walked
+  `node_modules`, so this package's own example vault (`agents/`, `rules/`, `hub-synapse.md` — all
+  shipped in `files[]`) was indexed into every consumer that installed it, and `agent-oracle` /
+  `hub-finances` surfaced as semantic hits in unrelated vaults. `node_modules` and `db` are now hard-
+  skipped by a walker (`lib/note-walk.mjs`) shared with the freshness check, so the two can never
+  disagree about what the corpus is. The next `synapse embeddings` run prunes the stale rows.
+
+### Notes
+- Freshness compares each note against the **mtime stored in `note_vectors`**, not the DB *file's*
+  mtime. The file-mtime approach needs a corrective `utimes` after every run — an incremental rebuild
+  with nothing to do writes nothing, so the file's mtime never advances and "stale" stays true forever.
+- A two-tier check keeps it cheap: a stat-only pass (~25ms on 2.5k notes) proves freshness in the common
+  case; the exact per-note comparison (~400ms) runs only when that pass is inconclusive, and its verdict
+  is cached in `db/.embed-check.json`. That second tier is what stops an untyped file (a `README.md`,
+  which is never indexed) from reading as permanently stale.
+- Disable the self-heal with `SYNAPSE_NO_REFRESH=1` — the warning still prints.
+
 ## 0.10.0 — 2026-08-14
 
 ### Added
