@@ -23,6 +23,7 @@ import { assertVault, VAULT, manifest, runSynapse, asToolResult } from "./vault.
 import { registerSkeletonTools, registerBriefTool } from "./tools/agents.mjs";
 import { registerRetrievalTools } from "./tools/retrieval.mjs";
 import { registerHealthTools } from "./tools/health.mjs";
+import { registerEpisodeTools } from "./tools/episodes.mjs";
 import { registerHandoverTools } from "./tools/handover.mjs";
 import { registerAuthoringTools } from "./tools/authoring.mjs";
 import { registerSpawnTools } from "./tools/spawn.mjs";
@@ -77,6 +78,7 @@ if (surface !== "skeleton") {
   registerBriefTool(server);
   registerRetrievalTools(server);
   registerHealthTools(server);
+  registerEpisodeTools(server);
 }
 if (surface === "full" || surface === "orchestrator") {
   registerHandoverTools(server);

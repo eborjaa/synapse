@@ -116,6 +116,25 @@ hit is genuinely relevant the agent **promotes it to a typed `related:` link** �
 [`rule-semantic-suggests-links-decide`](rules/rule-semantic-suggests-links-decide.md) ·
 [`tool-ollama-embeddings`](tools/tool-ollama-embeddings.md).
 
+## 🧠 Three kinds of memory
+
+| Memory | What it holds | Where it lives |
+|---|---|---|
+| **Procedural** | how to act — agents, rules, skills | typed notes, walked by `render` |
+| **Semantic** | what is true — your notes | typed notes + `augment`'s embedding recall |
+| **Episodic** | what already happened | `synapse_history` / `synapse_log` (v0.12) |
+
+Episodic memory is the one most agent stacks skip, and its absence is why every session starts
+amnesiac — a lead re-plans work a doer finished yesterday. Delegated work records itself: an episode
+opens inside `synapse_claim_and_brief` and closes inside `synapse_spawn_release`, the two calls a
+delegation cannot skip. Re-claiming a job that already ran returns what came of it (`priorRun`) instead
+of silently repeating it.
+
+```
+synapse_history({ query: "REL-38837" })
+→ agent-debug-triager · done · "root cause = stale anchor in the grid POM; parked 2 specs" · [PR#41]
+```
+
 ## 🔌 Pluggable runtime (`--cli`)
 
 OpenCode is the **default** runtime, not the only one. The *same* rendered briefing can be handed to a
@@ -279,7 +298,7 @@ npx synapse setup --write     # Ollama + embed model (optional; deterministic to
 npx synapse install --write   # shell + editor wiring
 ```
 
-Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.11.0` or
+Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.12.0` or
 `file:../synapse-framework`.
 
 The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`

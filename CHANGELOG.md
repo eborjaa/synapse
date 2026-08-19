@@ -4,6 +4,49 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.12.0 — 2026-08-19
+
+### Added
+- **Episodic memory — synapse now remembers what agents actually did.** It had procedural memory
+  (agents/rules/skills — *how to act*) and semantic memory (notes + embeddings — *what is true*), but no
+  record of what *happened*. Every session started amnesiac: a lead re-planned work a doer finished
+  yesterday, and the only cure was a human writing a handover note by hand.
+
+  - **`synapse_history`** (read surfaces) — search the record of completed work: the task, how it ended,
+    a summary, and what it touched. Keyword search, so exact ids (`REL-38837`) match reliably.
+  - **`synapse_log`** (read surfaces) — record work you did yourself.
+  - **`lib/durable-spawn/episodes.mjs`** — the store, usable directly.
+
+- **Capture is automatic for delegated work.** An episode opens inside `synapse_claim_and_brief` and
+  closes inside `synapse_spawn_release` — the two calls a delegation *cannot skip*, because the briefing
+  is only obtainable through the claim. Memory that relies on an agent remembering to write it is the
+  same discipline problem that makes agents drift; this one cannot be forgotten without also failing to
+  get a briefing. The episode opens at CLAIM time, so work that dies mid-flight still leaves a record —
+  the case a later agent most needs.
+
+- **Historical dedup.** `synapse_claim_and_brief` already refuses a job running *now* (the lease). It now
+  also reports a job that already RAN, with its outcome and summary, as `priorRun`. It **warns rather
+  than refuses**: re-running a triage next week is legitimate work; re-running it *unknowingly* is the
+  waste worth naming.
+
+### Changed
+- `synapse_spawn_release` takes `summary`, `refs`, `outcome` and `episodeId`. Releasing without a
+  summary returns a note saying so — a run recorded with no account of itself is nearly useless to the
+  agent that finds it later.
+
+### Notes
+- Episodes are **primary data**, stored in `db/durable-spawn.db` beside the leases — never in
+  `db/synapse.db`, which is a rebuildable embeddings cache any `--all` run may discard.
+- Retrieval is **FTS5 keyword, not embeddings**. Episodes are short, recent, and full of exact tokens
+  that matter — ticket ids, branch names, spec paths. Keyword finds `REL-38837`; cosine does not. It
+  also works offline with no index to keep fresh. `searchEpisodes` is shaped so an embedding ranker can
+  be fused in later.
+- `synapse_log` is registered on the read-only `standard` surface deliberately: it records a fact about
+  a run, authors no vault content, and needs no review gate. A doer restricted to `standard` must still
+  be able to say what it did, or the memory has a hole exactly where the work happens.
+- An empty result says the work was **not recorded**, not that it never happened — absence of a record
+  is not evidence of absence.
+
 ## 0.11.0 — 2026-08-19
 
 ### Added

@@ -15,6 +15,7 @@ import { z } from "zod";
 import { VAULT, runSynapse } from "../vault.mjs";
 import * as lease from "../../lib/durable-spawn/lease.mjs";
 import * as registry from "../../lib/durable-spawn/registry.mjs";
+import * as episodes from "../../lib/durable-spawn/episodes.mjs";
 import { parseStatus } from "../../lib/durable-spawn/heartbeat.mjs";
 import { classify } from "../../lib/durable-spawn/liveness.mjs";
 import { renderBriefing, launchDetached } from "../../lib/spawn-runtime.mjs";
@@ -31,6 +32,7 @@ function db() {
   mkdirSync(join(VAULT, "db"), { recursive: true });
   _db = lease.openDb(DB_PATH);
   registry.migrate(_db);
+  episodes.migrate(_db);
   return _db;
 }
 
@@ -116,7 +118,24 @@ async function claimAndRender(d, { agent, task, job, target, profile, ttlMs, for
     lease.release(d, job, owner, acq.token); // never strand a lease on a job that never started
     return { ok: false, isError: true, body: { error: "render-failed", job, detail: r.error } };
   }
-  return { ok: true, owner, token: acq.token, briefing: r.briefing };
+  // Historical dedup — the counterpart to the lease. The lease refuses a job running NOW; this reports a
+  // job that ALREADY RAN, and what came of it. It WARNS rather than refuses on purpose: re-running a
+  // triage next week is legitimate work; re-running it UNKNOWINGLY is the waste worth naming.
+  let priorRun = null;
+  try {
+    const prev = episodes.lastForJob(d, job);
+    if (prev && prev.outcome !== "open") {
+      priorRun = {
+        outcome: prev.outcome,
+        summary: prev.summary,
+        endedAt: prev.endedAt,
+        refs: prev.refs,
+        hint: "This job ran before. Read the summary before repeating it — if the work still needs doing, carry on.",
+      };
+    }
+  } catch { /* memory is additive — never block a claim on it */ }
+
+  return { ok: true, owner, token: acq.token, briefing: r.briefing, priorRun };
 }
 
 // `launch`/`render` are injectable so tests can drive the tools without a real runtime or vault render.
@@ -167,14 +186,22 @@ export function registerSpawnTools(
         lease.dbNow(d),
       );
 
+      // Episodic memory: the episode opens HERE, at claim time, not at completion — so work that dies
+      // mid-flight still leaves a record, which is exactly the case a later agent most needs.
+      const { episodeId } = episodes.open(
+        d, { agent, job, spawnId, task, hub: target ?? null }, lease.dbNow(d),
+      );
+
       return text({
         ok: true,
         spawnId,
+        episodeId,
         job,
         owner: claim.owner,
         token: claim.token,
         launcher: "yours (harness-native)",
-        next: "Launch the doer yourself with prompt = briefing + '\\n\\n---\\n\\n' + task, then call synapse_spawn_release({job, owner, token, spawnId}) when it finishes.",
+        ...(claim.priorRun ? { priorRun: claim.priorRun } : {}),
+        next: "Launch the doer yourself with prompt = briefing + '\\n\\n---\\n\\n' + task, then call synapse_spawn_release({job, owner, token, spawnId, episodeId, summary}) when it finishes. The summary is what a future agent will read instead of redoing this.",
         briefing: claim.briefing,
       });
     },
@@ -238,10 +265,11 @@ export function registerSpawnTools(
         return fail({ error: "launch-failed", job, cli, detail: e.message });
       }
 
-      // 5. Durable record (survives an orchestrator restart → staleSpawns reconciliation).
+      // 5. Durable record (survives an orchestrator restart → staleSpawns reconciliation) + the episode.
       registry.record(d, { spawnId, job, owner, epoch: EPOCH, token: acq.token, statusFile, task }, lease.dbNow(d));
+      const { episodeId } = episodes.open(d, { agent, job, spawnId, task, hub: target ?? null }, lease.dbNow(d));
 
-      return text({ ok: true, spawnId, job, token: acq.token, owner, pid, cli, statusFile,
+      return text({ ok: true, spawnId, episodeId, job, token: acq.token, owner, pid, cli, statusFile,
         note: "Poll synapse_spawn_status. The doer heartbeats to its status file; a stale heartbeat escalates to you, never auto-kills." });
     },
   );
@@ -318,14 +346,32 @@ export function registerSpawnTools(
     {
       title: "Release a spawn's lease + mark it done",
       description: "Release the lease (only the holder can) and mark the spawn done. Call after reaping a finished doer's result.",
-      inputSchema: { job: z.string(), owner: z.string(), token: z.number(), spawnId: z.string().optional() },
+      inputSchema: {
+        job: z.string(), owner: z.string(), token: z.number(), spawnId: z.string().optional(),
+        episodeId: z.string().optional().describe("From synapse_claim_and_brief — closes that episode"),
+        outcome: z.enum(["done", "failed", "abandoned"]).optional().describe("Default done"),
+        summary: z.string().optional()
+          .describe("WHAT HAPPENED, in a sentence or two. This is what a future agent reads instead of "
+            + "redoing the work — findings, decisions, what was left undone. Omitting it records that "
+            + "something happened without recording what."),
+        refs: z.array(z.string()).optional().describe("Ids/URLs/paths produced or touched (PRs, tickets, note ids, specs)"),
+      },
       annotations: { readOnlyHint: false },
     },
-    async ({ job, owner, token, spawnId }) => {
+    async ({ job, owner, token, spawnId, episodeId, outcome, summary, refs }) => {
       const d = db();
       const rel = lease.release(d, job, owner, token);
-      if (spawnId) registry.markState(d, spawnId, "done", lease.dbNow(d));
-      return text({ released: rel.ok, job, spawnId: spawnId ?? null });
+      const state = outcome === "failed" ? "failed" : "done";
+      if (spawnId) registry.markState(d, spawnId, state, lease.dbNow(d));
+      const ep = episodes.close(
+        d, { episodeId: episodeId ?? null, job, outcome: outcome || "done", summary: summary ?? null, refs: refs ?? null },
+        lease.dbNow(d),
+      );
+      return text({
+        released: rel.ok, job, spawnId: spawnId ?? null,
+        episodeClosed: ep.ok ? ep.episodeId : null,
+        ...(summary ? {} : { note: "No summary recorded — this run is now a fact with no content. Prefer passing one." }),
+      });
     },
   );
 }

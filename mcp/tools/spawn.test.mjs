@@ -151,3 +151,53 @@ test("semantic pre-check: a paraphrase of a live task is caught (or fails open w
   assert.ok(b.refused === "looks-like-duplicate" || b.ok === true, `unexpected: ${JSON.stringify(b)}`);
   if (b.refused === "looks-like-duplicate") assert.equal(b.similarJob, "spec-builder:SEM:a");
 });
+
+// ── episodic memory: written by the two calls a delegation cannot skip ──────────────────────────────
+// The point of wiring capture into claim/release rather than a separate "please log it" tool: an agent
+// that forgets to log still gets logged, because it cannot get a briefing without claiming.
+
+test("claiming opens an episode and releasing closes it with the summary", async () => {
+  const { call } = harness();
+  const job = "spec-builder:REL-77:report";
+  const claim = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "migrate the report suite", job, force: true });
+  assert.ok(claim.episodeId, "an episode id comes back with the claim");
+
+  const rel = await call("synapse_spawn_release", {
+    job, owner: claim.owner, token: claim.token, spawnId: claim.spawnId, episodeId: claim.episodeId,
+    summary: "migrated 12 specs; parked 2 on REL-38837", refs: ["PR#41"],
+  });
+  assert.equal(rel.released, true);
+  assert.equal(rel.episodeClosed, claim.episodeId);
+});
+
+test("releasing WITHOUT a summary says so — a run with no account of itself is near-useless", async () => {
+  const { call } = harness();
+  const job = "spec-builder:REL-78:report";
+  const c = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job, force: true });
+  const rel = await call("synapse_spawn_release", { job, owner: c.owner, token: c.token, spawnId: c.spawnId, episodeId: c.episodeId });
+  assert.match(rel.note, /No summary recorded/);
+});
+
+test("re-claiming a job that already RAN surfaces the prior run instead of silently repeating it", async () => {
+  const { call } = harness();
+  const job = "debug-triager:REL-79:sensors";
+  const first = await call("synapse_claim_and_brief", { agent: "debug-triager", task: "triage sensors flake", job, force: true });
+  await call("synapse_spawn_release", {
+    job, owner: first.owner, token: first.token, spawnId: first.spawnId, episodeId: first.episodeId,
+    summary: "not a flake — a real app bug, filed REL-40001", refs: ["REL-40001"],
+  });
+
+  // The lease is free now, so this claim SUCCEEDS — history is a warning, not a second gate.
+  const second = await call("synapse_claim_and_brief", { agent: "debug-triager", task: "triage sensors flake again", job, force: true });
+  assert.equal(second.ok, true, "a deliberate re-run is legitimate and must not be blocked");
+  assert.ok(second.priorRun, "but the earlier run is reported");
+  assert.equal(second.priorRun.outcome, "done");
+  assert.match(second.priorRun.summary, /REL-40001/);
+  assert.deepEqual(second.priorRun.refs, ["REL-40001"]);
+});
+
+test("a FIRST-EVER claim carries no priorRun (no false memory)", async () => {
+  const { call } = harness();
+  const r = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "brand new work", job: "spec-builder:REL-80:new", force: true });
+  assert.equal(r.priorRun, undefined);
+});
