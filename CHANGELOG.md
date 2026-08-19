@@ -4,6 +4,44 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.13.0 — 2026-08-19
+
+### Added
+- **On-demand notes: carry the trigger, fetch the body.** A note (usually a rule or doc) can declare
+
+  ```yaml
+  on_demand: true
+  trigger: "before posting a Zephyr execution comment"
+  ```
+
+  and `render` emits, in EVERY profile, a ~35-token pointer under a **"Fetch before you act"** checklist
+  instead of the body:
+
+  ```
+  - **before posting a Zephyr execution comment** → `synapse_brief(note: "rule-...")`
+  ```
+
+  The failure mode this fixes is not "the agent forgot a rule it could see" — it is "the agent never
+  knew the rule existed". A trigger names the SITUATION, so it is short by nature, and the payload (a
+  template, a long procedure) stays out of context until the moment it applies. Measured motivation: one
+  formatting rule in a live vault was ~5,900 rendered tokens — larger than most agents' entire briefing
+  — and it pushed ALL of an agent's rules out of every render.
+
+  - **Reading it** is just asking for it by id (`synapse render <id>` / `synapse_brief`) — that renders
+    the full body. Requesting a note explicitly is the fetch.
+  - **Triggers are STICKY**: an on-demand note referenced by ANY note already in the closure joins it,
+    regardless of hop distance or profile depth — because a rule that reached the briefing and says
+    "fetch X before writing" must have X's trigger reach the agent too, or the pointer dangles. They are
+    never budget-trimmed (a ~35-token pointer is not worth cutting) and `on_demand` outranks
+    `mandatoryFull` (a template that must be followed exactly is best read fresh, not recalled).
+
+### Notes
+- `on_demand` is orthogonal to `mandatoryFull`: "always included" and "always inlined" are different
+  claims. A guardrail can be both binding AND on-demand — its trigger always reaches the agent, its
+  template does not.
+- The sticky pass follows the outbound link fields of the profile's enabled roles, derived from the
+  profile itself — not from the optional `referenceRoles` manifest key, which many vaults omit.
+
 ## 0.12.0 — 2026-08-19
 
 ### Added
