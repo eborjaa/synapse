@@ -42,6 +42,19 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   It now starts the job and hands back a log path; poll `synapse_embeddings_status` until `stale=false`.
 
 ### Fixed
+- **Id collisions no longer read as permanent staleness.** Note ids are basenames and are global, so
+  when two files share one (`plans/alerts/step-01.md` and `plans/cases/step-01.md`) only the last one
+  walked is embedded. Comparing every *file* against that single row reported notes as behind on an
+  index built seconds earlier — and no rebuild could ever clear them, so the self-heal would fire on
+  every call and accomplish nothing. Freshness now de-duplicates by id exactly the way `gen-embeddings`
+  does. The collisions are still surfaced, as what they actually are: `⚠ 23 note(s) share an id with
+  another and are NOT indexed`. Found against a live 2,616-note vault, where 13 ids shadowed 23 notes.
+- **An embed-model change is detected.** No amount of mtime comparison can see it — the files are
+  untouched, only the embedding space moved — so a model swap used to report "current" while every
+  cosine in the index was meaningless. It is now checked before the time-based tiers.
+- **Mtimes are compared in the form they are stored in.** Sub-millisecond precision survives in
+  `mtimeMs` but not in the persisted ISO string, and the two do not round the same way, so comparing
+  across the formats could flip the verdict on a sub-millisecond difference.
 - **Vendored notes are no longer embedded into a consumer's index.** `gen-embeddings` walked
   `node_modules`, so this package's own example vault (`agents/`, `rules/`, `hub-synapse.md` — all
   shipped in `files[]`) was indexed into every consumer that installed it, and `agent-oracle` /

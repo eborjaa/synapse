@@ -61,7 +61,7 @@ export function registerRetrievalTools(server) {
       } catch (e) {
         return { isError: true, content: [{ type: "text", text: `Freshness check unavailable: ${e.message}` }] };
       }
-      const st = mod.embeddingsStatus({ precise: !fast });
+      const st = mod.embeddingsStatus({ precise: !fast, deep: !fast });
       const lines = [`vault=${VAULT}`, mod.formatStatus(st)];
       if (st.stale) {
         lines.push("");
@@ -75,6 +75,7 @@ export function registerRetrievalTools(server) {
         present: st.present, stale: st.stale, staleCount: st.staleCount, precise: st.precise,
         indexed: st.rows, corpusNotes: st.corpusNotes, model: st.model,
         storedMaxMtime: st.storedMaxMtime, corpusMaxMtime: st.corpusMaxMtime, newestPath: st.newestPath,
+        collisions: st.collisions,
       }, null, 2));
       return { content: [{ type: "text", text: lines.join("\n") }] };
     },
