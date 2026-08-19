@@ -16,6 +16,7 @@ import { z } from "zod";
 import { VAULT } from "../vault.mjs";
 import * as lease from "../../lib/durable-spawn/lease.mjs";
 import * as episodes from "../../lib/durable-spawn/episodes.mjs";
+import { recall as recallDelta } from "../../lib/recall.mjs";
 
 const DB_PATH = join(VAULT, "db", "episodes.db");
 
@@ -32,6 +33,8 @@ const text = (obj) => ({
 });
 
 export function registerEpisodeTools(server) {
+  registerRecallTool(server);
+
   server.registerTool(
     "synapse_history",
     {
@@ -104,6 +107,41 @@ export function registerEpisodeTools(server) {
         task, summary, outcome: outcome || "done", refs: refs ?? null,
       });
       return text({ recorded: true, episodeId, task, outcome: outcome || "done" });
+    },
+  );
+}
+
+/**
+ * synapse_recall — the top-up when the task shifts mid-session. The briefing was rendered once at
+ * dispatch; this returns only the DELTA for the current subtask across all three memories: relevant
+ * notes (semantic), rules that now apply (on-demand triggers), and prior work (episodes). It never
+ * re-renders the spine the agent already holds.
+ */
+function registerRecallTool(server) {
+  server.registerTool(
+    "synapse_recall",
+    {
+      title: "Top up context for the current subtask",
+      description:
+        "Your briefing was built ONCE, at the start. When the work moves to a new subtask, call this "
+        + "with what you are doing NOW to get only what changed — relevant notes, any rule that now "
+        + "applies (fetch it before acting), and whether this was already done. Does NOT re-send your "
+        + "briefing. If nothing is relevant it says so plainly. Read-only. Call it whenever the topic "
+        + "shifts — it is cheap, and a stale briefing is how agents drift.",
+      inputSchema: {
+        task: z.string().describe("What you are working on RIGHT NOW — the current subtask, in your words"),
+        k: z.number().optional().describe("Max semantic hits (default 6)"),
+        includePriorWork: z.boolean().optional().describe("Also search episodic memory for this task (default true)"),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ task, k, includePriorWork }) => {
+      const episodesFn = (includePriorWork === false)
+        ? null
+        : (t) => episodes.searchEpisodes(db(), { query: t, limit: 3 })
+            .map((e) => ({ when: new Date(e.startedAt).toISOString(), outcome: e.outcome, summary: e.summary, job: e.job }));
+      const r = await recallDelta({ task, k: k || 6, episodesFn });
+      return text(r);
     },
   );
 }

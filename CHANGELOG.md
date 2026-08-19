@@ -4,6 +4,31 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.14.0 — 2026-08-19
+
+### Added
+- **`synapse_recall` — the top-up when the task shifts mid-session.** A briefing is rendered ONCE, from
+  (agent, hub, task) at dispatch. Ten turns later the agent has moved to a different subtask with its
+  context frozen at turn 1 — the root cause of drift. `synapse_recall({task})` returns only the DELTA
+  for the current subtask, never the spine the agent already holds, unifying all three memories:
+
+  - **semantic** — notes relevant to the new subtask (embedding recall)
+  - **procedural** — on-demand rules the subtask now triggers (deterministic keyword match — the same
+    logic validated for hub inference; offline, no model, a wrong guess is visible)
+  - **episodic** — whether this was already done, from `synapse_history`
+
+  **The gate is built in:** if nothing clears the bars — no hit above the similarity floor, no trigger
+  matched, no prior episode — it says *"Nothing new — your current briefing already covers this"* rather
+  than manufacturing filler. That is the "does this turn need memory at all?" check, answered from the
+  result instead of a separate model call. Registered on every read surface; call it whenever the topic
+  shifts. `lib/recall.mjs` exposes `recall()` and `triggeredRules()` directly.
+
+### Notes
+- Recall degrades exactly like augment: no index or no Ollama → the semantic half returns a skip note
+  and the deterministic halves (triggered rules, prior work) still answer. It never throws.
+- `triggeredRules` considers ONLY `on_demand` notes, so an ordinary always-loaded rule never fires a
+  spurious "fetch me" — the trigger list is precisely the rules whose bodies are NOT already in context.
+
 ## 0.13.0 — 2026-08-19
 
 ### Added
