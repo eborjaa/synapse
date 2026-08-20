@@ -37,7 +37,10 @@
 #
 # Engine tools resolve via: `synapse` bin on PATH → package lib/ → node_modules/@eborja/synapse.
 #
-# Must be SOURCED, not executed. zsh + bash (+ POSIX sh) supported.
+# Must be SOURCED (not executed) into an interactive shell — zsh or bash. Both are fully supported and
+# produce identical launches (CI asserts this in lib/launcher.test.mjs). A strict POSIX shell (dash/sh)
+# is NOT a target: this is an interactive tool, and the Tab-completion block uses zsh/bash array syntax
+# that a non-array shell cannot even parse.
 
 # ── defaults (override in your env) ───────────────────────────────────────────
 : "${SYNAPSE_MODEL:=ollama/qwen3.6-256k}"
@@ -712,14 +715,28 @@ $task"
       ;;
   esac
 
+  # Launch the chosen CLI — or, under SYNAPSE_PRINT_LAUNCH=1, print the exact argv (bracketed, so a
+  # value with spaces is one token) and DON'T exec. This is the seam the CLI tests assert against: every
+  # runtime bug we have hit (opencode --file swallowing the task, a flag leaking, the task dropped) is an
+  # argv-shape bug, and this makes the shape checkable in CI without the real binaries.
+  __mx_exec() {
+    if [ -n "${SYNAPSE_PRINT_LAUNCH:-}" ]; then
+      printf 'LAUNCH:'
+      for _mx_arg in "$@"; do printf ' [%s]' "$_mx_arg"; done
+      printf '\n'
+      return 0
+    fi
+    "$@"
+  }
+
   rc=0
   case "$cli" in
     claude)
       _mx_claude_model="$(__mx_resolve_model claude "$model")"
       if [ -n "$task" ]; then
-        claude "$@" --append-system-prompt-file "$tmp" --add-dir "$SYNAPSE_VAULT" --model "$_mx_claude_model" -- "$task"
+        __mx_exec claude "$@" --append-system-prompt-file "$tmp" --add-dir "$SYNAPSE_VAULT" --model "$_mx_claude_model" -- "$task"
       else
-        claude "$@" --append-system-prompt-file "$tmp" --add-dir "$SYNAPSE_VAULT" --model "$_mx_claude_model"
+        __mx_exec claude "$@" --append-system-prompt-file "$tmp" --add-dir "$SYNAPSE_VAULT" --model "$_mx_claude_model"
       fi
       rc=$?
       ;;
@@ -743,9 +760,9 @@ $task"
       fi
       _cursor_model="$(__mx_resolve_model cursor "$model")"
       if [ -n "$task" ]; then
-        cursor-agent --model "$_cursor_model" "$@" --add-dir "$SYNAPSE_VAULT" "$task"
+        __mx_exec cursor-agent --model "$_cursor_model" "$@" --add-dir "$SYNAPSE_VAULT" "$task"
       else
-        cursor-agent --model "$_cursor_model" "$@" --add-dir "$SYNAPSE_VAULT"
+        __mx_exec cursor-agent --model "$_cursor_model" "$@" --add-dir "$SYNAPSE_VAULT"
       fi
       rc=$?
       return $rc
@@ -759,19 +776,22 @@ $task"
         *) _mx_tui=0 ;;
       esac
       if [ "$_mx_tui" = "1" ] && [ -z "$task" ]; then
-        opencode "$SYNAPSE_VAULT" -m "$_mx_model" --prompt "$(cat "$tmp")"
+        __mx_exec opencode "$SYNAPSE_VAULT" -m "$_mx_model" --prompt "$(cat "$tmp")"
         rc=$?
       elif [ -n "$task" ]; then
-        # Briefing as context file; task as the user message (augment-aware).
-        opencode run --interactive "$@" -m "$_mx_model" --dir "$SYNAPSE_VAULT" --file "$tmp" "$task"
+        # Briefing as an attached context file; task as the user MESSAGE. The message MUST come first:
+        # opencode's `--file` is an ARRAY flag, so a task placed AFTER `--file <tmp>` is swallowed as a
+        # second filename ("File not found: hi"). Message-first keeps `--file` capturing only <tmp>.
+        __mx_exec opencode run "$task" "$@" -m "$_mx_model" --file "$tmp"
         rc=$?
       else
-        _mx_oc=(run -m "$_mx_model" --dir "$SYNAPSE_VAULT")
+        # No task: seed the briefing ITSELF as the message (unchanged behavior). POSIX — no arrays
+        # (which break under a non-array shell) and no dead `--dir` (opencode's `run` has no such flag;
+        # it was silently ignored). The briefing text is the trailing positional message.
         case "${SYNAPSE_THINKING:-1}" in
-          0|off|false|no) ;;
-          *) _mx_oc+=(--thinking) ;;
+          0|off|false|no) __mx_exec opencode run "$@" -m "$_mx_model" "$(cat "$tmp")" ;;
+          *)              __mx_exec opencode run --thinking "$@" -m "$_mx_model" "$(cat "$tmp")" ;;
         esac
-        opencode "${_mx_oc[@]}" "$@" "$(cat "$tmp")"
         rc=$?
       fi
       ;;
