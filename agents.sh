@@ -847,7 +847,7 @@ _MX_AGENT_NAMES="${_MX_AGENT_NAMES# }"
 _MX_FLAGS="--cli --model --profile --auto --bypass --yolo --no-auto --safe --confirm --manual --no-semantic --clipboard --copy"
 _MX_PROFILES="lean standard fat"
 _MX_CLIS="opencode claude cursor clip print"
-_MX_SYNAPSE_SUBS="render augment lint index views migrate embeddings setup install journal agents hubs profiles models bedrock reload gate help"
+_MX_SYNAPSE_SUBS="render augment lint index views migrate embeddings embeddings-status handover-task setup install journal new agents hubs profiles models bedrock reload gate man help"
 
 __mx_list_agent_names() {
   _mx_v="$(__mx_vault 2>/dev/null || true)"

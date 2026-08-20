@@ -51,9 +51,32 @@ glance — e.g. `⏳ building briefing…` then `🚀 🧭 curator + hub-finance
 Agent icons: 🧭 curator · 🔮 oracle · 🔧 reconciler · 📥 ingester. Discovery commands (`synapse agents` /
 `hubs` / `profiles` / `models`) use the same vocabulary.
 
-**Syntax:** `<agent> [<target>] [--profile lean|standard|fat] ["task"]`. A `hub-*` target auto-upgrades a
-`lean` agent to `standard`; a bare profile word also works (`curator hub-finances fat`). Supplying a
-**task** auto-routes through the semantic augment when the embedding index exists.
+### Launcher grammar (full)
+
+```
+<agent> [<target>] ["task text"] [--handover <ref>] [--prompt-file <path>] \
+        [--profile lean|standard|fat] [--cli opencode|claude|cursor|clip|print] \
+        [--model <id>] [--auto|--bypass|--manual] [--no-semantic] [--clipboard]
+```
+
+- **`<target>`** (optional) — a `hub-*`/`moc-*` or any note id that RESOLVES in the vault. The first
+  positional is treated as a target only if it is `hub-*`/`moc-*` (a typo still errors clearly in render)
+  or resolves to a real note file; **anything else — including a one-word task like `"hi"` — is the
+  task.** A `hub-*` target auto-upgrades a `lean` agent to `standard`.
+- **`"task text"`** (optional) — a bare quoted string. Supplying a task auto-routes through the semantic
+  `augment` when the embedding index exists. `--profile` and value-flags are consumed from ANY position,
+  so they never leak into the task.
+- **`--handover <ref>`** — boot the agent FROM a handover note (a path anywhere incl. `journal/`, or a
+  fuzzy slug in `inbox/handovers/`): the note becomes the task, with the successor protocol prepended.
+  `--prompt-file <path>` is the same without the protocol. If a bare `"task text"` is ALSO given, the two
+  **compose**: the handover is the task-of-record and the inline string is appended as an
+  "Additional instruction for THIS launch" — neither is dropped, and a `<target>` still fuses.
+- **`--cli`** — `opencode` (default) · `claude` · `cursor` · `print` (briefing+task to stdout) ·
+  `clip` (to clipboard). `--clipboard`/`-c` forces the clipboard on any runtime.
+- **`--auto`/`-y` · `--bypass`/`--yolo` · `--manual`/`--safe`/`--confirm`** — the runtime's permission
+  posture (default `auto`).
+
+**Canonical shape:** `qa-lead moc-sensors "steer this run" --handover <ref> --cli cursor --profile standard`.
 
 ## B. `synapse` CLI (npm package)
 
@@ -65,10 +88,12 @@ synapse migrate [--status]
 synapse index
 synapse views
 synapse embeddings [--all]
+synapse embeddings-status [--json] [--refresh] [--fast]   # is the embeddings cache current?
 synapse augment agent-curator hub-finances --profile standard --task "…"
 synapse setup [--write]
 synapse install [--write]
 synapse journal "slug"
+synapse handover-task <ref> [--plain]        # print a note (a handover) as a task string
 synapse new <kind> <name> [--write]          # hub | agent | note | handover
 synapse mcp-config [--write]                 # MCP client config for this vault
 ```
@@ -144,4 +169,6 @@ Engine subcommands resolve via the `synapse` CLI (`bin/synapse.mjs` in this repo
 Full sink table and TUI notes: [[doc-runtime-wiring]].
 
 ## Related
+[[doc-agent-memory]] — the memory/live-context tools these commands expose.
+
 [[doc-runtime-wiring]] · [[doc-semantic-recall]] · [[doc-deployment-gate]] · [[doc-fork-and-extend]] · [[conventions]] · [[context-engine-guide]] · [[hub-synapse]]

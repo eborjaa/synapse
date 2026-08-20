@@ -4,9 +4,20 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
-## 0.16.2 — 2026-08-20
+## 0.17.0 — 2026-08-20
 
 ### Added
+- **`synapse man`** — a full, self-contained manual: the launcher grammar (target-vs-task rule, every
+  flag, examples), all `synapse` subcommands, booting from a handover, the memory/live-context MCP tools,
+  and vault resolution + env vars. Complements the quick `synapse help`. Regression-tested for coverage.
+- **CLI is now tested.** The sourced launcher (`agents.sh`) had ZERO tests — the reason three arg-parsing
+  bugs shipped (a bare task read as a note id, `--profile` leaking into the task, `--handover` dropped
+  behind a bare task). `lib/launcher.test.mjs` drives the real sourced launcher in bash against a temp
+  vault and pins the whole grammar; `lib/note-as-task.test.mjs`, `lib/vault-root.test.mjs`, and
+  `mcp/tools/agents.test.mjs` (the on-demand-fetch contract) close the other gaps. 180 tests total.
+- **Documentation.** New `docs/doc-agent-memory.md` (the freshness / episodic / on-demand / recall /
+  suite-routing / handover stack, wired into `hub-synapse`), and `docs/doc-cli-reference.md` gains the
+  full launcher grammar + the new subcommands (`embeddings-status`, `handover-task`, `man`).
 - **A handover can now carry additional inline comments.** `<agent> [moc/hub] "steer this launch"
   --handover <ref> --cli <cli> --profile <p>` composes them: the handover is the task-of-record (its
   successor protocol + body), and the inline string is appended under an "Additional instruction for THIS
