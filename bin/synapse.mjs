@@ -40,6 +40,7 @@ const CMDS = {
   init: "init.mjs",
   "spawn-emit": "spawn-emit.mjs", // doer side of durable-spawn (append a status line)
   "handover-task": "note-as-task.mjs", // resolve a note (a handover) into a task string
+  man: "man.mjs", // the full manual (launcher grammar + subcommands + memory tools)
 };
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -62,6 +63,7 @@ commands:
   setup [--write]        probe/provision the semantic runtime (Ollama + embedding model)
   install [--write]      wire the agents.sh CLI + editor dirs (dry-run without --write)
   journal "slug"         scaffold journal/<date>-<slug>.md for a work-session log
+  man                    the FULL manual — launcher grammar, subcommands, memory tools, env
   new <kind> <name>      scaffold a wired note: hub | agent | note | handover
                          (dry-run; --write to create — see: synapse new --help)
   init [dir] [--write]   scaffold a new vault from the notes this package ships

@@ -120,9 +120,13 @@ export function registerBriefTool(server) {
         "Build an agent briefing TEXT and return it — does NOT start a chat/session and does NOT "
         + "mutate the vault. Without task: deterministic render only. With task: render + semantic "
         + "augment. Pass exactly one hub (e.g. hub-finances) — do not stack hubs; use task/augment "
-        + "for cross-domain hints.",
+        + "for cross-domain hints. To FETCH A SINGLE NOTE by id (e.g. an on-demand note from a 'Fetch "
+        + "before you act' checklist), pass `note` instead of `agent` — it renders that note in full.",
       inputSchema: {
-        agent: z.string().describe("Agent id short or full (e.g. 'oracle' or 'agent-oracle')"),
+        agent: z.string().optional().describe("Agent id short or full (e.g. 'oracle' or 'agent-oracle')"),
+        note: z.string().optional()
+          .describe("Fetch a SINGLE note by id (e.g. 'doc-zephyr-content-templates') — the on-demand "
+            + "fetch path. Mutually exclusive with agent; renders just that note."),
         hub: z.string().optional().describe("Exactly one hub target, e.g. 'hub-career'"),
         profile: PROFILE.optional(),
         task: z.string().optional()
@@ -130,7 +134,17 @@ export function registerBriefTool(server) {
       },
       annotations: { readOnlyHint: true },
     },
-    async ({ agent, hub, profile, task }) => {
+    async ({ agent, note, hub, profile, task }) => {
+      // Fetch a single note by id — the "Fetch before you act" on-demand path. Asking for a note by
+      // id IS how you read it (an on-demand note renders its full body when named directly).
+      if (note && !agent) {
+        const args = ["render", note];
+        if (profile) args.push("--profile", profile);
+        return asToolResult(await runSynapse(args));
+      }
+      if (!agent) {
+        return { isError: true, content: [{ type: "text", text: "synapse_brief needs `agent` (to brief an agent) or `note` (to fetch one note by id)." }] };
+      }
       const id = normalizeAgentId(agent);
       const ids = hub ? [id, hub] : [id];
       if (task) {

@@ -4,6 +4,47 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.17.0 — 2026-08-20
+
+### Added
+- **`synapse man`** — a full, self-contained manual: the launcher grammar (target-vs-task rule, every
+  flag, examples), all `synapse` subcommands, booting from a handover, the memory/live-context MCP tools,
+  and vault resolution + env vars. Complements the quick `synapse help`. Regression-tested for coverage.
+- **CLI is now tested.** The sourced launcher (`agents.sh`) had ZERO tests — the reason three arg-parsing
+  bugs shipped (a bare task read as a note id, `--profile` leaking into the task, `--handover` dropped
+  behind a bare task). `lib/launcher.test.mjs` drives the real sourced launcher in bash against a temp
+  vault and pins the whole grammar; `lib/note-as-task.test.mjs`, `lib/vault-root.test.mjs`, and
+  `mcp/tools/agents.test.mjs` (the on-demand-fetch contract) close the other gaps. 180 tests total.
+- **Documentation.** New `docs/doc-agent-memory.md` (the freshness / episodic / on-demand / recall /
+  suite-routing / handover stack) and `docs/doc-mcp-tools.md` (every `synapse_*` MCP tool grouped by
+  surface: skeleton ⊂ standard ⊂ full ⊂ orchestrator), both wired into `hub-synapse`; and
+  `docs/doc-cli-reference.md` gains the full launcher grammar + the new subcommands (`embeddings-status`,
+  `handover-task`, `man`). The MCP doc is cross-checked against the smoke test's authoritative tool set.
+  New ADR `decision-0009-agent-memory-from-waku` records the DESIGN LINEAGE: the memory model came from
+  Waku's three-memory + retrieval-gate approach, adapted for a team-shared linted vault (deterministic
+  gate, propose-only) — including what was deliberately NOT adopted (auto-consolidation, a per-turn LLM
+  gate, the full eval loop) and why.
+- **A handover can now carry additional inline comments.** `<agent> [moc/hub] "steer this launch"
+  --handover <ref> --cli <cli> --profile <p>` composes them: the handover is the task-of-record (its
+  successor protocol + body), and the inline string is appended under an "Additional instruction for THIS
+  launch" header. Previously a bare task and `--handover` conflicted and the handover was silently
+  dropped; now neither input is lost, and a moc/hub target still fuses alongside.
+
+### Fixed
+- **A one-word task was misread as a note id by the launcher.** `qa-lead "hi" --cli opencode` failed with
+  `unknown artifact(s): hi` — the launcher grabbed the first lowercase word as a fusable TARGET (a note to
+  render) regardless of whether it resolved. Now the first positional is treated as a target only when it
+  is `hub-*`/`moc-*` (convention — a typo'd one still errors clearly) or actually resolves to a note file
+  in the vault; anything else, including a bare prose task, falls through to the task. So `qa-lead "hi"`,
+  `qa-lead moc-sensors "hi"`, and `qa-lead moc-sensors` all do the right thing.
+- **The on-demand "Fetch before you act" pointer recommended a call that did not exist.** The pointer
+  (and the doc-fetch line render since 0.13) told the agent to run `synapse_brief(note: "<id>")`, but
+  `synapse_brief` had no `note` param — the fetch failed with "needs agent, not note" and the agent fell
+  back to reading files by hand, so the whole on-demand fetch path was broken in practice. `synapse_brief`
+  now accepts `note` (mutually exclusive with `agent`) and renders that single note in full — asking for a
+  note by id IS how you read it. Caught in a live agent session (not by tests — every test passed because
+  none drove the call the pointer names); a new contract test now asserts the call an on-demand pointer
+  recommends is one the surface can actually service.
 ## 0.16.1 — 2026-08-20
 
 ### Fixed

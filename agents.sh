@@ -443,12 +443,29 @@ __mx_launch() {
 
   __mx_is_profile() { case "$1" in lean|standard|fat) return 0;; *) return 1;; esac; }
 
+  # Is $1 a fusable TARGET (a note to render alongside the agent) rather than the TASK?
+  #   - hub-*/moc-* → yes by convention (a typo'd one still errors clearly in render, which is helpful).
+  #   - contains whitespace → no, it's prose (the task).
+  #   - otherwise → only if it resolves to an actual note file in the vault.
+  # Without this, a one-word task ("hi") was grabbed as a note id and render failed "unknown artifact(s)".
+  __mx_looks_like_target() {
+    case "$1" in
+      hub-*|moc-*) return 0 ;;
+      *" "*)       return 1 ;;
+    esac
+    [ -n "${SYNAPSE_VAULT:-}" ] || return 1
+    [ -n "$(find "$SYNAPSE_VAULT" -maxdepth 6 -name "$1.md" -print -quit 2>/dev/null)" ]
+  }
+
   target=""
-  if [ -n "${1:-}" ] && ! __mx_is_profile "${1:-}" && [ "${1#--}" = "$1" ] && [ "${1#[a-z]}" != "$1" ]; then
-    target="$1"; shift
-    # Hub-tree path (`hub-career/hub-courses`) is a completion aid; the leaf is the real target.
-    case "$target" in */*) target="${target##*/}" ;; esac
-    case "$target" in hub-*) [ "$profile" = "lean" ] && profile="standard" ;; esac
+  if [ -n "${1:-}" ] && ! __mx_is_profile "${1:-}" && [ "${1#--}" = "$1" ]; then
+    # Hub-tree path (`hub-career/hub-courses`) is a completion aid; the leaf is the real id.
+    _mx_leaf="$1"; case "$_mx_leaf" in */*) _mx_leaf="${_mx_leaf##*/}" ;; esac
+    if __mx_looks_like_target "$_mx_leaf"; then
+      target="$_mx_leaf"; shift
+      case "$target" in hub-*) [ "$profile" = "lean" ] && profile="standard" ;; esac
+    fi
+    unset _mx_leaf
   fi
 
   if __mx_is_profile "${1:-}"; then
@@ -521,12 +538,24 @@ __mx_launch() {
   # --handover <ref> / --prompt-file <path>: the NOTE becomes the task (a handover boots the agent FROM
   # the note — read it, confirm locked decisions, resume). Resolved by the package so the CLI flag, this
   # launcher flag, and the MCP tool share one behavior. A bare task string still works and wins if both.
-  if [ -z "$task" ] && { [ -n "$handover_ref" ] || [ -n "$promptfile_ref" ]; }; then
+  if [ -n "$handover_ref" ] || [ -n "$promptfile_ref" ]; then
     if [ -n "$handover_ref" ]; then
-      task="$(__mx_run handover-task "$handover_ref")" || { echo "❌ [synapse] --handover: could not resolve '$handover_ref'" >&2; return 2; }
+      _mx_note_task="$(__mx_run handover-task "$handover_ref")" || { echo "❌ [synapse] --handover: could not resolve '$handover_ref'" >&2; return 2; }
     else
-      task="$(__mx_run handover-task "$promptfile_ref" --plain)" || { echo "❌ [synapse] --prompt-file: could not resolve '$promptfile_ref'" >&2; return 2; }
+      _mx_note_task="$(__mx_run handover-task "$promptfile_ref" --plain)" || { echo "❌ [synapse] --prompt-file: could not resolve '$promptfile_ref'" >&2; return 2; }
     fi
+    if [ -n "$task" ]; then
+      # A note AND an inline string: COMPOSE them (never drop either). The note is the task-of-record;
+      # the inline text is an extra instruction steering THIS launch, appended under a clear header.
+      task="$_mx_note_task
+
+---
+Additional instruction for THIS launch (on top of the handover above):
+$task"
+    else
+      task="$_mx_note_task"
+    fi
+    unset _mx_note_task
   fi
 
   case "$cli" in
@@ -818,7 +847,7 @@ _MX_AGENT_NAMES="${_MX_AGENT_NAMES# }"
 _MX_FLAGS="--cli --model --profile --auto --bypass --yolo --no-auto --safe --confirm --manual --no-semantic --clipboard --copy"
 _MX_PROFILES="lean standard fat"
 _MX_CLIS="opencode claude cursor clip print"
-_MX_SYNAPSE_SUBS="render augment lint index views migrate embeddings setup install journal agents hubs profiles models bedrock reload gate help"
+_MX_SYNAPSE_SUBS="render augment lint index views migrate embeddings embeddings-status handover-task setup install journal new agents hubs profiles models bedrock reload gate man help"
 
 __mx_list_agent_names() {
   _mx_v="$(__mx_vault 2>/dev/null || true)"
