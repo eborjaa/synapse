@@ -4,6 +4,25 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.17.1 — 2026-08-20
+
+### Fixed
+- **opencode launch: the task was read as a filename.** `qa-lead "hi" --cli opencode` failed with
+  `Error: File not found: hi` — opencode's `--file` is an ARRAY flag, so a task placed after
+  `--file <briefing>` was swallowed as a second filename. The message now comes first
+  (`opencode run "$task" … --file <briefing>`); the no-task branch is POSIX (no arrays) and drops the
+  dead `--dir` flag opencode's `run` never had. Verified live against opencode 1.18.19.
+
+### Added
+- **CLI runtime sinks are now tested for all three CLIs.** A `SYNAPSE_PRINT_LAUNCH=1` seam prints the
+  exact argv each `--cli` (opencode/claude/cursor) would exec, and `lib/launcher.test.mjs` asserts the
+  shape — task not swallowed, briefing attached, no flag leak — for each. These are the argv-shape bugs
+  the binaries can't reveal in CI.
+- **bash + zsh parity is asserted.** The launcher is a sourced interactive tool; the tests re-run every
+  invariant under each available shell and assert zsh builds byte-identical argv to bash. The header no
+  longer claims POSIX-sh support (a strict non-array shell cannot even parse the zsh completion block —
+  it was never a real target).
+
 ## 0.17.0 — 2026-08-20
 
 ### Added
