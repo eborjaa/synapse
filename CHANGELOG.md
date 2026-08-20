@@ -4,14 +4,33 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.17.2 — 2026-08-20
+
+### Fixed
+- **opencode's session no longer exits immediately (`--interactive` restored).** `opencode run` is
+  ONE-SHOT by default; `--interactive` is what keeps the session open. It was dropped while fixing the
+  argv order (on a wrong reading of the flag list), so the TUI silently stopped appearing — the run
+  still answered, which is why only a human noticed. `--dir <vault>` was dropped the same way and is
+  restored. Both are now asserted in `lib/launcher.test.mjs`.
+- **opencode was being handed a Claude Code flag.** `auto`/`bypass` passed
+  `--dangerously-skip-permissions`, which is not in opencode's flag set — a no-op, so both modes
+  silently behaved like `manual`. opencode's real flag is `--auto`. A test now guards each CLI against
+  receiving another CLI's flags.
+
+### Notes
+- Both regressions came from the same mistake: reading `opencode run --help` through a PARTIAL grep and
+  concluding two real flags did not exist. The complete flag list is the source of truth, and the new
+  per-CLI argv assertions now encode it so a wrong reading cannot silently ship again.
+
 ## 0.17.1 — 2026-08-20
 
 ### Fixed
 - **opencode launch: the task was read as a filename.** `qa-lead "hi" --cli opencode` failed with
   `Error: File not found: hi` — opencode's `--file` is an ARRAY flag, so a task placed after
   `--file <briefing>` was swallowed as a second filename. The message now comes first
-  (`opencode run "$task" … --file <briefing>`); the no-task branch is POSIX (no arrays) and drops the
-  dead `--dir` flag opencode's `run` never had. Verified live against opencode 1.18.19.
+  (`opencode run "$task" … --file <briefing>`); the no-task branch is POSIX (no arrays). Verified live
+  against opencode 1.18.19. (This entry originally claimed `--dir` was not an opencode flag — that was
+  wrong, from a partial reading of the help; see 0.17.2, which restores it.)
 
 ### Added
 - **CLI runtime sinks are now tested for all three CLIs.** A `SYNAPSE_PRINT_LAUNCH=1` seam prints the
