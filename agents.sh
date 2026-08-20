@@ -443,12 +443,29 @@ __mx_launch() {
 
   __mx_is_profile() { case "$1" in lean|standard|fat) return 0;; *) return 1;; esac; }
 
+  # Is $1 a fusable TARGET (a note to render alongside the agent) rather than the TASK?
+  #   - hub-*/moc-* → yes by convention (a typo'd one still errors clearly in render, which is helpful).
+  #   - contains whitespace → no, it's prose (the task).
+  #   - otherwise → only if it resolves to an actual note file in the vault.
+  # Without this, a one-word task ("hi") was grabbed as a note id and render failed "unknown artifact(s)".
+  __mx_looks_like_target() {
+    case "$1" in
+      hub-*|moc-*) return 0 ;;
+      *" "*)       return 1 ;;
+    esac
+    [ -n "${SYNAPSE_VAULT:-}" ] || return 1
+    [ -n "$(find "$SYNAPSE_VAULT" -maxdepth 6 -name "$1.md" -print -quit 2>/dev/null)" ]
+  }
+
   target=""
-  if [ -n "${1:-}" ] && ! __mx_is_profile "${1:-}" && [ "${1#--}" = "$1" ] && [ "${1#[a-z]}" != "$1" ]; then
-    target="$1"; shift
-    # Hub-tree path (`hub-career/hub-courses`) is a completion aid; the leaf is the real target.
-    case "$target" in */*) target="${target##*/}" ;; esac
-    case "$target" in hub-*) [ "$profile" = "lean" ] && profile="standard" ;; esac
+  if [ -n "${1:-}" ] && ! __mx_is_profile "${1:-}" && [ "${1#--}" = "$1" ]; then
+    # Hub-tree path (`hub-career/hub-courses`) is a completion aid; the leaf is the real id.
+    _mx_leaf="$1"; case "$_mx_leaf" in */*) _mx_leaf="${_mx_leaf##*/}" ;; esac
+    if __mx_looks_like_target "$_mx_leaf"; then
+      target="$_mx_leaf"; shift
+      case "$target" in hub-*) [ "$profile" = "lean" ] && profile="standard" ;; esac
+    fi
+    unset _mx_leaf
   fi
 
   if __mx_is_profile "${1:-}"; then

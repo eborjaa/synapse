@@ -7,6 +7,12 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## 0.16.2 — 2026-08-20
 
 ### Fixed
+- **A one-word task was misread as a note id by the launcher.** `qa-lead "hi" --cli opencode` failed with
+  `unknown artifact(s): hi` — the launcher grabbed the first lowercase word as a fusable TARGET (a note to
+  render) regardless of whether it resolved. Now the first positional is treated as a target only when it
+  is `hub-*`/`moc-*` (convention — a typo'd one still errors clearly) or actually resolves to a note file
+  in the vault; anything else, including a bare prose task, falls through to the task. So `qa-lead "hi"`,
+  `qa-lead moc-sensors "hi"`, and `qa-lead moc-sensors` all do the right thing.
 - **The on-demand "Fetch before you act" pointer recommended a call that did not exist.** The pointer
   (and the doc-fetch line render since 0.13) told the agent to run `synapse_brief(note: "<id>")`, but
   `synapse_brief` had no `note` param — the fetch failed with "needs agent, not note" and the agent fell
