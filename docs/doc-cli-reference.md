@@ -114,14 +114,19 @@ hardcodes another machine's layout. `--client claude|cursor|opencode` narrows th
 skeleton|standard|full|orchestrator` picks the tool set (use `standard` for read-only agents,
 `orchestrator` to add the dedup-safe delegation tools).
 
-**opencode gets two things Claude/Cursor don't.** opencode reads neither `.mcp.json` nor
-`.cursor/mcp.json`, so it needs its own `opencode.json` (key `mcp`, `command` as an ARRAY, env under
-`environment`). And on a **local-Ollama** vault, `mcp-config` seeds opencode's **native** Ollama provider
-(`ollama-ai-provider-v2`, the `/api` endpoint) — because Ollama's OpenAI-compatible `/v1` *streaming* path
-drops tool-call deltas, so MCP tools silently never fire there. The seed is only added when the vault has
-no provider of its own (a cloud/custom provider is preserved), and the whole file is **merged, never
-overwritten** — your `model`/`small_model` survive regeneration. Extra plugin env via repeatable
-`--env KEY=VAL` (carried over between clients so one plugin's requirement isn't dropped for another).
+**opencode needs its own file.** opencode reads neither `.mcp.json` nor `.cursor/mcp.json`, so it gets an
+`opencode.json` (key `mcp`, `command` as an ARRAY, env under `environment`). The file is **merged, never
+overwritten** — your `model`/`small_model`/`provider` survive regeneration. Extra plugin env via
+repeatable `--env KEY=VAL` (carried over between clients so one plugin's requirement isn't dropped).
+
+**Provider policy — synapse does NOT own your model runtime (agnostic).** The ollama provider (endpoint,
+models, tuning) is *your* config; `mcp-config`/`install` never clobber one you set (project or global
+`~/.config/opencode/opencode.json`). A provider is seeded in **one** case only — a *total vacuum* (no
+provider anywhere) — as a native `localhost`/`api` starter for the zero-config local user (`SYNAPSE_OLLAMA_URL`
+overrides the host). Otherwise synapse stays hands-off and, if the effective provider is on ollama's `/v1`
+path, prints an **advisory**: `/v1` *streaming* drops tool-call deltas (opencode #20995, ollama #5769) so
+MCP tools silently never fire — switch that provider to `npm: "ollama-ai-provider-v2"` + a `/api` baseURL.
+The fix belongs in your global opencode config so every vault benefits.
 
 **Vault plugins** need no config entry: any `_meta/mcp-plugins/*.mjs` exporting
 `register(server, ctx)` is auto-discovered and registered after the built-ins. Use it for tools

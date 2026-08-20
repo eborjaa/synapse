@@ -4,6 +4,21 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.18.1 — 2026-08-20
+
+### Fixed
+- **MCP config is now provider-AGNOSTIC — synapse no longer owns your model runtime.** 0.18.0 (and
+  0.17.2) always injected a native `localhost` ollama provider into the generated `opencode.json`. On any
+  non-local setup that was wrong: a laptop reaching its models over Tailscale got a hardcoded `localhost`
+  and every model 404'd (`model 'qwen3.6-256k' not found`), even though the MCP tools connected fine.
+  `mcp-config` / `install` now write only the `synapse` MCP entry and **never clobber a provider you
+  configured** (project OR global `~/.config/opencode/opencode.json`). A provider is seeded in exactly one
+  case — a *total vacuum* (no provider anywhere), where a native `localhost`/`api` provider is the correct
+  zero-config local default and there is nothing to overwrite (`SYNAPSE_OLLAMA_URL` overrides the host).
+  Otherwise synapse stays hands-off and, if the effective provider is on ollama's `/v1` path, prints an
+  **advisory** (never a mutation) pointing to the native `/api` switch. New helpers `nativeOllamaProvider`
+  / `providerUsesV1` are unit-tested; the fix belongs in your global opencode config so every vault benefits.
+
 ## 0.18.0 — 2026-08-20
 
 ### Added
