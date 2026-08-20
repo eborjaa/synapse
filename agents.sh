@@ -697,12 +697,11 @@ $task"
       esac
       ;;
     opencode)
+      # opencode's own auto-approve flag is `--auto` (verified in `opencode run --help`).
+      # `--dangerously-skip-permissions` is a CLAUDE CODE flag and is not in opencode's flag set —
+      # passing it was a no-op at best, so auto/bypass silently behaved like manual.
       case "$perm_mode" in
-        auto)
-          set -- --dangerously-skip-permissions
-          echo "ℹ️  [synapse] opencode has no separate 'auto' mode; using its bypass flag." >&2
-          ;;
-        bypass) set -- --dangerously-skip-permissions ;;
+        auto|bypass) set -- --auto ;;
         manual) ;;
       esac
       ;;
@@ -779,18 +778,19 @@ $task"
         __mx_exec opencode "$SYNAPSE_VAULT" -m "$_mx_model" --prompt "$(cat "$tmp")"
         rc=$?
       elif [ -n "$task" ]; then
-        # Briefing as an attached context file; task as the user MESSAGE. The message MUST come first:
-        # opencode's `--file` is an ARRAY flag, so a task placed AFTER `--file <tmp>` is swallowed as a
-        # second filename ("File not found: hi"). Message-first keeps `--file` capturing only <tmp>.
-        __mx_exec opencode run "$task" "$@" -m "$_mx_model" --file "$tmp"
+        # Briefing as an attached context file; task as the user MESSAGE, and --interactive so the
+        # session STAYS OPEN (opencode `run` is one-shot by default and exits after answering).
+        # ORDER MATTERS: the message must come FIRST, because `--file` is an ARRAY flag — a task placed
+        # after `--file <tmp>` is swallowed as a second filename ("File not found: hi"). Keeping <tmp>
+        # as the last token after --file means it captures only the briefing.
+        __mx_exec opencode run "$task" --interactive "$@" -m "$_mx_model" --dir "$SYNAPSE_VAULT" --file "$tmp"
         rc=$?
       else
-        # No task: seed the briefing ITSELF as the message (unchanged behavior). POSIX — no arrays
-        # (which break under a non-array shell) and no dead `--dir` (opencode's `run` has no such flag;
-        # it was silently ignored). The briefing text is the trailing positional message.
+        # No task: seed the briefing ITSELF as the message, interactive so the session stays open.
+        # POSIX — no arrays (which break under a non-array shell).
         case "${SYNAPSE_THINKING:-1}" in
-          0|off|false|no) __mx_exec opencode run "$@" -m "$_mx_model" "$(cat "$tmp")" ;;
-          *)              __mx_exec opencode run --thinking "$@" -m "$_mx_model" "$(cat "$tmp")" ;;
+          0|off|false|no) __mx_exec opencode run --interactive "$@" -m "$_mx_model" --dir "$SYNAPSE_VAULT" "$(cat "$tmp")" ;;
+          *)              __mx_exec opencode run --interactive --thinking "$@" -m "$_mx_model" --dir "$SYNAPSE_VAULT" "$(cat "$tmp")" ;;
         esac
         rc=$?
       fi
