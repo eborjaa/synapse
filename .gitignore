@@ -32,3 +32,8 @@ _meta/logs/
 
 # Editor workspace files (per-machine)
 *.code-workspace
+
+# Generated MCP client configs (per-machine — absolute paths; produced by `synapse mcp-config`)
+.mcp.json
+.cursor/mcp.json
+opencode.json

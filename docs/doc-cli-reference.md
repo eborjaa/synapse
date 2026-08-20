@@ -102,13 +102,26 @@ synapse mcp-config [--write]                 # MCP client config for this vault
 
 ```bash
 npm install                    # installs the synapse-mcp bin into this vault
-synapse mcp-config --write     # writes .mcp.json + .cursor/mcp.json
+synapse mcp-config --write     # writes .mcp.json + .cursor/mcp.json + opencode.json
 ```
 
+> **`synapse install --write` already does this** (as its 4th step) — run `mcp-config` on its own only to
+> regenerate with a different `--surface`/`--client`, or after moving the vault.
+
 Generates config pointing at **this vault's own** `node_modules/.bin/synapse-mcp`, so the identical
-two commands wire any vault or sub-vault on the machine — nothing is hand-edited and nothing
-hardcodes another machine's layout. `--client claude|cursor` narrows the target; `--surface
-skeleton|standard|full` picks the tool set (use `standard` for read-only agents).
+commands wire any vault or sub-vault on the machine — nothing is hand-edited and nothing
+hardcodes another machine's layout. `--client claude|cursor|opencode` narrows the target; `--surface
+skeleton|standard|full|orchestrator` picks the tool set (use `standard` for read-only agents,
+`orchestrator` to add the dedup-safe delegation tools).
+
+**opencode gets two things Claude/Cursor don't.** opencode reads neither `.mcp.json` nor
+`.cursor/mcp.json`, so it needs its own `opencode.json` (key `mcp`, `command` as an ARRAY, env under
+`environment`). And on a **local-Ollama** vault, `mcp-config` seeds opencode's **native** Ollama provider
+(`ollama-ai-provider-v2`, the `/api` endpoint) — because Ollama's OpenAI-compatible `/v1` *streaming* path
+drops tool-call deltas, so MCP tools silently never fire there. The seed is only added when the vault has
+no provider of its own (a cloud/custom provider is preserved), and the whole file is **merged, never
+overwritten** — your `model`/`small_model` survive regeneration. Extra plugin env via repeatable
+`--env KEY=VAL` (carried over between clients so one plugin's requirement isn't dropped for another).
 
 **Vault plugins** need no config entry: any `_meta/mcp-plugins/*.mjs` exporting
 `register(server, ctx)` is auto-discovered and registered after the built-ins. Use it for tools

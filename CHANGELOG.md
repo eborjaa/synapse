@@ -4,9 +4,53 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.18.0 — 2026-08-20
+
+### Added
+- **`synapse install --write` now wires the MCP clients too — the fix is ready-to-go out of the box.**
+  Install was three steps (shell rc, Claude `settings.json` reach, `CLAUDE.md` pointer); it now does a
+  fourth: generate `.mcp.json` / `.cursor/mcp.json` / `opencode.json` for the current vault — identical
+  output to `synapse mcp-config --write`. So a single `synapse install --write` makes the synapse MCP
+  tools (and, on a local-Ollama vault, opencode's native-provider fix from 0.17.2) work in Claude Code,
+  Cursor, and opencode without a separate command. The dry-run (`synapse install`) previews the files.
+  `synapse mcp-config` stays as the standalone for regenerating with a different `--surface` / `--client`.
+
+### Changed
+- **`lib/mcp-config.mjs` refactored into importable functions** (`buildMcpTargets`, `applyMcpTargets`)
+  behind an `isMain` guard — `synapse install` calls them in-process, so the generation logic lives in
+  one place, is unit-tested (`lib/mcp-config.test.mjs`), and is not shelled out to a subprocess.
+- **Generated MCP client configs are git-ignored.** `.mcp.json`, `.cursor/mcp.json`, and `opencode.json`
+  carry absolute, machine-specific paths and are produced by `mcp-config`/`install` per-machine — they no
+  longer belong in the repo. (A stray committed `opencode.json` was untracked.)
+
 ## 0.17.2 — 2026-08-20
 
 ### Fixed
+- **opencode MCP tools now actually execute (native Ollama provider).** `synapse mcp-config --client
+  opencode` seeds the NATIVE ai-sdk Ollama provider (`ollama-ai-provider-v2`, the `/api` endpoint) when
+  the vault has no provider of its own. Ollama's OpenAI-compatible `/v1` STREAMING path silently drops
+  tool-call delta chunks (opencode #20995, ollama #5769), so MCP tools never fired — the model answered
+  in prose and the `tools/call` never reached the server (confirmed by proxy capture: `/v1` stream
+  returned the tool_call but opencode did not dispatch it). On `/api` the round-trip works: verified live
+  — a local qwen model calls `synapse_list_agents` in the opencode TUI and returns the real 14 agents.
+  The config is MERGED, never overwritten, so an existing model/provider is preserved.
+- **opencode now launches the TUI, and the briefing is the agent's IDENTITY (not a file it reads).**
+  Two bugs with one symptom. `opencode run` is one-shot, so the session answered and exited — the root
+  command is the TUI. And the briefing was passed with `--file`, which makes it an ATTACHMENT to the
+  user message: the model read it as a document rather than becoming that agent, and said so —
+  *"looks like the file that was read is a briefing for a QA Lead… are you setting me up against the
+  role I'm playing?"*. The briefing is now written as an opencode **agent definition**
+  (`<vault>/.opencode/agents/synapse-<agent>.md`, whose body IS the system prompt) and selected with
+  `--agent`, mirroring the cursor branch's `.mdc` rules file. Temp file, trap-cleaned on exit.
+- **`synapse mcp-config` now supports opencode.** opencode reads neither `.mcp.json` nor
+  `.cursor/mcp.json` — it needs its own `opencode.json` with an `mcp` key, `command` as an ARRAY and
+  `environment` (not `env`). Without it the synapse tools simply were not available in opencode.
+- **`mcp-config --surface orchestrator` was rejected.** The validator still listed only
+  skeleton|standard|full; `orchestrator` has existed since 0.10.
+- **Extra plugin env is no longer dropped between clients.** A vault MCP plugin can require its own env
+  (eb's zephyr plugin needs `ZEPHYR_MCP_DISABLE=1`), and a missing one makes the plugin throw and takes
+  the WHOLE server down. `mcp-config` now accepts repeatable `--env KEY=VAL` and carries over env
+  already present in any sibling client config.
 - **opencode's session no longer exits immediately (`--interactive` restored).** `opencode run` is
   ONE-SHOT by default; `--interactive` is what keeps the session open. It was dropped while fixing the
   argv order (on a wrong reading of the flag list), so the TUI silently stopped appearing — the run

@@ -768,32 +768,36 @@ $task"
       ;;
     opencode)
       _mx_model="$(__mx_resolve_model opencode "$model")"
-      _mx_tui="${SYNAPSE_TUI:-auto}"
-      case "$_mx_tui" in
-        auto) { [ -t 0 ] && [ -t 1 ]; } && _mx_tui=1 || _mx_tui=0 ;;
-        1|on|true|yes) _mx_tui=1 ;;
-        *) _mx_tui=0 ;;
-      esac
-      if [ "$_mx_tui" = "1" ] && [ -z "$task" ]; then
-        __mx_exec opencode "$SYNAPSE_VAULT" -m "$_mx_model" --prompt "$(cat "$tmp")"
-        rc=$?
-      elif [ -n "$task" ]; then
-        # Briefing as an attached context file; task as the user MESSAGE, and --interactive so the
-        # session STAYS OPEN (opencode `run` is one-shot by default and exits after answering).
-        # ORDER MATTERS: the message must come FIRST, because `--file` is an ARRAY flag — a task placed
-        # after `--file <tmp>` is swallowed as a second filename ("File not found: hi"). Keeping <tmp>
-        # as the last token after --file means it captures only the briefing.
-        __mx_exec opencode run "$task" --interactive "$@" -m "$_mx_model" --dir "$SYNAPSE_VAULT" --file "$tmp"
-        rc=$?
+
+      # The briefing becomes the agent's SYSTEM PROMPT via an opencode AGENT DEFINITION — the body of
+      # an agent file IS its system prompt. This mirrors the cursor branch's .mdc rules file, and it is
+      # the fix for a real behavioural bug: attaching the briefing with `--file` made the model treat it
+      # as "a document someone handed me" ("looks like the file that was read is a briefing for a QA
+      # Lead… are you setting me up against the role I'm playing?") instead of BECOMING that agent.
+      # Discovered dir (verified): <project>/.opencode/agents/<name>.md.
+      _oc_name="synapse-${agent#agent-}"
+      _oc_dir="$SYNAPSE_VAULT/.opencode/agents"
+      _oc_file="$_oc_dir/$_oc_name.md"
+      mkdir -p "$_oc_dir"
+      {
+        printf '%s\n' '---'
+        printf 'description: Synapse briefing for %s (temporary — auto-deleted on exit)\n' "$agent"
+        printf '%s\n' 'mode: primary'
+        printf '%s\n' '---'
+        printf '\n'
+        cat "$tmp"
+      } > "$_oc_file"
+      trap "rm -f '$_oc_file' '$tmp'; trap - EXIT INT TERM" EXIT INT TERM
+
+      # The ROOT command is the TUI (persistent session). `opencode run` is one-shot and exits after
+      # answering — which is why the session kept closing. --prompt seeds the first message.
+      if [ -n "$task" ]; then
+        __mx_exec opencode "$SYNAPSE_VAULT" --agent "$_oc_name" -m "$_mx_model" "$@" --prompt "$task"
       else
-        # No task: seed the briefing ITSELF as the message, interactive so the session stays open.
-        # POSIX — no arrays (which break under a non-array shell).
-        case "${SYNAPSE_THINKING:-1}" in
-          0|off|false|no) __mx_exec opencode run --interactive "$@" -m "$_mx_model" --dir "$SYNAPSE_VAULT" "$(cat "$tmp")" ;;
-          *)              __mx_exec opencode run --interactive --thinking "$@" -m "$_mx_model" --dir "$SYNAPSE_VAULT" "$(cat "$tmp")" ;;
-        esac
-        rc=$?
+        __mx_exec opencode "$SYNAPSE_VAULT" --agent "$_oc_name" -m "$_mx_model" "$@"
       fi
+      rc=$?
+      return $rc
       ;;
   esac
   rm -f "$tmp"
