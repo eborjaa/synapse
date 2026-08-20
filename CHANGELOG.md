@@ -4,6 +4,26 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.16.1 — 2026-08-20
+
+### Fixed
+- **`cwd` now wins over an exported `$SYNAPSE_VAULT` for every interactive tool.** `resolveVault` defaulted
+  to env-first, so a `$SYNAPSE_VAULT` exported in a shell rc silently overrode the vault you had `cd`'d
+  into — a render/augment/recall could brief from the WRONG vault with no warning (observed live: an
+  exported override pinned to vault A while working in vault B). The default is now `preferCwd: true`,
+  matching the launcher (`agents.sh` was already cwd-first) — so the two resolvers finally agree, and the
+  env var is a FALLBACK (used only when cwd is not inside a vault) rather than an unconditional override.
+
+  The **MCP server stays env-pinned** (`mcp/vault.mjs` passes `preferCwd: false`): it is launched by the
+  harness with `$SYNAPSE_VAULT` set in `.mcp.json` and cannot `cd`, so its config env is authoritative.
+  In-process libs the server calls (recall) now resolve through the server's pinned context rather than
+  re-resolving cwd-first, so a single env-pinned server can never split-brain across two vaults.
+
+### Notes
+- To pin a vault deliberately, still `export SYNAPSE_VAULT=…` (or prefix one command) — it just no longer
+  overrides a vault you are standing in. A consumer that hard-exported it in a shell rc can drop that
+  line: `cd` into the vault and tools resolve it. `agents.sh` still sources fine outside any vault (it
+  prints an info line and resolves per-call).
 ## 0.16.0 — 2026-08-19
 
 ### Added
