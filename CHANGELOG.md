@@ -4,6 +4,25 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.18.0 — 2026-08-20
+
+### Added
+- **`synapse install --write` now wires the MCP clients too — the fix is ready-to-go out of the box.**
+  Install was three steps (shell rc, Claude `settings.json` reach, `CLAUDE.md` pointer); it now does a
+  fourth: generate `.mcp.json` / `.cursor/mcp.json` / `opencode.json` for the current vault — identical
+  output to `synapse mcp-config --write`. So a single `synapse install --write` makes the synapse MCP
+  tools (and, on a local-Ollama vault, opencode's native-provider fix from 0.17.2) work in Claude Code,
+  Cursor, and opencode without a separate command. The dry-run (`synapse install`) previews the files.
+  `synapse mcp-config` stays as the standalone for regenerating with a different `--surface` / `--client`.
+
+### Changed
+- **`lib/mcp-config.mjs` refactored into importable functions** (`buildMcpTargets`, `applyMcpTargets`)
+  behind an `isMain` guard — `synapse install` calls them in-process, so the generation logic lives in
+  one place, is unit-tested (`lib/mcp-config.test.mjs`), and is not shelled out to a subprocess.
+- **Generated MCP client configs are git-ignored.** `.mcp.json`, `.cursor/mcp.json`, and `opencode.json`
+  carry absolute, machine-specific paths and are produced by `mcp-config`/`install` per-machine — they no
+  longer belong in the repo. (A stray committed `opencode.json` was untracked.)
+
 ## 0.17.2 — 2026-08-20
 
 ### Fixed

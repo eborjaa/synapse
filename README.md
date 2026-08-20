@@ -42,13 +42,17 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ```bash
 cd /path/to/your-vault
-npm install @eborja/synapse@^0.10.0   # or: npm install ../path/to/synapse-framework
+npm install @eborja/synapse@^0.18.0   # or: npm install ../path/to/synapse-framework
 npx synapse install                        # dry-run
-npx synapse install --write                # wire agents.sh + editor dirs
+npx synapse install --write                # wire agents.sh + editor dirs + MCP client configs
 exec $SHELL
 synapse agents                             # ← list agents (or: vault-agents)
 synapse hubs                               # ← list hub targets (or: vault-hubs)
 ```
+
+> `install --write` also generates the MCP client configs (`.mcp.json` / `.cursor/mcp.json` /
+> `opencode.json`) so the synapse **MCP tools work in Claude Code, Cursor, and opencode** out of the box —
+> no separate step. (Regenerate with a different surface/client anytime via `synapse mcp-config`.)
 
 > The engine is the **`@eborja/synapse` npm package** (`bin/synapse`, `lib/*`, `agents.sh`). Your vault
 > keeps only content + `_meta/tools/context.manifest.json`. After install, `synapse <sub>` is the unified
@@ -266,7 +270,7 @@ Synapse ships **two layers**:
 ```bash
 mkdir my-vault && cd my-vault
 npm init -y
-npm install @eborja/synapse@^0.10.0
+npm install @eborja/synapse@^0.18.0
 # copy schema example → your ontology dial
 mkdir -p _meta/tools
 cp node_modules/@eborja/synapse/schema/context.manifest.example.json \
@@ -300,7 +304,7 @@ Distribute and update the **engine** without forking vault content:
 ```jsonc
 {
   "dependencies": {
-    "@eborja/synapse": "^0.10.0"
+    "@eborja/synapse": "^0.18.0"
   },
   "scripts": {
     "vault:render": "synapse render",
@@ -317,7 +321,7 @@ npx synapse setup --write     # Ollama + embed model (optional; deterministic to
 npx synapse install --write   # shell + editor wiring
 ```
 
-Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.12.0` or
+Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.18.0` or
 `file:../synapse-framework`.
 
 The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`
@@ -334,7 +338,9 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 | `synapse embeddings` | Rebuild `note_vectors` |
 | `synapse embeddings-status` | Is that index current? (`--json` / `--refresh`) |
 | `synapse index` / `views` / `migrate` | SQL projections + migrations |
-| `synapse setup` / `install` | Runtime + shell wiring |
+| `synapse setup` | Semantic runtime (Ollama + embed model + build the index) |
+| `synapse install` | Shell + editor wiring **and** the MCP client configs (all three CLIs) |
+| `synapse mcp-config [--client] [--surface]` | (Re)generate `.mcp.json` / `.cursor/mcp.json` / `opencode.json` alone |
 | `synapse agents` / `hubs` / `help` | Shell discovery (after `install --write`; `vault-*` equals) |
 
 ---

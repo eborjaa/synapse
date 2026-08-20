@@ -45,12 +45,19 @@ privacy gate still applies to whichever CLI you launch ([[doc-deployment-gate]])
 ## OpenCode ↔ Ollama (over Tailscale)
 
 The model and endpoint are **not** committed here — they live in the user's own
-`~/.config/opencode/opencode.json`, which declares an OpenAI-compatible `ollama` provider whose
-`baseURL` points at the local server's Tailscale hostname on the Ollama port, plus the model ids and
-their context limits. The default model is `ollama/qwen3.6-256k` (a large-context local model); a larger
-model is the heavy-reasoning fallback. The server box must be awake for any agent to run. There is **no
+`~/.config/opencode/opencode.json`, which declares the `ollama` provider whose `baseURL` points at the
+local server's Tailscale hostname on the Ollama port, plus the model ids and their context limits. The
+default model is `ollama/qwen3.6-256k` (a large-context local model); a larger model is the
+heavy-reasoning fallback. The server box must be awake for any agent to run. There is **no
 ANTHROPIC_API_KEY, no cloud endpoint, and no subscription** in the core loop — inference is fully local.
 Do not hardcode the Tailnet hostname or any secret into committed files; reference the user's config.
+
+> **Use the NATIVE Ollama provider (`ollama-ai-provider-v2`, the `/api` endpoint), NOT the
+> OpenAI-compatible `/v1` one — if you use MCP tools.** Ollama's `/v1` *streaming* path drops tool-call
+> delta chunks (opencode #20995, ollama #5769), so the model answers in prose and MCP `tools/call` never
+> fires. The per-**vault** `opencode.json` that `synapse mcp-config` / `synapse install --write` generate
+> seeds the native provider automatically (only when the vault has none). See
+> [[doc-cli-reference]] → *"wiring a vault for MCP"*.
 
 ## Vault: render briefings + RAG over Markdown
 
