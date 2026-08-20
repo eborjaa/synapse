@@ -4,6 +4,17 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.16.2 — 2026-08-20
+
+### Fixed
+- **The on-demand "Fetch before you act" pointer recommended a call that did not exist.** The pointer
+  (and the doc-fetch line render since 0.13) told the agent to run `synapse_brief(note: "<id>")`, but
+  `synapse_brief` had no `note` param — the fetch failed with "needs agent, not note" and the agent fell
+  back to reading files by hand, so the whole on-demand fetch path was broken in practice. `synapse_brief`
+  now accepts `note` (mutually exclusive with `agent`) and renders that single note in full — asking for a
+  note by id IS how you read it. Caught in a live agent session (not by tests — every test passed because
+  none drove the call the pointer names); a new contract test now asserts the call an on-demand pointer
+  recommends is one the surface can actually service.
 ## 0.16.1 — 2026-08-20
 
 ### Fixed
