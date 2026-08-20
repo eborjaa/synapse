@@ -13,7 +13,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { VAULT } from "../vault.mjs";
+import { VAULT, vaultContext } from "../vault.mjs";
 import * as lease from "../../lib/durable-spawn/lease.mjs";
 import * as episodes from "../../lib/durable-spawn/episodes.mjs";
 import { recall as recallDelta } from "../../lib/recall.mjs";
@@ -140,7 +140,7 @@ function registerRecallTool(server) {
         ? null
         : (t) => episodes.searchEpisodes(db(), { query: t, limit: 3 })
             .map((e) => ({ when: new Date(e.startedAt).toISOString(), outcome: e.outcome, summary: e.summary, job: e.job }));
-      const r = await recallDelta({ task, k: k || 6, episodesFn });
+      const r = await recallDelta({ vault: vaultContext(), task, k: k || 6, episodesFn });
       return text(r);
     },
   );

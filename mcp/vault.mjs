@@ -18,7 +18,11 @@ export const SYNAPSE_BIN = fileURLToPath(new URL("../bin/synapse.mjs", import.me
 let _resolved = null;
 function resolved() {
   if (_resolved === null) {
-    try { _resolved = resolveVault({ readManifest: true }); } catch { _resolved = false; }
+    // preferCwd:false — the MCP server is config-pinned: the harness launches it with $SYNAPSE_VAULT
+    // set in .mcp.json, and a long-lived server cannot `cd`, so the env is the authoritative vault and
+    // must win over whatever cwd the harness happened to start in. (Interactive tools use the cwd-first
+    // default; see lib/vault-root.mjs.)
+    try { _resolved = resolveVault({ readManifest: true, preferCwd: false }); } catch { _resolved = false; }
   }
   return _resolved || null;
 }
@@ -28,6 +32,24 @@ export const VAULT = resolved()?.vaultDir || process.env.SYNAPSE_VAULT || proces
 /** The consumer's context.manifest.json, or {} when the vault could not be resolved. */
 export function manifest() {
   return resolved()?.manifest || {};
+}
+
+/**
+ * The server's PINNED vault context ({root, vaultDir, manifest}) — for in-process libs (recall) that
+ * would otherwise re-resolve with the cwd-first default and could pick a different vault than the rest
+ * of this env-pinned server. Resolved FRESH each call (preferCwd:false, so env wins) rather than from
+ * the module-load memo: resolution is cheap, a fresh read honors the current pin, and it keeps a
+ * single test process that drives many vaults correct (the memo would pin the first one). Falls back
+ * to a best-effort shape when no vault resolves.
+ */
+export function vaultContext() {
+  try {
+    const r = resolveVault({ readManifest: true, preferCwd: false });
+    return { root: r.root, vaultDir: r.vaultDir, manifest: r.manifest || {} };
+  } catch {
+    const fallback = process.env.SYNAPSE_VAULT || process.cwd();
+    return { root: fallback, vaultDir: fallback, manifest: {} };
+  }
 }
 
 export const AGENTS_DIR = join(VAULT, "agents");
