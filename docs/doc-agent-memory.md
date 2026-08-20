@@ -6,7 +6,7 @@ tags:
   - type/doc
   - area/runtime
   - status/active
-references_docs: ["[[conventions]]", "[[doc-semantic-recall]]", "[[doc-cli-reference]]"]
+references_docs: ["[[conventions]]", "[[doc-semantic-recall]]", "[[doc-cli-reference]]", "[[decision-0009-agent-memory-from-waku]]"]
 related: ["[[hub-synapse]]"]
 ---
 
@@ -16,6 +16,10 @@ A briefing is rendered **once**, at dispatch, from `(agent, target, task)`. Ten 
 moved to a new subtask with its context frozen at turn 1 — the root cause of drift. This layer keeps an
 agent's context **live** and gives it the three kinds of memory an agent stack needs. Design axis
 throughout: **prefer the tool over the prompt** — a briefing *advises*, a mechanism *guarantees*.
+
+> **Design lineage & rationale:** [[decision-0009-agent-memory-from-waku]] records where this model came
+> from (Waku's three-memory + gate), what was adapted for a team-shared linted vault, and what was
+> deliberately NOT adopted (auto-consolidation, a per-turn LLM gate, the full eval loop).
 
 ## The three memories
 

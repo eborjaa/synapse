@@ -20,6 +20,10 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   surface: skeleton ⊂ standard ⊂ full ⊂ orchestrator), both wired into `hub-synapse`; and
   `docs/doc-cli-reference.md` gains the full launcher grammar + the new subcommands (`embeddings-status`,
   `handover-task`, `man`). The MCP doc is cross-checked against the smoke test's authoritative tool set.
+  New ADR `decision-0009-agent-memory-from-waku` records the DESIGN LINEAGE: the memory model came from
+  Waku's three-memory + retrieval-gate approach, adapted for a team-shared linted vault (deterministic
+  gate, propose-only) — including what was deliberately NOT adopted (auto-consolidation, a per-turn LLM
+  gate, the full eval loop) and why.
 - **A handover can now carry additional inline comments.** `<agent> [moc/hub] "steer this launch"
   --handover <ref> --cli <cli> --profile <p>` composes them: the handover is the task-of-record (its
   successor protocol + body), and the inline string is appended under an "Additional instruction for THIS
