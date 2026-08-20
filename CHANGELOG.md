@@ -7,6 +7,23 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## 0.17.2 — 2026-08-20
 
 ### Fixed
+- **opencode now launches the TUI, and the briefing is the agent's IDENTITY (not a file it reads).**
+  Two bugs with one symptom. `opencode run` is one-shot, so the session answered and exited — the root
+  command is the TUI. And the briefing was passed with `--file`, which makes it an ATTACHMENT to the
+  user message: the model read it as a document rather than becoming that agent, and said so —
+  *"looks like the file that was read is a briefing for a QA Lead… are you setting me up against the
+  role I'm playing?"*. The briefing is now written as an opencode **agent definition**
+  (`<vault>/.opencode/agents/synapse-<agent>.md`, whose body IS the system prompt) and selected with
+  `--agent`, mirroring the cursor branch's `.mdc` rules file. Temp file, trap-cleaned on exit.
+- **`synapse mcp-config` now supports opencode.** opencode reads neither `.mcp.json` nor
+  `.cursor/mcp.json` — it needs its own `opencode.json` with an `mcp` key, `command` as an ARRAY and
+  `environment` (not `env`). Without it the synapse tools simply were not available in opencode.
+- **`mcp-config --surface orchestrator` was rejected.** The validator still listed only
+  skeleton|standard|full; `orchestrator` has existed since 0.10.
+- **Extra plugin env is no longer dropped between clients.** A vault MCP plugin can require its own env
+  (eb's zephyr plugin needs `ZEPHYR_MCP_DISABLE=1`), and a missing one makes the plugin throw and takes
+  the WHOLE server down. `mcp-config` now accepts repeatable `--env KEY=VAL` and carries over env
+  already present in any sibling client config.
 - **opencode's session no longer exits immediately (`--interactive` restored).** `opencode run` is
   ONE-SHOT by default; `--interactive` is what keeps the session open. It was dropped while fixing the
   argv order (on a wrong reading of the flag list), so the TUI silently stopped appearing — the run

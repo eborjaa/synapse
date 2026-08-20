@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "synapse": {
+      "type": "local",
+      "command": [
+        "/Users/eborja/C3/relTree/synapse-rel/bin/synapse-mcp.mjs"
+      ],
+      "enabled": true,
+      "environment": {
+        "SYNAPSE_VAULT": "/Users/eborja/C3/relTree/synapse-rel",
+        "SYNAPSE_MCP_SURFACE": "orchestrator",
+        "NODE_OPTIONS": "--experimental-sqlite"
+      }
+    }
+  }
+}
