@@ -136,28 +136,25 @@ export function registerHandoverTools(server) {
       annotations: { readOnlyHint: true },
     },
     async ({ ref, agent, profile }) => {
-      const r = resolveRef(ref);
-      if (r.status !== "unique") {
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Cannot resume: ${r.status}` }],
-        };
-      }
-      const path = join(HANDOVER_DIR, r.file);
-      const note = readFileSync(path, "utf8");
-      const proto =
-        `## Successor protocol\n`
-        + `Resume from handover \`${r.file}\`. Prefer vault truth over this note if they disagree.\n`
-        + `Confirm locked decisions, then continue from Next actions.\n\n---\n\n`;
+      // Resolve via the shared lib: a path anywhere (incl. a skipDir like journal/) OR a fuzzy slug in
+      // inbox/handovers/ — matching the CLI (`synapse handover-task`) and launcher (`--handover`) exactly.
+      const { resolveVault } = await import("../../lib/vault-root.mjs");
+      const { noteAsTask } = await import("../../lib/note-as-task.mjs");
+      const { vaultDir } = resolveVault();
+      const nt = noteAsTask(ref, { vaultDir, handover: true });
+      if (!nt.ok) return { isError: true, content: [{ type: "text", text: `Cannot resume: ${nt.reason}` }] };
+
+      // The note IS the task: augment briefs the agent AND uses the note text as the recall query, so
+      // the briefing surfaces notes relevant to the handover — render alone would miss that.
       const id = normalizeAgentId(agent || "oracle");
-      const args = ["render", id];
+      const args = ["augment", id, "--task", nt.task];
       if (profile) args.push("--profile", profile);
       const brief = asToolResult(await runSynapse(args));
       const briefText = brief.content?.[0]?.text || "";
       return {
         content: [{
           type: "text",
-          text: `${proto}# Handover: ${r.file}\n\n${note}\n\n---\n\n# Agent briefing (${id})\n\n${briefText}`,
+          text: `${briefText}\n\n---\n\n# Your task (from ${basename(nt.path)})\n\n${nt.task}`,
         }],
       };
     },

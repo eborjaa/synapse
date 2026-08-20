@@ -39,6 +39,7 @@ const CMDS = {
   "mcp-config": "mcp-config.mjs",
   init: "init.mjs",
   "spawn-emit": "spawn-emit.mjs", // doer side of durable-spawn (append a status line)
+  "handover-task": "note-as-task.mjs", // resolve a note (a handover) into a task string
 };
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -54,6 +55,7 @@ commands:
   lint [--strict]        mechanical vault health-check
   embeddings [--all]     (re)build the local embeddings cache
   embeddings-status      is that cache current? [--json] [--refresh] [--force] [--fast]
+  handover-task <ref>    print a note (a handover) as a task string [--plain]
   index                  rebuild Markdown → SQL projections (notes / note_links / plans)
   views                  regenerate SQL → Markdown derived views (contacts / accounts / summaries)
   migrate [--status]     apply pending migrations/NNNN-*.sql (the only DB writer)
