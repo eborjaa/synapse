@@ -7,6 +7,12 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## 0.16.1 — 2026-08-20
 
 ### Fixed
+- **The on-demand "Fetch before you act" pointer recommended a call that did not exist.** The pointer
+  (and the doc-fetch line) told the agent to run `synapse_brief(note: "<id>")`, but `synapse_brief` had
+  no `note` param — so the fetch failed with "needs agent, not note" and the agent had to fall back to
+  reading files by hand. `synapse_brief` now accepts `note` (mutually exclusive with `agent`) and renders
+  that single note in full — the documented on-demand fetch path finally works. Caught in a live agent
+  session; a new contract test asserts the call a pointer recommends is one the surface can service.
 - **`cwd` now wins over an exported `$SYNAPSE_VAULT` for every interactive tool.** `resolveVault` defaulted
   to env-first, so a `$SYNAPSE_VAULT` exported in a shell rc silently overrode the vault you had `cd`'d
   into — a render/augment/recall could brief from the WRONG vault with no warning (observed live: an
