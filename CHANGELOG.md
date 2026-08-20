@@ -16,8 +16,10 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   vault and pins the whole grammar; `lib/note-as-task.test.mjs`, `lib/vault-root.test.mjs`, and
   `mcp/tools/agents.test.mjs` (the on-demand-fetch contract) close the other gaps. 180 tests total.
 - **Documentation.** New `docs/doc-agent-memory.md` (the freshness / episodic / on-demand / recall /
-  suite-routing / handover stack, wired into `hub-synapse`), and `docs/doc-cli-reference.md` gains the
-  full launcher grammar + the new subcommands (`embeddings-status`, `handover-task`, `man`).
+  suite-routing / handover stack) and `docs/doc-mcp-tools.md` (every `synapse_*` MCP tool grouped by
+  surface: skeleton ⊂ standard ⊂ full ⊂ orchestrator), both wired into `hub-synapse`; and
+  `docs/doc-cli-reference.md` gains the full launcher grammar + the new subcommands (`embeddings-status`,
+  `handover-task`, `man`). The MCP doc is cross-checked against the smoke test's authoritative tool set.
 - **A handover can now carry additional inline comments.** `<agent> [moc/hub] "steer this launch"
   --handover <ref> --cli <cli> --profile <p>` composes them: the handover is the task-of-record (its
   successor protocol + body), and the inline string is appended under an "Additional instruction for THIS

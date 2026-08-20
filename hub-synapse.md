@@ -6,7 +6,7 @@ tags:
   - type/hub
   - area/meta
   - status/active
-references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]", "[[doc-cli-reference]]", "[[doc-npm-release]]", "[[doc-agent-memory]]"]
+references_docs: ["[[conventions]]", "[[doc-vision]]", "[[doc-fork-and-extend]]", "[[doc-cli-reference]]", "[[doc-npm-release]]", "[[doc-agent-memory]]", "[[doc-mcp-tools]]"]
 related: ["[[hub-finances]]", "[[hub-contacts]]", "[[hub-health]]", "[[hub-places]]", "[[hub-journal]]", "[[hub-projects]]", "[[hub-social-media]]", "[[hub-career]]"]
 ---
 
@@ -29,6 +29,7 @@ The design notes, in reading order:
 - [[doc-runtime-wiring]] — OpenCode + Ollama over Tailscale; the permission posture.
 - [[doc-agent-memory]] — keeping an agent's context LIVE: freshness, episodic memory, on-demand notes,
   recall, suite-routing, and booting from a handover.
+- [[doc-mcp-tools]] — every `synapse_*` MCP tool, grouped by surface (skeleton ⊂ standard ⊂ full ⊂ orchestrator).
 - [[doc-semantic-recall]] — the opt-in hybrid-retrieval layer: deterministic render + local-embedding
   augment ([[decision-0005-hybrid-retrieval]], [[tool-ollama-embeddings]]).
 - [[doc-security-privacy]] — the privacy boundary (private repo, no public endpoint).
