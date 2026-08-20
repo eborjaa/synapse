@@ -7,6 +7,14 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## 0.17.2 — 2026-08-20
 
 ### Fixed
+- **opencode MCP tools now actually execute (native Ollama provider).** `synapse mcp-config --client
+  opencode` seeds the NATIVE ai-sdk Ollama provider (`ollama-ai-provider-v2`, the `/api` endpoint) when
+  the vault has no provider of its own. Ollama's OpenAI-compatible `/v1` STREAMING path silently drops
+  tool-call delta chunks (opencode #20995, ollama #5769), so MCP tools never fired — the model answered
+  in prose and the `tools/call` never reached the server (confirmed by proxy capture: `/v1` stream
+  returned the tool_call but opencode did not dispatch it). On `/api` the round-trip works: verified live
+  — a local qwen model calls `synapse_list_agents` in the opencode TUI and returns the real 14 agents.
+  The config is MERGED, never overwritten, so an existing model/provider is preserved.
 - **opencode now launches the TUI, and the briefing is the agent's IDENTITY (not a file it reads).**
   Two bugs with one symptom. `opencode run` is one-shot, so the session answered and exited — the root
   command is the TUI. And the briefing was passed with `--file`, which makes it an ATTACHMENT to the
