@@ -6,6 +6,13 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## 0.16.2 — 2026-08-20
 
+### Added
+- **A handover can now carry additional inline comments.** `<agent> [moc/hub] "steer this launch"
+  --handover <ref> --cli <cli> --profile <p>` composes them: the handover is the task-of-record (its
+  successor protocol + body), and the inline string is appended under an "Additional instruction for THIS
+  launch" header. Previously a bare task and `--handover` conflicted and the handover was silently
+  dropped; now neither input is lost, and a moc/hub target still fuses alongside.
+
 ### Fixed
 - **A one-word task was misread as a note id by the launcher.** `qa-lead "hi" --cli opencode` failed with
   `unknown artifact(s): hi` — the launcher grabbed the first lowercase word as a fusable TARGET (a note to

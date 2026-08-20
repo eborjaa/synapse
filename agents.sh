@@ -538,12 +538,24 @@ __mx_launch() {
   # --handover <ref> / --prompt-file <path>: the NOTE becomes the task (a handover boots the agent FROM
   # the note — read it, confirm locked decisions, resume). Resolved by the package so the CLI flag, this
   # launcher flag, and the MCP tool share one behavior. A bare task string still works and wins if both.
-  if [ -z "$task" ] && { [ -n "$handover_ref" ] || [ -n "$promptfile_ref" ]; }; then
+  if [ -n "$handover_ref" ] || [ -n "$promptfile_ref" ]; then
     if [ -n "$handover_ref" ]; then
-      task="$(__mx_run handover-task "$handover_ref")" || { echo "❌ [synapse] --handover: could not resolve '$handover_ref'" >&2; return 2; }
+      _mx_note_task="$(__mx_run handover-task "$handover_ref")" || { echo "❌ [synapse] --handover: could not resolve '$handover_ref'" >&2; return 2; }
     else
-      task="$(__mx_run handover-task "$promptfile_ref" --plain)" || { echo "❌ [synapse] --prompt-file: could not resolve '$promptfile_ref'" >&2; return 2; }
+      _mx_note_task="$(__mx_run handover-task "$promptfile_ref" --plain)" || { echo "❌ [synapse] --prompt-file: could not resolve '$promptfile_ref'" >&2; return 2; }
     fi
+    if [ -n "$task" ]; then
+      # A note AND an inline string: COMPOSE them (never drop either). The note is the task-of-record;
+      # the inline text is an extra instruction steering THIS launch, appended under a clear header.
+      task="$_mx_note_task
+
+---
+Additional instruction for THIS launch (on top of the handover above):
+$task"
+    else
+      task="$_mx_note_task"
+    fi
+    unset _mx_note_task
   fi
 
   case "$cli" in
