@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.18.2 — 2026-08-21
+
 ### Fixed
 - **The spawn tools now accept the SHORT agent id they advertise.** `synapse_claim_and_brief` and
   `synapse_spawn` both document `agent` as *"e.g. 'spec-builder' or 'agent-spec-builder'"*, but forwarded
@@ -15,6 +17,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   (0.9.0/0.10.0) — it only became fatal once the renderer began rejecting unresolved roots instead of
   skipping them. Observed live from an orchestrator in the DeepSeek Harness, which naturally calls the
   tool with the short id its own `synapse_list_agents` output shows.
+
+Install: `npm install @eborja/synapse@^0.18.2`
 
 ## 0.18.1 — 2026-08-20
 
@@ -776,8 +780,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.5.0"
-// or: "github:eborjaa/synapse#v0.5.0"
+"@eborja/synapse": "^0.18.2"
+// or: "github:eborjaa/synapse#v0.18.2"
 ```
 
 ```sh
