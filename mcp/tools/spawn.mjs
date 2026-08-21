@@ -12,7 +12,7 @@ import { mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import { VAULT, runSynapse } from "../vault.mjs";
+import { VAULT, runSynapse, normalizeAgentId } from "../vault.mjs";
 import * as lease from "../../lib/durable-spawn/lease.mjs";
 import * as registry from "../../lib/durable-spawn/registry.mjs";
 import * as episodes from "../../lib/durable-spawn/episodes.mjs";
@@ -180,9 +180,12 @@ export function registerSpawnTools(
     },
     async ({ agent, task, job, target, profile, ttlMs, force }) => {
       const d = db();
+      // Accept a short id ('oracle') as the schema promises: the render engine resolves only the
+      // full artifact id ('agent-oracle'), so normalize here — before claim, render, AND the episode.
+      const agentId = normalizeAgentId(agent);
       const claim = await claimAndRender(
         d,
-        { agent, task, job, target, profile: profile || "standard", ttlMs: ttlMs || DEFAULT_TTL_MS, force },
+        { agent: agentId, task, job, target, profile: profile || "standard", ttlMs: ttlMs || DEFAULT_TTL_MS, force },
         render,
       );
       if (!claim.ok) return claim.isError ? fail(claim.body) : text(claim.body);
@@ -199,7 +202,7 @@ export function registerSpawnTools(
       // Episodic memory: the episode opens HERE, at claim time, not at completion — so work that dies
       // mid-flight still leaves a record, which is exactly the case a later agent most needs.
       const { episodeId } = episodes.open(
-        edb(), { agent, job, spawnId, task, hub: target ?? null }, lease.dbNow(d),
+        edb(), { agent: agentId, job, spawnId, task, hub: target ?? null }, lease.dbNow(d),
       );
 
       return text({
@@ -245,6 +248,7 @@ export function registerSpawnTools(
     },
     async ({ agent, task, job, target, cli, cwd, model, profile, ttlMs, force }) => {
       const d = db();
+      const agentId = normalizeAgentId(agent);
       cli = cli || process.env.SYNAPSE_CLI || "cursor";
       cwd = cwd || VAULT;
       model = model || "";
@@ -252,7 +256,7 @@ export function registerSpawnTools(
       ttlMs = ttlMs || DEFAULT_TTL_MS;
 
       // 1-3. The same enforced gate the primary path uses: semantic net → lease → briefing.
-      const claim = await claimAndRender(d, { agent, task, job, target, profile, ttlMs, force }, render);
+      const claim = await claimAndRender(d, { agent: agentId, task, job, target, profile, ttlMs, force }, render);
       if (!claim.ok) return claim.isError ? fail(claim.body) : text(claim.body);
       const owner = claim.owner;
       const acq = { token: claim.token };
@@ -277,7 +281,7 @@ export function registerSpawnTools(
 
       // 5. Durable record (survives an orchestrator restart → staleSpawns reconciliation) + the episode.
       registry.record(d, { spawnId, job, owner, epoch: EPOCH, token: acq.token, statusFile, task }, lease.dbNow(d));
-      const { episodeId } = episodes.open(edb(), { agent, job, spawnId, task, hub: target ?? null }, lease.dbNow(d));
+      const { episodeId } = episodes.open(edb(), { agent: agentId, job, spawnId, task, hub: target ?? null }, lease.dbNow(d));
 
       return text({ ok: true, spawnId, episodeId, job, token: acq.token, owner, pid, cli, statusFile,
         note: "Poll synapse_spawn_status. The doer heartbeats to its status file; a stale heartbeat escalates to you, never auto-kills." });

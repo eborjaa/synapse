@@ -201,3 +201,35 @@ test("a FIRST-EVER claim carries no priorRun (no false memory)", async () => {
   const r = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "brand new work", job: "spec-builder:REL-80:new", force: true });
   assert.equal(r.priorRun, undefined);
 });
+
+// A render spy that records the exact opts each tool hands the render engine — the seam where a
+// short id must already be the full artifact id, since the closure resolver only knows 'agent-<id>'.
+function spyHarness() {
+  const handlers = {};
+  const server = { registerTool: (name, _schema, fn) => { handlers[name] = fn; } };
+  const rendered = [];
+  const render = async (opts) => { rendered.push(opts); return { ok: true, briefing: "# stub\n" }; };
+  const launch = ({ statusFile }) => { mkdirSync(join(statusFile, ".."), { recursive: true }); writeFileSync(statusFile, "HEARTBEAT start ok\n", "utf8"); return { pid: 1 }; };
+  registerSpawnTools(server, { launch, render });
+  const call = async (name, args) => JSON.parse((await handlers[name](args)).content[0].text);
+  return { call, rendered };
+}
+
+test("claim_and_brief normalizes a SHORT agent id to the full artifact id before render", async () => {
+  const { call, rendered } = spyHarness();
+  await call("synapse_claim_and_brief", { agent: "oracle", task: "investigate architecture", job: "oracle:arch:1", target: "hub-synapse", force: true });
+  assert.equal(rendered.length, 1);
+  assert.equal(rendered[0].agent, "agent-oracle", "render must receive 'agent-oracle', not the bare 'oracle' the resolver rejects");
+});
+
+test("normalization is idempotent — a full agent id is passed through unchanged", async () => {
+  const { call, rendered } = spyHarness();
+  await call("synapse_claim_and_brief", { agent: "agent-oracle", task: "x", job: "oracle:arch:2", force: true });
+  assert.equal(rendered[0].agent, "agent-oracle");
+});
+
+test("synapse_spawn also normalizes the agent id before render", async () => {
+  const { call, rendered } = spyHarness();
+  await call("synapse_spawn", { agent: "spec-builder", task: "y", job: "spec-builder:REL-90:z", cli: "cursor", force: true });
+  assert.equal(rendered[0].agent, "agent-spec-builder");
+});
