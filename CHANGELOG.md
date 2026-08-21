@@ -4,6 +4,18 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Fixed
+- **The spawn tools now accept the SHORT agent id they advertise.** `synapse_claim_and_brief` and
+  `synapse_spawn` both document `agent` as *"e.g. 'spec-builder' or 'agent-spec-builder'"*, but forwarded
+  the raw value to the render engine, which resolves only the full artifact id — so a short id died with
+  `render-failed: unknown artifact(s): oracle` while the identical call with `agent-oracle` rendered
+  fine. `normalizeAgentId()` already existed and was used by `synapse_brief`, handover, authoring and
+  new-note; the spawn path simply never called it. Now normalized once at each handler entry, so the
+  claim, the render **and** the episode record all carry the full id. Latent since the spawn tools landed
+  (0.9.0/0.10.0) — it only became fatal once the renderer began rejecting unresolved roots instead of
+  skipping them. Observed live from an orchestrator in the DeepSeek Harness, which naturally calls the
+  tool with the short id its own `synapse_list_agents` output shows.
+
 ## 0.18.1 — 2026-08-20
 
 ### Fixed
