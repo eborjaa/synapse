@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - area/synapse
   - status/active
-related: ["[[note-synapse-harness-playbook]]", "[[hub-synapse]]"]
+related: ["[[note-dsh-extension-seams]]", "[[note-synapse-harness-playbook]]", "[[hub-synapse]]"]
 references_docs: ["[[doc-runtime-wiring]]", "[[doc-agent-architecture]]"]
 ---
 
@@ -244,4 +244,4 @@ Three things had to be true at once, and each was found by a run that failed wit
   its lease until TTL expiry.
 
 ## Related
-[[note-synapse-harness-playbook]] · [[doc-runtime-wiring]] · [[doc-agent-architecture]] · [[doc-semantic-recall]] · [[decision-0004-opencode-local-ollama-runtime]] · [[rule-synapse-human-gated-push]] · [[hub-synapse]]
+[[note-dsh-extension-seams]] · [[note-synapse-harness-playbook]] · [[doc-runtime-wiring]] · [[doc-agent-architecture]] · [[doc-semantic-recall]] · [[decision-0004-opencode-local-ollama-runtime]] · [[rule-synapse-human-gated-push]] · [[hub-synapse]]
