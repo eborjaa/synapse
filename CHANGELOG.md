@@ -26,6 +26,20 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
     "extra tool calls are not extra diligence" — a bloated context measurably degrades a local model's
     answer.
 
+- **Two notes on the DeepSeek Harness integration** (`notes/note-deepseek-harness-integration.md`,
+  `notes/note-dsh-extension-seams.md`), peers to `note-synapse-harness-playbook`. The first records how a
+  vault reaches DSH (MCP is the only bridge), the delegation loop as it actually behaves, and a verified
+  end-to-end result: a two-domain run producing **2 claims → 2 subagents → 2 releases**, 12/12 assertions
+  green, distinct fence tokens, both episodes closed by the model, no leaked lease. It names the three
+  conditions that each had to hold — a model that can carry the procedure, a subagent provider that
+  actually resolves (every child died instantly with `NO_ADAPTER` after a provider rename, which is the
+  first thing to check when delegation "runs" but yields nothing), and `run_in_background: false`. It also
+  resolves two open questions (presets **do** inherit the profile-level MCP entry; skills need no
+  force-loading, since the harness injects a skill catalog the model reads unprompted) and records two
+  still open (the 60 s `toolCallTimeoutMs` that can strand a lease mid-claim, and the Stop-hook guard not
+  firing on an interrupt). The second maps DSH's extension seams — plugins, hooks, skills, presets, spill
+  policy — to the Synapse concern each one should carry.
+
 ### Changed
 - `.gitignore` now covers `.opencode/agents/`, which `agents.sh` writes per launch as a temporary agent
   definition (the file announces its own auto-deletion) and which was showing up as untracked noise.
