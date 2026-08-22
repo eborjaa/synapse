@@ -40,6 +40,24 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   firing on an interrupt). The second maps DSH's extension seams — plugins, hooks, skills, presets, spill
   policy — to the Synapse concern each one should carry.
 
+- **README rewritten around getting started fast, and corrected where it had drifted.**
+  - **`synapse init` is now documented** — it shipped but the README never mentioned it, so both
+    onboarding paths walked people through a manual `mkdir` / `npm init` / `cp context.manifest.example`
+    dance instead of the one command that scaffolds a working vault (37 files: manifest, the four agents,
+    the rules, starter hubs). Quick start now leads with it, and notes that it fills in only what is
+    missing, so it is safe to re-run after an engine bump.
+  - **A new "Use it from your AI tool (MCP)" section.** MCP is how most people will actually use Synapse,
+    and it appeared only as one bullet at the very bottom. Now covers the generated client configs
+    (`.mcp.json` / `.cursor/mcp.json` / `opencode.json`), the `full` vs `orchestrator` surfaces, **DeepSeek
+    Harness** wiring (which has no generated config — it takes a `dsh-mcp-client` row in
+    `cordis.patch.yml`), the `.dsh/skills/` harness skills, and the point that trips everyone: delegation
+    is **three** calls, because `claim_and_brief` returns a briefing and launches nothing.
+  - **Version pins no longer rot.** Quick start installs `@eborja/synapse` unpinned; the explicit pins
+    that remain (the `dependencies` example, the git-SHA install) move to `^0.19.0`.
+  - **Command table completed** — `init`, `handover-task`, `journal` and `man` were missing. Every one of
+    the 16 documented subcommands was verified to exist in `synapse help`, and every relative link in the
+    README was verified to resolve.
+
 ### Changed
 - `.gitignore` now covers `.opencode/agents/`, which `agents.sh` writes per launch as a temporary agent
   definition (the file announces its own auto-deletion) and which was showing up as untracked noise.
