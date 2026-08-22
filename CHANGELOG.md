@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.19.0 — 2026-08-22
+
 ### Added
 - **DSH agent skills** (`.dsh/skills/synapse-{oracle,curator,ingester,reconciler}/SKILL.md`). The vault's
   four agents as DeepSeek Harness skills, so `/synapse-oracle` (and friends) load the role's procedure and
@@ -61,6 +63,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ### Changed
 - `.gitignore` now covers `.opencode/agents/`, which `agents.sh` writes per launch as a temporary agent
   definition (the file announces its own auto-deletion) and which was showing up as untracked noise.
+
+Install: `npm install @eborja/synapse@^0.19.0`
 
 ## 0.18.2 — 2026-08-21
 
