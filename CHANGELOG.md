@@ -4,6 +4,32 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Added
+- **DSH agent skills** (`.dsh/skills/synapse-{oracle,curator,ingester,reconciler}/SKILL.md`). The vault's
+  four agents as DeepSeek Harness skills, so `/synapse-oracle` (and friends) load the role's procedure and
+  boundaries in a harness that consumes Synapse over MCP. They live in `.dsh/` rather than `skills/`
+  because that directory holds vault-typed `type: skill` artifacts; these are harness assets, and `.dsh/`
+  is now in `package.json` `files[]` so they ship to consumers.
+
+  Written against the failure modes observed driving a local 30B (qwen3-coder) through the harness:
+  - **Delegation is spelled out as three separate calls.** `synapse_claim_and_brief` does *not* start a
+    worker — it takes the lease, opens the episode and returns the briefing. Every probe run conflated
+    the claim with the spawn: the model claimed, then polled `synapse_spawn_status` for a doer nobody had
+    launched, burned the lease's TTL, and finally did the analysis itself. The skills now name the
+    harness's own `subagent` tool (with `run_in_background: false`) as the middle step.
+  - **`refused: "held"` is recoverable.** A claim whose response is lost still creates the lease, so the
+    natural retry collides with the caller's own lease. The skills now say to reuse the held
+    `owner`/`token` and continue, rather than re-claiming under a new job id.
+  - **Agent ids must exist.** A run invented `spec-builder` and then called `synapse_create_agent` twice
+    to conjure specialists; the skills now require checking `synapse_list_agents` and reusing `oracle`.
+  - **Working economy.** One brief per hub, `synapse_recall` for the delta, ids over file paths, and
+    "extra tool calls are not extra diligence" — a bloated context measurably degrades a local model's
+    answer.
+
+### Changed
+- `.gitignore` now covers `.opencode/agents/`, which `agents.sh` writes per launch as a temporary agent
+  definition (the file announces its own auto-deletion) and which was showing up as untracked noise.
+
 ## 0.18.2 — 2026-08-21
 
 ### Fixed

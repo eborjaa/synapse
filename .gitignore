@@ -37,3 +37,6 @@ _meta/logs/
 .mcp.json
 .cursor/mcp.json
 opencode.json
+
+# Runtime-generated agent briefings (agents.sh writes these per launch)
+.opencode/agents/
