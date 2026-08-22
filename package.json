@@ -29,6 +29,7 @@
     "rules/",
     "tools/",
     "skills/",
+    ".dsh/",
     "notes/",
     "hub-synapse.md",
     "agents.sh",
