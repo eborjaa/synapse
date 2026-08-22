@@ -4,6 +4,26 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Added
+- **`decision-0010-mcp-2026-07-28-dual-era`** — the plan for adopting MCP's new stateless standard. Not yet
+  implemented; this branch tracks it separately from the 0.19.0 legacy line.
+
+  Two findings shape it. Our `@modelcontextprotocol/sdk@^1.30.0` **can never** speak 2026-07-28 — support
+  lives in a repackage (`@modelcontextprotocol/server`/`client`/`core` v2), not a version bump. And three
+  of our four clients are legacy-only (Cursor 3.13.25, opencode 1.18.19, DSH `dsh-mcp-client` 0.0.1-rc.1);
+  only Claude Code 2.1.240 is dual-era. Since the spec's matrix says **legacy client + modern server
+  fails**, a modern-only server would break Cursor, opencode and the whole DSH integration.
+
+  So: adopt it as a **dual-era** server. `serveStdio(buildServer, { legacy: 'serve' })` — the default —
+  serves both eras from one factory with no branching, verified empirically against our exact
+  `registerTool` shape. Most of the spec does not reach us: header routing and `Mcp-Session-Id` are
+  Streamable-HTTP only (stdio carries metadata inline, no header layer), MRTR replaces server-initiated
+  requests and we initiate none, and we use no sampling/elicitation/roots/resources/prompts. The
+  substantial change is one file — `mcp/server.mjs` from module-level singleton to a `buildServer()`
+  factory, with plugin loading split from registration. `lib/mcp-config.mjs` needs no change; the generated
+  client configs stay byte-identical.
+
+
 ## 0.19.0 — 2026-08-22
 
 ### Added
