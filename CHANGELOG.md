@@ -4,6 +4,68 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 0.19.0 — 2026-08-22
+
+### Added
+- **DSH agent skills** (`.dsh/skills/synapse-{oracle,curator,ingester,reconciler}/SKILL.md`). The vault's
+  four agents as DeepSeek Harness skills, so `/synapse-oracle` (and friends) load the role's procedure and
+  boundaries in a harness that consumes Synapse over MCP. They live in `.dsh/` rather than `skills/`
+  because that directory holds vault-typed `type: skill` artifacts; these are harness assets, and `.dsh/`
+  is now in `package.json` `files[]` so they ship to consumers.
+
+  Written against the failure modes observed driving a local 30B (qwen3-coder) through the harness:
+  - **Delegation is spelled out as three separate calls.** `synapse_claim_and_brief` does *not* start a
+    worker — it takes the lease, opens the episode and returns the briefing. Every probe run conflated
+    the claim with the spawn: the model claimed, then polled `synapse_spawn_status` for a doer nobody had
+    launched, burned the lease's TTL, and finally did the analysis itself. The skills now name the
+    harness's own `subagent` tool (with `run_in_background: false`) as the middle step.
+  - **`refused: "held"` is recoverable.** A claim whose response is lost still creates the lease, so the
+    natural retry collides with the caller's own lease. The skills now say to reuse the held
+    `owner`/`token` and continue, rather than re-claiming under a new job id.
+  - **Agent ids must exist.** A run invented `spec-builder` and then called `synapse_create_agent` twice
+    to conjure specialists; the skills now require checking `synapse_list_agents` and reusing `oracle`.
+  - **Working economy.** One brief per hub, `synapse_recall` for the delta, ids over file paths, and
+    "extra tool calls are not extra diligence" — a bloated context measurably degrades a local model's
+    answer.
+
+- **Two notes on the DeepSeek Harness integration** (`notes/note-deepseek-harness-integration.md`,
+  `notes/note-dsh-extension-seams.md`), peers to `note-synapse-harness-playbook`. The first records how a
+  vault reaches DSH (MCP is the only bridge), the delegation loop as it actually behaves, and a verified
+  end-to-end result: a two-domain run producing **2 claims → 2 subagents → 2 releases**, 12/12 assertions
+  green, distinct fence tokens, both episodes closed by the model, no leaked lease. It names the three
+  conditions that each had to hold — a model that can carry the procedure, a subagent provider that
+  actually resolves (every child died instantly with `NO_ADAPTER` after a provider rename, which is the
+  first thing to check when delegation "runs" but yields nothing), and `run_in_background: false`. It also
+  resolves two open questions (presets **do** inherit the profile-level MCP entry; skills need no
+  force-loading, since the harness injects a skill catalog the model reads unprompted) and records two
+  still open (the 60 s `toolCallTimeoutMs` that can strand a lease mid-claim, and the Stop-hook guard not
+  firing on an interrupt). The second maps DSH's extension seams — plugins, hooks, skills, presets, spill
+  policy — to the Synapse concern each one should carry.
+
+- **README rewritten around getting started fast, and corrected where it had drifted.**
+  - **`synapse init` is now documented** — it shipped but the README never mentioned it, so both
+    onboarding paths walked people through a manual `mkdir` / `npm init` / `cp context.manifest.example`
+    dance instead of the one command that scaffolds a working vault (37 files: manifest, the four agents,
+    the rules, starter hubs). Quick start now leads with it, and notes that it fills in only what is
+    missing, so it is safe to re-run after an engine bump.
+  - **A new "Use it from your AI tool (MCP)" section.** MCP is how most people will actually use Synapse,
+    and it appeared only as one bullet at the very bottom. Now covers the generated client configs
+    (`.mcp.json` / `.cursor/mcp.json` / `opencode.json`), the `full` vs `orchestrator` surfaces, **DeepSeek
+    Harness** wiring (which has no generated config — it takes a `dsh-mcp-client` row in
+    `cordis.patch.yml`), the `.dsh/skills/` harness skills, and the point that trips everyone: delegation
+    is **three** calls, because `claim_and_brief` returns a briefing and launches nothing.
+  - **Version pins no longer rot.** Quick start installs `@eborja/synapse` unpinned; the explicit pins
+    that remain (the `dependencies` example, the git-SHA install) move to `^0.19.0`.
+  - **Command table completed** — `init`, `handover-task`, `journal` and `man` were missing. Every one of
+    the 16 documented subcommands was verified to exist in `synapse help`, and every relative link in the
+    README was verified to resolve.
+
+### Changed
+- `.gitignore` now covers `.opencode/agents/`, which `agents.sh` writes per launch as a temporary agent
+  definition (the file announces its own auto-deletion) and which was showing up as untracked noise.
+
+Install: `npm install @eborja/synapse@^0.19.0`
+
 ## 0.18.2 — 2026-08-21
 
 ### Fixed

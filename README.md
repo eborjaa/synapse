@@ -32,6 +32,7 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 [Quick start](#-quick-start) · [Your first commands](#-your-first-commands) ·
 [Ask the vault + semantic recall](#-ask-the-vault--semantic-recall) ·
+[Use it from your AI tool (MCP)](#-use-it-from-your-ai-tool-mcp) ·
 [Pluggable runtime (`--cli`)](#-pluggable-runtime---cli) · [A day in the life](#-a-day-in-the-life) ·
 [How it works](#-how-it-works-in-brief) · [Get started (template)](#-get-started-use-this-template) ·
 [npm package](#-npm-package--tooling-only) · [More](#-more)
@@ -40,14 +41,29 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ## 🚀 Quick start
 
+**Starting from nothing** — `synapse init` scaffolds a working vault (manifest, the four agents, the
+rules, starter hubs) so you are not assembling one by hand:
+
+```bash
+mkdir my-vault && cd my-vault && npm init -y
+npm install @eborja/synapse
+npx synapse init            # dry-run — shows the 37 files it would create
+npx synapse init --write    # scaffold the vault
+npx synapse install --write # wire agents.sh + editor dirs + MCP client configs
+npx synapse migrate         # create db/synapse.db from migrations/
+exec $SHELL
+synapse agents              # ← list agents (or: vault-agents)
+synapse hubs                # ← list hub targets (or: vault-hubs)
+```
+
+**Already have a vault?** Skip `init`:
+
 ```bash
 cd /path/to/your-vault
-npm install @eborja/synapse@^0.18.2   # or: npm install ../path/to/synapse-framework
-npx synapse install                        # dry-run
-npx synapse install --write                # wire agents.sh + editor dirs + MCP client configs
+npm install @eborja/synapse   # or: npm install ../path/to/synapse-framework
+npx synapse install           # dry-run
+npx synapse install --write   # wire agents.sh + editor dirs + MCP client configs
 exec $SHELL
-synapse agents                             # ← list agents (or: vault-agents)
-synapse hubs                               # ← list hub targets (or: vault-hubs)
 ```
 
 > `install --write` also generates the MCP client configs (`.mcp.json` / `.cursor/mcp.json` /
@@ -157,6 +173,61 @@ The common thread: **push what an agent cannot know to ask for; let it pull the 
  The deterministic
 keyword match behind suite routing, on-demand triggers, and hub inference is one small function doing
 triple duty.
+
+## 🔗 Use it from your AI tool (MCP)
+
+The launchers above are one way in. The other — and the one most people will actually live in — is
+**MCP**: your vault becomes a set of tools inside whatever agentic tool you already use. `synapse install
+--write` generates the client configs for you, so this works out of the box:
+
+| Client | Config it writes |
+|---|---|
+| Claude Code | `.mcp.json` |
+| Cursor | `.cursor/mcp.json` |
+| opencode | `opencode.json` |
+
+Regenerate any of them alone with `synapse mcp-config --write [--client claude\|cursor\|opencode] [--surface full\|orchestrator]`.
+
+**Two surfaces.** `full` is everything; **`orchestrator`** adds the delegation tools
+(`synapse_claim_and_brief`, `synapse_spawn_release`, `synapse_history`, `synapse_recall`) for agents that
+hand work to other agents. Pick with `SYNAPSE_MCP_SURFACE`.
+
+### DeepSeek Harness
+
+Any MCP-capable harness works, including ones without a generated config —
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is wired by adding an
+`@deepseek-ai/dsh-mcp-client` row to a profile's `cordis.patch.yml`:
+
+```yaml
+- insert:
+    - id: mcp-synapse
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: synapse
+        transport: stdio
+        command: /absolute/path/to/node      # dsh scrubs the child env; bare `node` may not resolve
+        args: ['<vault>/node_modules/@eborja/synapse/bin/synapse-mcp.mjs']
+        cwd: <vault>
+        env:
+          SYNAPSE_VAULT: <vault>
+          SYNAPSE_MCP_SURFACE: orchestrator
+```
+
+The four agents also ship as **harness skills** in `.dsh/skills/synapse-{oracle,curator,ingester,reconciler}/`,
+so `/synapse-oracle` loads that role's procedure and boundaries. Symlink them into the harness's skills
+directory.
+
+**Delegation is three calls, not one.** `synapse_claim_and_brief` takes the lease, opens the episode and
+returns the briefing — it launches **nothing**. You launch the doer with your own harness (its Task tool,
+`subagent`, an `@mention`), so your tool's task panel, streaming and notifications all keep working. Then
+`synapse_spawn_release` closes the lease with the doer's answer. Dedup is unskippable because the briefing
+only arrives *through* the claim.
+
+→ Full detail: [`doc-mcp-tools`](docs/doc-mcp-tools.md) ·
+[`note-deepseek-harness-integration`](notes/note-deepseek-harness-integration.md) ·
+[`note-dsh-extension-seams`](notes/note-dsh-extension-seams.md).
+
+---
 
 ## 🔌 Pluggable runtime (`--cli`)
 
@@ -270,18 +341,17 @@ Synapse ships **two layers**:
 ```bash
 mkdir my-vault && cd my-vault
 npm init -y
-npm install @eborja/synapse@^0.18.2
-# copy schema example → your ontology dial
-mkdir -p _meta/tools
-cp node_modules/@eborja/synapse/schema/context.manifest.example.json \
-   _meta/tools/context.manifest.json
-# copy starter agents/rules/hubs from the template repo if you want them, or author your own
+npm install @eborja/synapse
+npx synapse init --write       # manifest + agents + rules + starter hubs (dry-run without --write)
 npx synapse setup --write      # Ollama + embed model (optional)
-npx synapse install --write    # shell CLI + editor wiring
+npx synapse install --write    # shell CLI + editor wiring + MCP client configs
 npx synapse migrate            # create db/synapse.db from migrations/
 exec $SHELL
 synapse agents && synapse hubs
 ```
+
+`init` only fills in what is missing, so it is safe to re-run after an engine bump to pick up notes a
+new version ships.
 
 ### Option B — use this repo as a template
 
@@ -304,7 +374,7 @@ Distribute and update the **engine** without forking vault content:
 ```jsonc
 {
   "dependencies": {
-    "@eborja/synapse": "^0.18.2"
+    "@eborja/synapse": "^0.19.0"
   },
   "scripts": {
     "vault:render": "synapse render",
@@ -321,7 +391,7 @@ npx synapse setup --write     # Ollama + embed model (optional; deterministic to
 npx synapse install --write   # shell + editor wiring
 ```
 
-Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.18.2` or
+Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0.19.0` or
 `file:../synapse-framework`.
 
 The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`
@@ -331,6 +401,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 
 | Command | Does |
 |---|---|
+| `synapse init [dir]` | Scaffold a vault (manifest + agents + rules + hubs); fills in only what's missing |
 | `synapse render <id> …` | Typed-ontology briefing |
 | `synapse augment … --task` | render + semantic recall |
 | `synapse new agent <id> --addressable` | Scaffold an agent note runnable as a Cortex standing bot |
@@ -341,6 +412,9 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 | `synapse setup` | Semantic runtime (Ollama + embed model + build the index) |
 | `synapse install` | Shell + editor wiring **and** the MCP client configs (all three CLIs) |
 | `synapse mcp-config [--client] [--surface]` | (Re)generate `.mcp.json` / `.cursor/mcp.json` / `opencode.json` alone |
+| `synapse handover-task <ref>` | Print a handover note as a task string |
+| `synapse journal "slug"` | Scaffold `journal/<date>-<slug>.md` for a work-session log |
+| `synapse man` | The full manual — launcher grammar, memory tools, env vars |
 | `synapse agents` / `hubs` / `help` | Shell discovery (after `install --write`; `vault-*` equals) |
 
 ---
