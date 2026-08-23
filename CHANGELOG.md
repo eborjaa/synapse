@@ -2,7 +2,11 @@
 
 All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
-## Unreleased
+## 1.0.0 — unreleased (dual-era line)
+
+> **Do not publish until stage 2 lands.** `package.json` reads `1.0.0` to mark this branch as the
+> dual-era line, but the SDK swap is not implemented yet. `0.19.x` remains the legacy line; a consumer
+> pinned to `^0.19.0` is unaffected.
 
 ### Added
 - **`decision-0010-mcp-2026-07-28-dual-era`** — the plan for adopting MCP's new stateless standard. Not yet

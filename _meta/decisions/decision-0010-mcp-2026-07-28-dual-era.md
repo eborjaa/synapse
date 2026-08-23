@@ -49,6 +49,18 @@ call shape: both lanes answered, and a bogus version returned a proper `-32022` 
 
 **Never ship `legacy: 'reject'`** until Cursor, opencode and DSH have all moved.
 
+**This ships as `1.0.0`.** Two lines, unambiguous: **`0.19.x` is the legacy line** (protocol `2025-11-25`
+only) and **`1.x` is the dual-era line** (serves both). The bump is major even though no *tool* signature
+changes, for three reasons: the runtime dependency is replaced wholesale rather than upgraded
+(`@modelcontextprotocol/sdk` → `@modelcontextprotocol/server`), so anything reaching past our exports
+breaks; the protocol a consumer's client negotiates against genuinely changes; and 1.0.0 is the honest
+place to make the compatibility promise the dual-era design exists to keep — *legacy clients keep working*
+— rather than leaving it implicit in a minor. A consumer pinned to `^0.19.0` stays on the legacy line
+until they choose to move.
+
+`package.json` on this branch already reads `1.0.0`, but **the release is gated on stage 2 actually
+landing** — until the SDK swap is in, this branch is 1.0.0 in name only and must not be published.
+
 ## What this does and does not touch
 
 Most of the spec does not reach us. Header routing and `Mcp-Session-Id` are **Streamable-HTTP only** — the
@@ -109,6 +121,5 @@ is auth-derived vault binding (the caller's identity determines the vault set, n
   clock is its own `"no fallback in pin mode"` path: a user who pins modern breaks against us.
 - Keep `@modelcontextprotocol/sdk` as a devDependency so `mcp/smoke.mjs` can test **both** eras against
   one binary.
-- Version: no consumer-visible change argues minor; a wholesale SDK swap argues major.
 - Do **not** read a modern version out of `LATEST_PROTOCOL_VERSION` — v2 still exports the legacy-era
   constants. The modern revision surfaces in the `server/discover` response (`supportedVersions`).
