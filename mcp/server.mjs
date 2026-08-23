@@ -1,9 +1,14 @@
 // synapse-mcp — a Synapse vault exposed as MCP tools (local, stdio).
 //
+// This module is the STARTUP half: locate the vault, load plugins, build one server, connect it to
+// stdio. The server itself is built by `buildServer()` in ./build-server.mjs, which has no side
+// effects — importing it does not start anything. Importing THIS file does.
+//
 // Surfaces (SYNAPSE_MCP_SURFACE):
-//   skeleton — list_agents, list_hubs, render
-//   standard — + brief, augment, embeddings_*, lint          ← recommended for read-only agents
-//   full     — default: + handover tools (incl. handover_write)
+//   skeleton     — list_agents, list_hubs, render
+//   standard     — + brief, augment, embeddings_*, lint       ← recommended for read-only agents
+//   full         — default: + handover + authoring tools
+//   orchestrator — + dedup-safe delegation (claim_and_brief, spawn_*)
 //
 // Consumer-specific tools do NOT belong in this package. Drop an ESM module exporting
 // `register(server, ctx)` into <vault>/_meta/mcp-plugins/ and it is discovered automatically —
@@ -13,131 +18,24 @@
 // ctx = { server, surface, VAULT, runSynapse, asToolResult, manifest } — the same helpers the
 // built-in tool modules use, so a plugin is written exactly like `tools/health.mjs`.
 
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
-import { assertVault, VAULT, manifest, runSynapse, asToolResult } from "./vault.mjs";
-import { registerSkeletonTools, registerBriefTool } from "./tools/agents.mjs";
-import { registerRetrievalTools } from "./tools/retrieval.mjs";
-import { registerHealthTools } from "./tools/health.mjs";
-import { registerEpisodeTools } from "./tools/episodes.mjs";
-import { registerHandoverTools } from "./tools/handover.mjs";
-import { registerAuthoringTools } from "./tools/authoring.mjs";
-import { registerSpawnTools } from "./tools/spawn.mjs";
+import { assertVault, VAULT } from "./vault.mjs";
+import { buildServer, loadPlugins, resolveSurface, version } from "./build-server.mjs";
 
 assertVault();
 
-const { version } = JSON.parse(
-  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
-);
+const surface = resolveSurface();
 
-const raw = (process.env.SYNAPSE_MCP_SURFACE || "full").toLowerCase();
-const surface = ["skeleton", "standard", "full", "orchestrator"].includes(raw) ? raw : "full";
+// Load plugin MODULES before serving: a plugin that cannot be imported must fail the process, not
+// leave a server running with a tool quietly missing ([[rule-synapse-fail-loudly]]).
+const plugins = await loadPlugins();
 
-const MEMORY_BRIEF =
-  "\n\nMEMORY — three stores you should actually use, not just have:\n"
-  + "• Your briefing was built ONCE, at the start. When the work moves to a NEW subtask, call "
-  + "synapse_recall(task) with what you are doing now — it returns only the delta (relevant notes, any "
-  + "rule that now applies, whether it was already done), never your whole briefing. Cheap; call it "
-  + "whenever the topic shifts. A stale briefing is how agents drift.\n"
-  + "• A briefing carries a 'Fetch before you act' checklist of on-demand notes — only their triggers, "
-  + "not their bodies. When a trigger matches what you are about to do, fetch that note FIRST "
-  + "(synapse_brief note:<id>); do not improvise it from memory.\n"
-  + "• Before starting work that might already be done, call synapse_history(query). An empty result "
-  + "means it was not RECORDED, not that it never happened. Record your own finished work with "
-  + "synapse_log (delegated work is recorded for you by claim_and_brief + spawn_release).";
+const server = buildServer({ surface, plugins });
 
-const instructions = {
-  skeleton:
-    "Synapse context vault — skeleton surface.\n\n"
-    + "Happy path: synapse_list_agents → synapse_list_hubs → synapse_render with "
-    + "ids [agent, one hub] and a profile (lean|standard|fat).\n\n"
-    + "One parent hub per render. Tools return text only — they never start a chat session.",
-  standard:
-    "Synapse context vault — standard surface (read-only).\n\n"
-    + "Happy path: list agents/hubs → synapse_brief or synapse_render with ONE hub.\n"
-    + "Cross-domain hints: synapse_augment (or brief with task) — suggestions to verify.\n"
-    + "synapse_lint = mechanical health (read-only). "
-    + "Never call synapse_embeddings_rebuild unless the user asks.\n"
-    + "All tools return text — they do NOT start an agent chat session."
-    + MEMORY_BRIEF,
-  full:
-    "Synapse context vault — full surface (standard + handover + authoring).\n\n"
-    + "Same one-hub + augment + lint rules as standard.\n"
-    + "synapse_create_* PROPOSE by default — they write only when called with write:true, and a new "
-    + "rule/tool needs used_by:[<agent-id>] or it lands as an orphan.\n"
-    + "Handover write is human-triggered only — never call synapse_handover_write unless asked.\n"
-    + "All tools return text — they do NOT start an agent chat session."
-    + MEMORY_BRIEF,
-  orchestrator:
-    "Synapse context vault — orchestrator surface (full + dedup-safe delegation).\n\n"
-    + "Same one-hub + augment + lint + authoring rules as full.\n"
-    + "DELEGATE WITH synapse_claim_and_brief: it claims the job (lease) and returns the doer's briefing; "
-    + "YOU launch with your own harness (Task tool, @mention, terminal) so you keep every native feature "
-    + "— task panel, streaming, completion notification — while dedup is still enforced. Release with "
-    + "synapse_spawn_release when the doer finishes.\n"
-    + "synapse_spawn is the SPECIALIST alternative: synapse launches a DETACHED process that outlives "
-    + "your session but is invisible to your harness (poll synapse_spawn_status). Use it only for work "
-    + "that must survive your session, or when there is no harness to launch with.\n"
-    + "CRITICAL for both: `job` MUST be a canonical id from stable facts (agent:TICKET:suite:branch) — "
-    + "extract the ticket/branch, never name it from prose, or two phrasings of the same task both run."
-    + MEMORY_BRIEF,
-}[surface];
-
-const server = new McpServer({ name: "synapse", version }, { instructions });
-
-registerSkeletonTools(server);
-if (surface !== "skeleton") {
-  registerBriefTool(server);
-  registerRetrievalTools(server);
-  registerHealthTools(server);
-  registerEpisodeTools(server);
-}
-if (surface === "full" || surface === "orchestrator") {
-  registerHandoverTools(server);
-  registerAuthoringTools(server);
-}
-if (surface === "orchestrator") {
-  registerSpawnTools(server);
-}
-
-// Consumer plugins — registered last so they can extend the surface. Failures throw rather than
-// degrade silently ([[rule-synapse-fail-loudly]]): a bot must never report a clean tool list while
-// the tool it was asked for is quietly missing.
-//
-// Discovered BY CONVENTION from <vault>/_meta/mcp-plugins/*.mjs, so any vault (or sub-vault) gets
-// its own tools by dropping a file there — no per-machine config to maintain. SYNAPSE_MCP_PLUGINS
-// still adds explicit paths on top, for plugins living outside the vault.
-function discoverPlugins() {
-  const dir = join(VAULT, "_meta", "mcp-plugins");
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((f) => f.endsWith(".mjs") && !f.startsWith(".") && !f.endsWith(".test.mjs"))
-    .sort()
-    .map((f) => join(dir, f));
-}
-
-const pluginPaths = [...new Set([
-  ...discoverPlugins(),
-  ...(process.env.SYNAPSE_MCP_PLUGINS || "").split(",").map((s) => s.trim()).filter(Boolean),
-])];
-const loaded = [];
-for (const p of pluginPaths) {
-  const mod = await import(pathToFileURL(p).href);
-  if (typeof mod.register !== "function") {
-    throw new Error(`MCP plugin ${p} does not export register(server, ctx)`);
-  }
-  await mod.register(server, { server, surface, VAULT, runSynapse, asToolResult, manifest });
-  loaded.push(p.split("/").pop());
-}
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
+await server.connect(new StdioServerTransport());
 
 process.stderr.write(
   `[synapse-mcp] ready · v${version} · surface=${surface} · vault=${VAULT}`
-  + `${loaded.length ? ` · plugins=${loaded.join(",")}` : ""}\n`,
+  + `${plugins.length ? ` · plugins=${plugins.map((p) => p.name).join(",")}` : ""}\n`,
 );
