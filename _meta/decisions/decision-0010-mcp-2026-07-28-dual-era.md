@@ -9,7 +9,7 @@ tags:
 related: ["[[doc-mcp-tools]]", "[[note-deepseek-harness-integration]]", "[[decision-0003-human-gated-mutation]]"]
 ---
 
-**Status:** Accepted (plan) — 2026-08-22 · **Not yet implemented.** Tracked on `feat/mcp-2026-07-28`.
+**Status:** Accepted — 2026-08-22 · **Implemented** 2026-08-23 (stages 0–2) on `feat/mcp-stage2-sdk-v2`.
 
 ## Context
 
@@ -96,15 +96,39 @@ untouched: one vault per stdio process preserves the single-writer assumption.
 
 Each stage is independently shippable and testable.
 
-0. **Safety net, no dependency change.** Extend `mcp/smoke.mjs` to assert the tool list per surface via a
+**Done — stages 0, 1 and 2.** What implementation corrected in this plan:
+
+- **A factory may be async.** `McpServerFactory` is `(ctx) => McpServer | Server | Promise<McpServer | Server>`,
+  so the claim that a per-connection factory "cannot await" was **wrong**. We still keep `buildServer()`
+  synchronous, but as a deliberate choice — the factory runs per connection (and per request under a
+  future HTTP handler), so keeping it allocation-only means no I/O on that path and no window where a
+  half-registered server reaches a client. Async setup belongs at module load.
+- **The `_meta` key is camelCase**: `io.modelcontextprotocol/protocolVersion`, alongside
+  `…/clientInfo` and `…/clientCapabilities`. A modern request carries these inline in place of the
+  handshake.
+- **A connection is pinned to ONE era** by its opening message; `serveStdio` never re-negotiates. So
+  `server/discover` on a connection that already sent `initialize` correctly answers `-32601`. Each era
+  needs its own connection — `mcp/conformance.mjs` uses a separate process per era for this reason.
+- **One wire change, and only one**: the JSON Schema dialect on every tool's `inputSchema` moved from
+  `draft-07` to `2020-12` (the v2 SDK emits the newer dialect). Verified exhaustively — 120 differing
+  lines across all four surfaces, **all 120 of them the `$schema` declaration**. Tool names,
+  descriptions, properties, required fields, protocol version, capabilities and instructions are
+  byte-identical.
+- `LATEST_PROTOCOL_VERSION` in v2 still reads `2025-11-25` and `SUPPORTED_PROTOCOL_VERSIONS` still lists
+  the legacy set — those are the legacy-era constants, exactly as flagged. The modern revision appears
+  only in the `server/discover` response.
+
+## Staged path
+
+0. ✅ **Safety net, no dependency change.** Extend `mcp/smoke.mjs` to assert the tool list per surface via a
    raw stdio JSON-RPC driver, giving an SDK-independent conformance baseline to diff against.
-1. **Factory refactor, still on SDK v1.** Extract `buildServer()`; split plugin load from register; keep
+1. ✅ **Factory refactor, still on SDK v1.** Extract `buildServer()`; split plugin load from register; keep
    `StdioServerTransport`. Nothing changes on the wire. **Most of the work, zero protocol risk.**
-2. **SDK v2 swap, dual-era.** `@modelcontextprotocol/server@2` + `serveStdio`. Test a v1 client and a v2
+2. ✅ **SDK v2 swap, dual-era.** `@modelcontextprotocol/server@2` + `serveStdio`. Test a v1 client and a v2
    client against the same binary, plus all four real clients. This is the conformant release.
-3. **De-deprecate and tune.** Wrap `inputSchema` shapes in `z.object()`; set a real `ttlMs` / `cacheScope`
+3. ⬜ **De-deprecate and tune.** Wrap `inputSchema` shapes in `z.object()`; set a real `ttlMs` / `cacheScope`
    on the static tool list.
-4. **Deferred.** `createMcpHandler` for HTTP — only if multi-vault returns.
+4. ⬜ **Deferred.** `createMcpHandler` for HTTP — only if multi-vault returns.
 
 ## Explicitly deferred: multi-vault
 
@@ -117,8 +141,6 @@ is auth-derived vault binding (the caller's identity determines the vault set, n
 
 ## Open
 
-- Ship stage 2 now or wait? Nothing is broken today — Claude Code probes, fails, falls back. The soft
-  clock is its own `"no fallback in pin mode"` path: a user who pins modern breaks against us.
 - Keep `@modelcontextprotocol/sdk` as a devDependency so `mcp/smoke.mjs` can test **both** eras against
   one binary.
 - Do **not** read a modern version out of `LATEST_PROTOCOL_VERSION` — v2 still exports the legacy-era

@@ -8,13 +8,18 @@
 //
 // The split that matters is load vs register. Plugin MODULES are imported once, at startup, by
 // `loadPlugins()` — so a broken plugin still throws before we serve anything ([[rule-synapse-fail-loudly]]).
-// Plugin REGISTRATION then happens inside `buildServer()`, which must stay synchronous because a
-// per-connection factory cannot await.
+// Plugin REGISTRATION then happens inside `buildServer()`, which we keep synchronous ON PURPOSE.
+//
+// To be accurate: the SDK does NOT require this. `McpServerFactory` is
+// `(ctx) => McpServer | Server | Promise<McpServer | Server>`, so an async factory is legal. We choose
+// sync because the factory runs per connection (and, under a future HTTP handler, per request): keeping
+// it allocation-only means no I/O on that path, and no window in which a half-registered server can be
+// handed to a client. Async setup belongs at module load, where it happens once and can fail loudly.
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 
 import { VAULT, manifest, runSynapse, asToolResult } from "./vault.mjs";
 import { registerSkeletonTools, registerBriefTool } from "./tools/agents.mjs";
@@ -121,9 +126,9 @@ export async function loadPlugins(paths = discoverPluginPaths()) {
 }
 
 /**
- * Build a fully-registered server. Synchronous by contract: the stateless transport calls this per
- * connection and cannot await. A plugin whose register() returns a promise is rejected here rather
- * than silently producing a server with missing tools.
+ * Build a fully-registered server. Synchronous by contract — see the note at the top of this file:
+ * the SDK would permit an async factory, we decline it. A plugin whose register() returns a promise is
+ * rejected here rather than silently producing a server with missing tools.
  */
 export function buildServer({ surface = resolveSurface(), plugins = [] } = {}) {
   const server = new McpServer({ name: "synapse", version }, { instructions: INSTRUCTIONS[surface] });
@@ -149,9 +154,9 @@ export function buildServer({ surface = resolveSurface(), plugins = [] } = {}) {
     const r = p.register(server, ctx);
     if (r && typeof r.then === "function") {
       throw new Error(
-        `MCP plugin ${p.path} has an async register(). Registration must be synchronous — the server `
-        + `factory is invoked per connection and cannot await. Do async setup at module top level, `
-        + `then register synchronously.`,
+        `MCP plugin ${p.path} has an async register(). Registration must be synchronous: the server `
+        + `factory runs per connection, so it stays allocation-only. Do async setup at module top level `
+        + `(it runs once, at load, where a failure is loud), then register synchronously.`,
       );
     }
   }
