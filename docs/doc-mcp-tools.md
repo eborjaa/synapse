@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]", "[[doc-agent-memory]]", "[[doc-cli-reference]]"]
-related: ["[[hub-synapse]]"]
+related: ["[[hub-synapse]]", "[[decision-0010-mcp-2026-07-28-dual-era]]"]
 ---
 
 # MCP tools reference
@@ -69,5 +69,10 @@ tools: call `synapse_recall` on a topic shift, fetch an on-demand note when its 
 A vault may add its own tools by dropping `_meta/mcp-plugins/*.mjs` (auto-discovered) or via
 `SYNAPSE_MCP_PLUGINS`. They register last and can extend any surface.
 
+## Protocol era
+This surface currently speaks the **legacy** MCP protocol (`2025-11-25`) over stdio. Adopting the
+`2026-07-28` stateless standard is planned as a **dual-era** server — never modern-only, because three of
+the four clients we support cannot fall forward. See [[decision-0010-mcp-2026-07-28-dual-era]].
+
 ## Related
-[[hub-synapse]] · [[doc-agent-memory]] · [[doc-cli-reference]] · [[doc-runtime-wiring]]
+[[hub-synapse]] · [[doc-agent-memory]] · [[doc-cli-reference]] · [[doc-runtime-wiring]] · [[decision-0010-mcp-2026-07-28-dual-era]]

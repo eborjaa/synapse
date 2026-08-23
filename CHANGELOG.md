@@ -2,7 +2,59 @@
 
 All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
-## Unreleased
+## 1.0.0 — unreleased (dual-era line)
+
+> **Do not publish until stage 2 lands.** `package.json` reads `1.0.0` to mark this branch as the
+> dual-era line, but the SDK swap is not implemented yet. `0.19.x` remains the legacy line; a consumer
+> pinned to `^0.19.0` is unaffected.
+
+### Changed
+- **The MCP server now speaks BOTH protocol eras from one process.** Swapped
+  `@modelcontextprotocol/sdk` (v1, permanently frozen at `2025-11-25`) for `@modelcontextprotocol/server@2`
+  and `serveStdio(factory, { legacy: 'serve' })`. Claude Code gets the stateless `2026-07-28` path;
+  Cursor, opencode and DeepSeek Harness — all still legacy-only — keep working untouched. The v1 SDK moves
+  to `devDependencies`, where it now serves as the legacy client lane in `mcp/smoke.mjs`, so both eras are
+  tested against one binary.
+
+  **One wire change, and only one:** every tool's `inputSchema` now declares JSON Schema `2020-12` instead
+  of `draft-07`, because the v2 SDK emits the newer dialect. Verified exhaustively — of 120 differing lines
+  across all four surfaces, all 120 are the `$schema` declaration. Tool names, descriptions, properties,
+  required fields, protocol version, capabilities and instructions are byte-identical.
+
+- **`mcp/server.mjs` is now a startup shim over a `buildServer()` factory** (`mcp/build-server.mjs`).
+  Building a server is a call, not a side effect of importing a module, because the stateless transport
+  invokes a factory per connection. Plugin *modules* load once at startup — so a broken plugin still fails
+  the process — while plugin *registration* happens inside the factory, which stays synchronous on purpose:
+  the SDK would permit an async factory, but keeping it allocation-only means no I/O per connection and no
+  window where a half-registered server reaches a client. A plugin with an async `register()` is now
+  rejected with an explanatory error.
+
+### Added
+- **`mcp/conformance.mjs`** (`npm run conformance`) — snapshots the wire surface over raw JSON-RPC with no
+  SDK involved, probing both eras in separate processes (a connection is pinned to one era by its opening
+  message). This is the SDK-independent baseline that proved the refactor and the swap did not move the
+  wire, and it is worth re-running before any change under `mcp/`.
+- 16 tests: 10 pinning the factory contract, 6 pinning the dual-era guarantee end-to-end against a real
+  server process — both eras respond, both expose the same tools, a connection is single-era, and an
+  unsupported revision is refused with the supported list.
+- **`decision-0010-mcp-2026-07-28-dual-era`** — the plan for adopting MCP's new stateless standard. Not yet
+  implemented; this branch tracks it separately from the 0.19.0 legacy line.
+
+  Two findings shape it. Our `@modelcontextprotocol/sdk@^1.30.0` **can never** speak 2026-07-28 — support
+  lives in a repackage (`@modelcontextprotocol/server`/`client`/`core` v2), not a version bump. And three
+  of our four clients are legacy-only (Cursor 3.13.25, opencode 1.18.19, DSH `dsh-mcp-client` 0.0.1-rc.1);
+  only Claude Code 2.1.240 is dual-era. Since the spec's matrix says **legacy client + modern server
+  fails**, a modern-only server would break Cursor, opencode and the whole DSH integration.
+
+  So: adopt it as a **dual-era** server. `serveStdio(buildServer, { legacy: 'serve' })` — the default —
+  serves both eras from one factory with no branching, verified empirically against our exact
+  `registerTool` shape. Most of the spec does not reach us: header routing and `Mcp-Session-Id` are
+  Streamable-HTTP only (stdio carries metadata inline, no header layer), MRTR replaces server-initiated
+  requests and we initiate none, and we use no sampling/elicitation/roots/resources/prompts. The
+  substantial change is one file — `mcp/server.mjs` from module-level singleton to a `buildServer()`
+  factory, with plugin loading split from registration. `lib/mcp-config.mjs` needs no change; the generated
+  client configs stay byte-identical.
+
 
 ## 0.19.0 — 2026-08-22
 
