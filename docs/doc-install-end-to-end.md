@@ -71,8 +71,6 @@ git init && git add -A && git commit -m "vault: initial scaffold"
 
 Keep the vault **private**. It is your knowledge, and once records land the DB is real data.
 
-Keep the vault **private**. It is your knowledge, and the records DB is real data.
-
 ---
 
 ## 2. Wire your editors (MCP)
@@ -119,9 +117,10 @@ synapse agents && synapse hubs      # only if you ran `install --write`
 Each should report a `synapse` server that connects. In Claude Code a project-scoped server needs
 **approval on first use** — if it shows `⏸ Pending approval`, approve it and re-check.
 
-> Two surfaces exist. `full` is everything; **`orchestrator`** adds the delegation tools
-> (`synapse_claim_and_brief`, `synapse_spawn_release`, `synapse_history`, `synapse_recall`). Pick with
-> `SYNAPSE_MCP_SURFACE`, or regenerate one client with
+> **Four surfaces**, each a superset of the last: `skeleton` (3 tools) · `standard` (11, read-only) ·
+> `full` (20, adds authoring — the default) · **`orchestrator`** (26, adds `synapse_claim_and_brief`,
+> `synapse_spawn_*`, `synapse_spawn_release`). It is a permission dial: a tool off the surface is never
+> registered, so it cannot be called. Pick with `SYNAPSE_MCP_SURFACE`, or regenerate one client with
 > `synapse mcp-config --write --client claude --surface orchestrator`.
 
 ---
@@ -174,10 +173,12 @@ spawned child's env, so a bare `node` may not resolve):
   a claim that was never released
 - **the agent skills** — symlinks so `/synapse-oracle` and friends work
 
-> **Your own agents get slash commands too.** The four above are what `@eborja/synapse` ships. If your
-> vault defines others, run `synapse skills --write` (or `synapse install --write`, which includes it) to
-> generate one `/synapse-<agent>` per `agents/agent-*.md`. They land in your vault repo's `.dsh/skills`,
-> which DSH discovers as its highest-ranked root — no symlink required.
+> **Your own agents get slash commands too.** The four above are what `@eborja/synapse` ships. Run
+> `synapse skills --write` (or `synapse install --write`, which includes it) to put one
+> `/synapse-<agent>` in your vault repo's `.dsh/skills` per `agents/agent-*.md` — DSH's highest-ranked
+> root, so no symlink is required. The four shipped skills are copied there **verbatim** (that root
+> outranks the symlinks above, so a generated copy would shadow the tuned one); every other agent gets
+> one built from its frontmatter.
 
 
 It never touches `~/.dsh/settings.yaml` (your providers) or `~/.dsh/.credentials.yaml` (your keys).
@@ -259,6 +260,35 @@ A healthy run leaves the lease count where it started and an episode marked `don
 
 These two databases are **not** `db/synapse.db` and do not need migrations — the orchestrator surface
 creates `durable-spawn.db` and `episodes.db` itself on first use.
+
+---
+
+## Running this on a vault that already has agents
+
+Every command here is **additive or merging** — none replaces content you wrote. Precisely:
+
+| Command | Your agents | Your other files |
+|---|---|---|
+| `synapse init --write` | **never edited.** Fills gaps only — it writes a shipped note only when that path is *missing*. A customised `agent-oracle.md` is left byte-identical. | same rule for rules/, tools/, hubs |
+| `synapse mcp-config --write` | n/a | **merges.** Other MCP servers in `.mcp.json` / `.cursor/mcp.json` / `opencode.json` (github, postgres, figma, a vault plugin…) are kept; only the `synapse` entry is rewritten. opencode's `model` / `provider` survive too. |
+| `synapse skills --write` | **read, never written.** | a `SKILL.md` you hand-authored is reported `kept` and left alone |
+| `synapse install --write` | as above — it runs the two above | appends to `~/.zshrc` / `~/.claude/CLAUDE.md` behind its own marker, replacing only its own previous line |
+
+**Two behaviours worth knowing before you run them:**
+
+- **`init` re-adds a shipped note you deleted.** "Fills gaps" cannot tell *deleted on purpose* from
+  *not yet installed*. If you removed `agent-ingester.md` deliberately, `init --write` brings it back —
+  so simply don't re-run `init` on a vault you have pruned. It is only needed to scaffold, or to pick up
+  notes a new engine version ships.
+- **`skills` respects an agent you customised.** The four skills this package hand-authored are installed
+  verbatim *only while your agent still matches the shipped one*. Edit `agent-oracle.md`'s purpose,
+  profile, `delegates_to`, `uses_tools`, `addressable` or `outputs` and the command notices, warns, and
+  generates `/synapse-oracle` from **your** definition instead — a tuned skill describing a role you no
+  longer have would be worse than a generic one that is accurate. Editing only an agent's prose body
+  changes nothing, because the skill is built from frontmatter and the body reaches the model through
+  `synapse_brief`.
+
+Nothing here writes `db/synapse.db`; records change only through a migration you author and apply.
 
 ---
 
