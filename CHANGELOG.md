@@ -4,6 +4,27 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 1.1.1 — 2026-08-24
+
+### Fixed
+- **`synapse install` now takes `--surface`, and neither command downgrades a vault any more.** Two halves
+  of one trap: `install` silently ignored `--surface` (it never passed one, so every run wrote `full`),
+  and `mcp-config` reset the surface to `full` whenever `--surface` was omitted. So a vault deliberately
+  raised to `orchestrator` was quietly demoted by the very command the upgrade path tells you to run.
+  Both now **keep the surface the vault is already on** unless you pass one — a fresh vault still gets
+  `full` — and both report which they used and why:
+
+  ```
+  surface: orchestrator   (kept from this vault's existing config)
+  ```
+
+  When clients disagree on the surface it says so rather than picking one. A junk value already on disk
+  is ignored, not propagated. `man` §5 now leads with **HOW TO CHANGE IT** and names both commands, §2
+  lists the flag on both, and §0 mentions it at the point of first use — it was previously findable only
+  by reading §5 in full.
+
+Install: `npm install @eborja/synapse@^1.1.1`
+
 ## 1.1.0 — 2026-08-24
 
 ### Added
@@ -1016,8 +1037,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^1.1.0"
-// or: "github:eborjaa/synapse#v1.1.0"
+"@eborja/synapse": "^1.1.1"
+// or: "github:eborjaa/synapse#v1.1.1"
 ```
 
 ```sh

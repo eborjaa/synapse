@@ -273,8 +273,9 @@ scaffolds — it bumps the engine and re-runs the generators.
 
 ```bash
 cd /path/to/your-vault
-npm install @eborja/synapse@^1.1.0     # bump the engine
+npm install @eborja/synapse@^1.1.1     # bump the engine
 npx synapse install --write            # re-wire: MCP configs + shell CLI + harness skills
+                                       # (keeps your MCP surface; --surface orchestrator to change it)
 exec $SHELL                            # only if the shell CLI moved
 npx synapse lint                       # should end: clean (errors=0)
 ```
