@@ -2,11 +2,45 @@
 
 All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Changelog](https://keepachangelog.com/) + [SemVer](https://semver.org/).
 
-## 1.0.0 — unreleased (dual-era line)
+## Unreleased
 
-> **Do not publish until stage 2 lands.** `package.json` reads `1.0.0` to mark this branch as the
-> dual-era line, but the SDK swap is not implemented yet. `0.19.x` remains the legacy line; a consumer
-> pinned to `^0.19.0` is unaffected.
+### Changed
+- **`synapse man` now tells you where to start.** It had no entry point: `synapse install` and
+  `synapse setup` appeared nowhere in it, `mcp-config` only in passing, and the MCP surfaces were a single
+  env-var mention. Adds **§0 START HERE** with the ordered install and an explicit answer to *"which of
+  setup / install / mcp-config do I need?"* — `mcp-config` writes only the MCP client configs and is enough
+  on its own; `install` is a superset that also brings the `agents.sh` shell CLI; `setup` is unrelated and
+  provisions the *semantic* runtime. Also notes that `init` ships **zero migrations**, so a fresh vault has
+  no database and does not need one.
+
+  Adds **§5 MCP SURFACES**, framing a surface as a *permission dial* rather than a feature flag — a tool
+  outside the surface is never registered, so it cannot be called. Tool counts are measured, not assumed
+  (skeleton 3 · standard 11 · full 20 · orchestrator 26), with how to raise it
+  (`mcp-config --write --surface orchestrator`, or `$SYNAPSE_MCP_SURFACE`) and which to pick.
+
+### Added
+- **`doc-install-end-to-end`** — the ordered path from a bare machine to a vault whose agents you can
+  delegate to from the DeepSeek Harness. Six steps, each with the check that catches a silent failure, and
+  it states up front that steps 1–3 are the whole product for anyone not using DSH. Verification reads the
+  SQLite databases rather than the chat transcript, because a model can report a delegation succeeded when
+  it did not. Troubleshooting covers `NO_ADAPTER` after a provider rename, `claim_and_brief` launching
+  nothing, a briefing truncated by `spill-policy`, and a lease stranded by an interrupt.
+
+  Step 2 opens with a table disambiguating the three commands people conflate: `mcp-config` writes only the
+  MCP client configs, `install` is a superset that also brings the shell CLI, and **`setup` is unrelated to
+  both** — it provisions the semantic runtime and never touches an MCP config. `setup` had appeared exactly
+  once, buried in the optional semantic-recall step, which is precisely how it gets mistaken for a wiring
+  command.
+
+  Written against a scratch vault rather than from memory, which corrected three things it had wrong:
+  `init` ships no migrations and no database; `init` itself recommends `mcp-config --write` rather than
+  `install --write`; and the orchestration databases (`durable-spawn.db`, `episodes.db`) are not
+  `db/synapse.db` and self-create on first use.
+
+## 1.0.0 — 2026-08-23 (dual-era line)
+
+> `0.19.x` remains the legacy line. A consumer pinned to `^0.19.0` is unaffected and stays there until
+> they choose to move — the two ranges do not overlap.
 
 ### Changed
 - **The MCP server now speaks BOTH protocol eras from one process.** Swapped
@@ -55,6 +89,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   factory, with plugin loading split from registration. `lib/mcp-config.mjs` needs no change; the generated
   client configs stay byte-identical.
 
+
+Install: `npm install @eborja/synapse@^1.0.0`
 
 ## 0.19.0 — 2026-08-22
 

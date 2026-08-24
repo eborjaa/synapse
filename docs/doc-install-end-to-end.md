@@ -42,20 +42,34 @@ mkdir my-vault && cd my-vault
 npm init -y
 npm install @eborja/synapse
 
-npx synapse init            # dry-run — lists the 37 files it would create
+npx synapse init            # dry-run — lists the 37 notes it would copy in
 npx synapse init --write    # manifest + the four agents + rules + starter hubs
-npx synapse migrate         # create db/synapse.db from migrations/
 ```
 
 `init` only fills in what is missing, so it is safe to re-run after an engine bump to pick up notes a new
-version ships.
+version ships. It prints its own next steps when it finishes — follow those if they ever disagree with
+this guide.
 
 **Check it:**
 
 ```bash
-npx synapse lint            # should end: clean
+npx synapse lint            # should end: clean (errors=0)
 git init && git add -A && git commit -m "vault: initial scaffold"
 ```
+
+> **About the database.** `init` scaffolds *notes* and ships **zero migrations** — Markdown is canonical
+> for knowledge. `db/synapse.db` holds **records** (contacts, accounts, finances, health), and a fresh
+> vault has none yet.
+>
+> ```bash
+> npx synapse migrate     # prints "up to date — nothing to apply", and creates an empty db/synapse.db
+> ```
+>
+> Run it if you want the file to exist now; skip it and nothing breaks. The vault lints clean and every
+> read tool works with no database at all. The DB starts mattering when you author your first migration
+> under `migrations/` — that is the only path that writes records, and it is human-gated by design.
+
+Keep the vault **private**. It is your knowledge, and once records land the DB is real data.
 
 Keep the vault **private**. It is your knowledge, and the records DB is real data.
 
@@ -63,12 +77,31 @@ Keep the vault **private**. It is your knowledge, and the records DB is real dat
 
 ## 2. Wire your editors (MCP)
 
+Three commands get confused with each other. Only the first two belong to this step:
+
+| Command | What it does | Needed? |
+|---|---|---|
+| **`mcp-config --write`** | writes **only** the MCP client configs (`.mcp.json`, `.cursor/mcp.json`, `opencode.json`) | **yes** — this step's minimum |
+| **`install --write`** | a **superset**: the same configs **plus** the `agents.sh` shell CLI (one verb per agent, the `vault-*` helpers, the `--cli` sinks) and editor dirs | either this or the above |
+| **`setup --write`** | **unrelated to both.** Provisions the *semantic* runtime — Ollama plus the embedding model — and builds the recall index. That is [step 3](#3-semantic-recall-optional). | no, optional |
+
+`setup` is the one people reach for by name, and it is the one with nothing to do with wiring — it never
+touches an MCP config.
+
 ```bash
-npx synapse install --write
-exec $SHELL                 # picks up the agents.sh shell CLI
+npx synapse mcp-config --write   # the minimum — just the MCP client configs
 ```
 
-This writes the MCP client configs so the vault appears as tools inside the editors you already use:
+That is what `synapse init` recommends when it finishes, and it is enough for the vault to appear as tools
+in your editors. Or take the superset, which also installs the shell CLI:
+
+```bash
+npx synapse install --write      # MCP configs + agents.sh shell CLI + editor dirs
+exec $SHELL                      # picks up the shell CLI
+```
+
+Either way you get the MCP client configs, so the vault appears as tools inside the editors you already
+use:
 
 | Client | File written |
 |---|---|
@@ -79,8 +112,8 @@ This writes the MCP client configs so the vault appears as tools inside the edit
 **Check it** — from inside the vault:
 
 ```bash
-synapse agents && synapse hubs      # the shell CLI resolves
 claude mcp list                     # or: cursor-agent mcp list · opencode mcp list
+synapse agents && synapse hubs      # only if you ran `install --write`
 ```
 
 Each should report a `synapse` server that connects. In Claude Code a project-scoped server needs
@@ -217,6 +250,9 @@ sqlite3 db/episodes.db "SELECT job,outcome FROM episode ORDER BY started_at DESC
 ```
 
 A healthy run leaves the lease count where it started and an episode marked `done`.
+
+These two databases are **not** `db/synapse.db` and do not need migrations — the orchestrator surface
+creates `durable-spawn.db` and `episodes.db` itself on first use.
 
 ---
 
