@@ -263,6 +263,35 @@ creates `durable-spawn.db` and `episodes.db` itself on first use.
 
 ---
 
+## Running this on a vault that already has agents
+
+Every command here is **additive or merging** — none replaces content you wrote. Precisely:
+
+| Command | Your agents | Your other files |
+|---|---|---|
+| `synapse init --write` | **never edited.** Fills gaps only — it writes a shipped note only when that path is *missing*. A customised `agent-oracle.md` is left byte-identical. | same rule for rules/, tools/, hubs |
+| `synapse mcp-config --write` | n/a | **merges.** Other MCP servers in `.mcp.json` / `.cursor/mcp.json` / `opencode.json` (github, postgres, figma, a vault plugin…) are kept; only the `synapse` entry is rewritten. opencode's `model` / `provider` survive too. |
+| `synapse skills --write` | **read, never written.** | a `SKILL.md` you hand-authored is reported `kept` and left alone |
+| `synapse install --write` | as above — it runs the two above | appends to `~/.zshrc` / `~/.claude/CLAUDE.md` behind its own marker, replacing only its own previous line |
+
+**Two behaviours worth knowing before you run them:**
+
+- **`init` re-adds a shipped note you deleted.** "Fills gaps" cannot tell *deleted on purpose* from
+  *not yet installed*. If you removed `agent-ingester.md` deliberately, `init --write` brings it back —
+  so simply don't re-run `init` on a vault you have pruned. It is only needed to scaffold, or to pick up
+  notes a new engine version ships.
+- **`skills` respects an agent you customised.** The four skills this package hand-authored are installed
+  verbatim *only while your agent still matches the shipped one*. Edit `agent-oracle.md`'s purpose,
+  profile, `delegates_to`, `uses_tools`, `addressable` or `outputs` and the command notices, warns, and
+  generates `/synapse-oracle` from **your** definition instead — a tuned skill describing a role you no
+  longer have would be worse than a generic one that is accurate. Editing only an agent's prose body
+  changes nothing, because the skill is built from frontmatter and the body reaches the model through
+  `synapse_brief`.
+
+Nothing here writes `db/synapse.db`; records change only through a migration you author and apply.
+
+---
+
 ## Troubleshooting
 
 **`dsh --dump-config` is missing the synapse rows.** The install did not apply, or a DSH upgrade changed

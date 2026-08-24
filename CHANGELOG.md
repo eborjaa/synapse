@@ -56,6 +56,22 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
     `agent-QA_Lead`, or an agent with no `purpose`/`title` to route on, now warns at generation instead.
   - Rationale: `_meta/decisions/decision-0011-generated-harness-skills.md`. 17 new tests (242 total).
 
+### Fixed
+- **`mcp-config` / `install` no longer delete other MCP servers.** Regenerating rewrote `.mcp.json` and
+  `.cursor/mcp.json` **wholesale**, so any server a user had configured by hand — github, postgres, figma,
+  a vault plugin — was silently dropped. A vault is a normal repo and those rows are common. Both files are
+  now MERGED: only the `synapse` entry is ours, everything else is carried through and reported
+  (`kept 2 other server(s) — github, postgres`). opencode was already merged and is unchanged. An
+  unparseable existing file is still replaced, but now says so first instead of doing it quietly.
+- **A customised agent no longer gets the shipped skill.** `synapse skills` installs the package's
+  hand-authored `SKILL.md` verbatim only while your agent still MATCHES the shipped one. Edit
+  `agent-oracle.md`'s purpose, profile, `delegates_to`, `uses_tools`, `addressable` or `outputs` and the
+  command warns and generates `/synapse-oracle` from **your** definition — a tuned skill describing a role
+  you no longer have is worse than a generic one that is accurate. Comparison is over the frontmatter the
+  template actually reads, so editing an agent's prose body still yields the shipped skill (the body
+  reaches the model through `synapse_brief`, not through the skill).
+- **A `fat` agent is no longer told to escalate to `fat`.**
+
 ### Changed
 - **`synapse man` now tells you where to start.** It had no entry point: `synapse install` and
   `synapse setup` appeared nowhere in it, `mcp-config` only in passing, and the MCP surfaces were a single

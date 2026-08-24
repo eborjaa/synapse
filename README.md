@@ -244,6 +244,13 @@ synapse skills --write         # → <vault-repo-root>/.dsh/skills/synapse-<agen
 the project root above the user root that `@eborja/dsh-synapse` symlinks into, so a generated
 `synapse-oracle` would shadow the tuned one. Only agents the package ships nothing for use the template.
 
+**…unless you customised that agent.** If your `agent-oracle.md` differs from the shipped one in any
+field the skill reflects (purpose, profile, `delegates_to`, `uses_tools`, `addressable`, `outputs`), the
+command says so and generates `/synapse-oracle` from **your** definition — a tuned skill describing a
+role you no longer have is worse than a generic one that is accurate. Running any of this on a vault you
+already built is safe: see
+[running it on an existing vault](docs/doc-install-end-to-end.md#running-this-on-a-vault-that-already-has-agents).
+
 The default target is your vault repo's own `.dsh/skills`, which DSH discovers as its highest-ranked
 root — no symlink needed. DSH finds that root by walking up for `.git`, falling back to its launch
 directory; if your vault isn't a git repo, `synapse skills` says so and `--out ~/.dsh/skills` writes to
