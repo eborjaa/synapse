@@ -22,6 +22,9 @@ can fail quietly, the check that catches it is included.
 > Steps 1–3 give you a working vault usable from Claude Code, Cursor and opencode — that is the whole
 > product for most people. Steps 4–6 add DSH and the delegation governance. Stop after 3 if you do not
 > use DSH.
+>
+> **Already have a vault?** Skip to [Upgrading a vault you already
+> have](#upgrading-a-vault-you-already-have) — you do not need steps 1–3.
 
 ---
 
@@ -260,6 +263,61 @@ A healthy run leaves the lease count where it started and an episode marked `don
 
 These two databases are **not** `db/synapse.db` and do not need migrations — the orchestrator surface
 creates `durable-spawn.db` and `episodes.db` itself on first use.
+
+---
+
+## Upgrading a vault you already have
+
+You already have a vault on an older engine and want the current one, DSH included. Nothing here
+scaffolds — it bumps the engine and re-runs the generators.
+
+```bash
+cd /path/to/your-vault
+npm install @eborja/synapse@^1.1.0     # bump the engine
+npx synapse install --write            # re-wire: MCP configs + shell CLI + harness skills
+exec $SHELL                            # only if the shell CLI moved
+npx synapse lint                       # should end: clean (errors=0)
+```
+
+**Do NOT re-run `synapse init` to upgrade.** It scaffolds; it does not migrate. It fills gaps only, which
+also means it re-adds a shipped note you deleted on purpose. Run it only on a vault you have not pruned,
+and only to pick up notes a new version ships.
+
+**What each version needs after the bump:**
+
+| Coming from | Also run |
+|---|---|
+| any version | `synapse install --write` — it is idempotent and covers everything below |
+| **< 1.1.0** | `synapse skills --write` — the `/synapse-<agent>` harness skills are new; nothing generates them automatically on `npm install`, so without this they simply will not exist |
+| **< 1.0.0** | nothing extra — 1.x speaks both MCP protocol eras, and every client still negotiates the legacy one |
+
+Then, if you use DSH, re-run the harness wiring — the patch layer records absolute paths, so it must be
+refreshed when the engine moves:
+
+```bash
+cd /path/to/your-vault
+npx @eborja/dsh-synapse install          # dry-run — read the plan
+npx @eborja/dsh-synapse install --write
+```
+
+> **Check the vault it names.** The banner prints which vault it resolved and where that came from:
+> `vault : /path/to/your-vault (from the directory you are in)`. It prefers the directory you are
+> standing in over `$SYNAPSE_VAULT`, and warns when they disagree — worth reading on a machine with more
+> than one vault, because this writes into `~/.dsh` globally. Requires `@eborja/dsh-synapse` **0.1.1 or
+> newer**; 0.1.0 let `$SYNAPSE_VAULT` win and could wire the wrong vault silently.
+
+**Verify the upgrade landed:**
+
+```bash
+npx synapse --version     # the engine actually resolving here — expect the version you installed
+ls .dsh/skills            # one directory per agent → /synapse-<agent> in DSH
+npx synapse mcp-config    # dry-run; expect "All current — nothing to do."
+npx synapse lint          # expect "clean (errors=0…)"
+dsh --profile web --dump-config | grep -E "^- id: (mcp-synapse|hooks-synapse|spill-policy)"
+```
+
+`npx synapse --version` is the one that matters: it reports the engine resolving *in this vault*, which
+is what you just bumped — not a globally installed copy.
 
 ---
 

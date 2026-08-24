@@ -47,10 +47,19 @@ const CMDS = {
 
 const [cmd, ...rest] = process.argv.slice(2);
 
+// `synapse --version` — the first thing anyone reaches for after an upgrade to check it landed.
+if (cmd === "--version" || cmd === "-v" || cmd === "version") {
+  const { createRequire } = await import("node:module");
+  console.log(createRequire(import.meta.url)("../package.json").version);
+  process.exit(0);
+}
+
 if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
   console.log(`synapse — context-vault engine (@eborja/synapse)
 
 usage: synapse <command> [args…]
+
+  --version              the engine version currently installed here
 
 commands:
   render <id> …          render a role-based briefing (see: synapse render --help)
