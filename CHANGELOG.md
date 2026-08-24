@@ -26,6 +26,12 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   it did not. Troubleshooting covers `NO_ADAPTER` after a provider rename, `claim_and_brief` launching
   nothing, a briefing truncated by `spill-policy`, and a lease stranded by an interrupt.
 
+  Step 2 opens with a table disambiguating the three commands people conflate: `mcp-config` writes only the
+  MCP client configs, `install` is a superset that also brings the shell CLI, and **`setup` is unrelated to
+  both** — it provisions the semantic runtime and never touches an MCP config. `setup` had appeared exactly
+  once, buried in the optional semantic-recall step, which is precisely how it gets mistaken for a wiring
+  command.
+
   Written against a scratch vault rather than from memory, which corrected three things it had wrong:
   `init` ships no migrations and no database; `init` itself recommends `mcp-config --write` rather than
   `install --write`; and the orchestration databases (`durable-spawn.db`, `episodes.db`) are not

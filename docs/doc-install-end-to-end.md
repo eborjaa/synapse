@@ -77,15 +77,23 @@ Keep the vault **private**. It is your knowledge, and the records DB is real dat
 
 ## 2. Wire your editors (MCP)
 
-Two commands overlap here; pick by how much you want.
+Three commands get confused with each other. Only the first two belong to this step:
+
+| Command | What it does | Needed? |
+|---|---|---|
+| **`mcp-config --write`** | writes **only** the MCP client configs (`.mcp.json`, `.cursor/mcp.json`, `opencode.json`) | **yes** — this step's minimum |
+| **`install --write`** | a **superset**: the same configs **plus** the `agents.sh` shell CLI (one verb per agent, the `vault-*` helpers, the `--cli` sinks) and editor dirs | either this or the above |
+| **`setup --write`** | **unrelated to both.** Provisions the *semantic* runtime — Ollama plus the embedding model — and builds the recall index. That is [step 3](#3-semantic-recall-optional). | no, optional |
+
+`setup` is the one people reach for by name, and it is the one with nothing to do with wiring — it never
+touches an MCP config.
 
 ```bash
 npx synapse mcp-config --write   # the minimum — just the MCP client configs
 ```
 
 That is what `synapse init` recommends when it finishes, and it is enough for the vault to appear as tools
-in your editors. The fuller option also installs the shell CLI (the `curator` / `oracle` / `vault-*`
-launchers and `--cli` sinks):
+in your editors. Or take the superset, which also installs the shell CLI:
 
 ```bash
 npx synapse install --write      # MCP configs + agents.sh shell CLI + editor dirs
