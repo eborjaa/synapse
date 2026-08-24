@@ -71,6 +71,22 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   template actually reads, so editing an agent's prose body still yields the shipped skill (the body
   reaches the model through `synapse_brief`, not through the skill).
 - **A `fat` agent is no longer told to escalate to `fat`.**
+- **`synapse --version`.** There was no way to ask which engine a vault actually resolves — the first
+  thing anyone checks after an upgrade. `--version` / `-v` / `version` print it.
+- **A `mcp-config` dry-run now says whether anything would change.** It ended with "Re-run with --write
+  to apply" unconditionally, even when every file was already current, so a dry run could not be used to
+  verify a vault was wired. It now reports `N file(s) would change` or `All current — nothing to do.`
+- **Documented the upgrade path, which did not exist.** Every guide assumed a new machine and a new
+  vault. Someone bumping an existing vault to 1.1.0 was told nowhere that `/synapse-<agent>` needs
+  `synapse skills --write` — `npm install` alone leaves the skills absent and nothing says so. The install
+  guide gains an **Upgrading a vault you already have** section (with a from-which-version table),
+  linked from the README and summarised in `synapse man`.
+- **Companion fix in `@eborja/dsh-synapse` 0.1.1** (separate repo): it resolved the vault as
+  `$SYNAPSE_VAULT || cwd`, and `synapse install --write` *exports* `$SYNAPSE_VAULT` — so on any machine
+  that already had a vault, the documented `cd my-vault && npx @eborja/dsh-synapse install --write`
+  silently wired a **different** vault into `~/.dsh`. Order is now `--vault` → cwd → `$SYNAPSE_VAULT`,
+  matching this package's own `resolveVault({preferCwd:true})`, and it warns when they disagree. Upgrade
+  to 0.1.1 before re-running it.
 
 ### Changed
 - **`synapse man` now tells you where to start.** It had no entry point: `synapse install` and

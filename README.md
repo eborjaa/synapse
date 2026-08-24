@@ -60,6 +60,10 @@ synapse agents              # ← list agents (or: vault-agents)
 synapse hubs                # ← list hub targets (or: vault-hubs)
 ```
 
+**Already have a vault on an older engine?** See [upgrading a vault you already
+have](docs/doc-install-end-to-end.md#upgrading-a-vault-you-already-have) — coming from < 1.1.0 you also
+need `synapse skills --write` for the `/synapse-<agent>` harness skills.
+
 **Already have a vault?** Skip `init`:
 
 ```bash
