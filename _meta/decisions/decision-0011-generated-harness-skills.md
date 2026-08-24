@@ -60,8 +60,14 @@ compiles rules, tools and typed closure from the same frontmatter — remains th
 actual context. Skill bodies have no size cap, so a `SKILL.md` that grows toward briefing size
 re-creates the context problem the whole engine exists to solve.
 
-**Hand-authored skills win.** A `SKILL.md` lacking the generated marker is never overwritten without
-`--force`. The four shipped skills were tuned against failure modes observed driving a local 30B
+**Hand-authored skills win, twice over.** A `SKILL.md` lacking the generated marker is never overwritten
+without `--force`. And where **this package** ships a hand-authored skill for an agent, that copy is
+installed verbatim rather than generated. The second rule is load-bearing: `skill-filesystem` ranks the
+project root (`<repo>/.dsh/skills`, rank 100) **above** the user root (`~/.dsh/skills`, rank 400) that
+`@eborja/dsh-synapse` symlinks the shipped skills into, and a duplicate name resolves to the better rank.
+Generating over `synapse-oracle` would therefore have shadowed the tuned skill with a generic one on
+every machine using the recommended DSH install — a regression caught by running the cold install rather
+than by reading the code. The four shipped skills were tuned against failure modes observed driving a local 30B
 through the harness — claim conflated with spawn, polling `synapse_spawn_status` for a doer nobody
 launched, `refused: "held"` treated as fatal — and a regeneration must not silently flatten that.
 

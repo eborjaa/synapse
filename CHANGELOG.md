@@ -40,6 +40,11 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
     whether the role gets verify+record steps and "propose, do not push" or a flat **"never mutate"** — a
     read-only agent is never handed a step that invites a write; `addressable: true` adds the
     publish-in-thread duty; `outputs` adds "what you produce".
+  - **A skill the package hand-authored is installed verbatim, never generated over.** DSH ranks the
+    project root (`<repo>/.dsh/skills`, 100) **above** the user root (`~/.dsh/skills`, 400) that
+    `@eborja/dsh-synapse` symlinks the shipped skills into — so generating over `synapse-oracle` and
+    friends would have *shadowed* the tuned versions with generic ones. Those four are copied through
+    as-is (reported as `shipped`); the template is the floor for agents the package ships nothing for.
   - **Hand-authored skills are never overwritten** without `--force`. The marker is an HTML comment on the
     first body line, deliberately **not** a frontmatter key: DSH drops a whole skill on a malformed
     frontmatter value, so nothing is added to a block whose parser we do not control. The four shipped

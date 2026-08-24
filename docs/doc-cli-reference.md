@@ -129,6 +129,7 @@ frontmatter only:
 
 | Emitted | Condition |
 |---|---|
+| the package's own hand-authored skill, verbatim | `.dsh/skills/<name>/SKILL.md` ships for that agent |
 | catalog `description` | `purpose` (capped) + a trigger sentence from `tags: area/*` |
 | `## Delegating` — the claim → `subagent` → release spine | `delegates_to` is non-empty |
 | verify + record steps, "propose, do not push" | `uses_tools` has `tool-lint` or `tool-git` |
@@ -140,8 +141,13 @@ An agent whose id cannot make a valid DSH skill name (`^[a-z0-9]+(?:-[a-z0-9]+)*
 `purpose`/`title` to route on, is **skipped with a warning** rather than silently renamed — DSH would drop
 it at load anyway, and a warning here is visible.
 
-**Hand-authored wins.** A `SKILL.md` without the generated marker (an HTML comment on the first body line)
-is reported as `kept` and left alone. `--force` overwrites it and discards those edits.
+**Hand-authored wins, twice over.** A `SKILL.md` without the generated marker (an HTML comment on the
+first body line) is reported as `kept` and left alone; `--force` overwrites it and discards those edits.
+And where **this package** ships a hand-authored skill for an agent — `oracle`, `curator`, `ingester`,
+`reconciler` — that copy is installed **verbatim** (reported as `shipped`) rather than generated. That is
+load-bearing, not cosmetic: DSH ranks the project root (100) above the user root (400) that
+`@eborja/dsh-synapse` symlinks the shipped skills into, so generating over a shipped name would shadow
+the tuned version with a generic one. The template is the floor for agents the package ships nothing for.
 
 ### `synapse mcp-config` — wiring a vault for MCP
 

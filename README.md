@@ -53,8 +53,8 @@ mkdir my-vault && cd my-vault && npm init -y
 npm install @eborja/synapse
 npx synapse init            # dry-run — shows the 37 files it would create
 npx synapse init --write    # scaffold the vault
-npx synapse install --write # wire agents.sh + editor dirs + MCP client configs
-npx synapse migrate         # create db/synapse.db from migrations/
+npx synapse install --write # agents.sh + editor dirs + MCP configs + /synapse-<agent> skills
+npx synapse migrate         # optional — a fresh vault ships no migrations; creates an empty db
 exec $SHELL
 synapse agents              # ← list agents (or: vault-agents)
 synapse hubs                # ← list hub targets (or: vault-hubs)
@@ -66,7 +66,7 @@ synapse hubs                # ← list hub targets (or: vault-hubs)
 cd /path/to/your-vault
 npm install @eborja/synapse   # or: npm install ../path/to/synapse-framework
 npx synapse install           # dry-run
-npx synapse install --write   # wire agents.sh + editor dirs + MCP client configs
+npx synapse install --write   # agents.sh + editor dirs + MCP configs + /synapse-<agent> skills
 exec $SHELL
 ```
 
@@ -190,11 +190,13 @@ The launchers above are one way in. The other — and the one most people will a
 | Cursor | `.cursor/mcp.json` |
 | opencode | `opencode.json` |
 
-Regenerate any of them alone with `synapse mcp-config --write [--client claude\|cursor\|opencode] [--surface full\|orchestrator]`.
+Regenerate any of them alone with `synapse mcp-config --write [--client claude\|cursor\|opencode] [--surface skeleton\|standard\|full\|orchestrator]`.
 
-**Two surfaces.** `full` is everything; **`orchestrator`** adds the delegation tools
-(`synapse_claim_and_brief`, `synapse_spawn_release`, `synapse_history`, `synapse_recall`) for agents that
-hand work to other agents. Pick with `SYNAPSE_MCP_SURFACE`.
+**Four surfaces**, each a superset of the last — a permission dial, not a feature flag:
+`skeleton` (3 tools) · `standard` (11, read-only) · `full` (20, adds authoring) · **`orchestrator`**
+(26, adds the delegation tools `synapse_claim_and_brief`, `synapse_spawn_*`, `synapse_spawn_release`)
+for agents that hand work to other agents. Pick with `--surface` or `SYNAPSE_MCP_SURFACE`; the default
+is `full`.
 
 ### DeepSeek Harness
 
@@ -237,6 +239,10 @@ synapse skills --write         # → <vault-repo-root>/.dsh/skills/synapse-<agen
 
 `synapse install --write` already does this as its 5th step. A vault whose agents are `spec-author` and
 `qa-lead` gets `/synapse-spec-author` and `/synapse-qa-lead`; it does not get someone else's roster.
+
+**The four skills this package hand-authored are installed verbatim, never generated over** — DSH ranks
+the project root above the user root that `@eborja/dsh-synapse` symlinks into, so a generated
+`synapse-oracle` would shadow the tuned one. Only agents the package ships nothing for use the template.
 
 The default target is your vault repo's own `.dsh/skills`, which DSH discovers as its highest-ranked
 root — no symlink needed. DSH finds that root by walking up for `.git`, falling back to its launch
