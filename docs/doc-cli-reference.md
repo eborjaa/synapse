@@ -43,8 +43,9 @@ the `vault-*` names are maintained equals. Agent launchers stay top-level. Engin
 - **hub targets** — after any agent (`curator hub-<Tab>` → `hub-finances`, …)
 - **profiles / flags / --model** — as before (`--profile`, `--cli`, `--model` per runtime)
 
-Completion re-resolves the vault on every Tab via `$PWD` walk + `$SYNAPSE_VAULT`, so it works
-from any directory (install bakes `SYNAPSE_VAULT` into your shell rc).
+Completion re-resolves the vault on every Tab via the `$PWD` walk, falling back to `$SYNAPSE_VAULT`
+and then to the non-exported `$SYNAPSE_VAULT_FALLBACK` that `install --write` writes into your rc — so
+it works from any directory, including outside every vault.
 
 **Status banners:** agent launches print emoji-tagged stderr steps so you can see what's happening at a
 glance — e.g. `⏳ building briefing…` then `🚀 🧭 curator + hub-finances (📦 standard, ~12k tok 🔍 +semantic, auto) → 🖥️ cursor`.
@@ -212,7 +213,8 @@ synapse new note my-rule --type rule --used-by curator,oracle --write
 fenced code too, and a sample link would register as an unresolved one.)
 
 Writes resolve the vault from the **current directory first**, so a stale exported `SYNAPSE_VAULT`
-cannot silently create the note in another vault; the destination is echoed on every run.
+cannot silently create the note in another vault; the destination is echoed on every run. `install
+--write` never exports `SYNAPSE_VAULT` at all — see the env table below.
 
 Over MCP the same core is exposed as `synapse_create_{hub,agent,note,handover}` on the **full**
 surface, which **propose by default** and write only when called with `write: true`.
@@ -232,7 +234,8 @@ Engine subcommands resolve via the `synapse` CLI (`bin/synapse.mjs` in this repo
 | `SYNAPSE_CURSOR_BEDROCK` | `off` | Bedrock tenant IDs opt-in |
 | `SYNAPSE_EMBED_MODEL` | `mxbai-embed-large` | embedding model |
 | `SYNAPSE_MIN_SIM` | `0.45` | semantic similarity floor |
-| `SYNAPSE_VAULT` | _(cwd walk)_ | explicit vault root override |
+| `SYNAPSE_VAULT` | _(cwd walk)_ | explicit vault root override — **you** set it; `install` never does |
+| `SYNAPSE_VAULT_FALLBACK` | _(unset)_ | written to your shell rc by `install --write`, **not exported**. Last-resort vault for shells whose `$PWD` is inside none. `$PWD` and an explicit `$SYNAPSE_VAULT` both outrank it |
 | `VAULT_USER` | _(git email)_ | canary name |
 
 Full sink table and TUI notes: [[doc-runtime-wiring]].

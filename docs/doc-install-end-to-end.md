@@ -1,7 +1,7 @@
 ---
 id: doc-install-end-to-end
 type: doc
-title: "Install end to end — a new machine to a working vault with agents in DSH"
+title: "Install — new vault, or upgrade an existing one"
 tags:
   - type/doc
   - area/runtime
@@ -10,23 +10,80 @@ references_docs: ["[[doc-runtime-wiring]]", "[[doc-mcp-tools]]", "[[doc-cli-refe
 related: ["[[hub-synapse]]"]
 ---
 
-# Install end to end — a new machine to a working vault with agents in DSH
+# Install Synapse
 
-The README's Quick start gets you a **vault**. This guide goes further: a machine with nothing on it to a
-vault whose agents you can delegate to from the **DeepSeek Harness**, with the lease governance enforced.
+Two paths. Run **one**. Every command here was run on a real machine — where a step can fail quietly,
+the check that catches it is included.
 
-Six steps, ~15 minutes, most of it downloads. Every command here was run on a real machine — where a step
-can fail quietly, the check that catches it is included.
+<a id="pick-a-path"></a>
 
-> **Which parts do you actually need?**
-> Steps 1–3 give you a working vault usable from Claude Code, Cursor and opencode — that is the whole
-> product for most people. Steps 4–6 add DSH and the delegation governance. Stop after 3 if you do not
-> use DSH.
->
-> **Already have a vault?** Skip to [Upgrading a vault you already
-> have](#upgrading-a-vault-you-already-have) — you do not need steps 1–3.
+| You | Commands | Details |
+|---|---|---|
+| **New vault** — this machine has never had one | [Quick start A](#new-vault-quick-start) | [Path A](#path-a--new-vault) (~15 min, most of it downloads) |
+| **Already have a vault** — older engine, bump it | [Quick start B](#upgrade-quick-start) | [Path B](#path-b--upgrade-an-existing-vault) (~2 min) |
+
+Steps 1–3 of Path A give you a working vault in Claude Code, Cursor and opencode. Steps 4–6 add the
+DeepSeek Harness and the delegation governance. Stop after 3 if you do not use DSH.
 
 ---
+
+<a id="new-vault-quick-start"></a>
+
+## New vault — quick start
+
+```bash
+mkdir my-vault && cd my-vault && npm init -y
+npm install @eborja/synapse
+npx synapse init --write
+npx synapse install --write
+exec $SHELL
+npx synapse lint            # should end: clean (errors=0)
+```
+
+That is the whole product for most people. Optional next: [semantic recall](#3-semantic-recall-optional),
+then [DSH](#4-install-the-deepseek-harness). Full walkthrough with checks: [Path A](#path-a--new-vault).
+
+---
+
+<a id="upgrade-quick-start"></a>
+<a id="upgrading-a-vault-you-already-have"></a>
+
+## Already have a vault — quick start
+
+Nothing here scaffolds. It bumps the engine and re-runs the generators. **Do not run `synapse init`.**
+
+```bash
+cd /path/to/your-vault
+npm install @eborja/synapse@^1.1.1
+npx synapse install --write     # MCP configs + shell CLI + harness skills; keeps your MCP surface
+exec $SHELL                     # only if the shell CLI moved
+npx synapse lint                # should end: clean (errors=0)
+npx synapse --version           # expect 1.1.1
+```
+
+Want the `orchestrator` MCP surface (delegation tools)? Pass it once — omit `--surface` after that and
+both `install` and `mcp-config` **keep** whatever the vault is already on:
+
+```bash
+npx synapse install --write --surface orchestrator
+```
+
+If you use DSH, also refresh the harness wiring (absolute paths; needs `@eborja/dsh-synapse` **0.1.1+**):
+
+```bash
+npx @eborja/dsh-synapse install --write
+```
+
+Checks, version table, and what is safe to re-run: [Path B](#path-b--upgrade-an-existing-vault).
+
+---
+
+<a id="path-a--new-vault"></a>
+<a id="new-vault"></a>
+
+# Path A — New vault
+
+A machine with nothing on it, to a vault whose agents you can delegate to from the DeepSeek Harness.
 
 ## 0. Prerequisites
 
@@ -123,8 +180,15 @@ Each should report a `synapse` server that connects. In Claude Code a project-sc
 > **Four surfaces**, each a superset of the last: `skeleton` (3 tools) · `standard` (11, read-only) ·
 > `full` (20, adds authoring — the default) · **`orchestrator`** (26, adds `synapse_claim_and_brief`,
 > `synapse_spawn_*`, `synapse_spawn_release`). It is a permission dial: a tool off the surface is never
-> registered, so it cannot be called. Pick with `SYNAPSE_MCP_SURFACE`, or regenerate one client with
-> `synapse mcp-config --write --client claude --surface orchestrator`.
+> registered, so it cannot be called.
+>
+> ```bash
+> npx synapse mcp-config --write --surface orchestrator    # the configs alone
+> npx synapse install    --write --surface orchestrator    # or as part of a full re-wire
+> ```
+>
+> Omit `--surface` and both commands **keep** the surface this vault is already on (a fresh vault gets
+> `full`). They print which they used: `surface: orchestrator (kept from this vault's existing config)`.
 
 ---
 
@@ -183,7 +247,6 @@ spawned child's env, so a bare `node` may not resolve):
 > outranks the symlinks above, so a generated copy would shadow the tuned one); every other agent gets
 > one built from its frontmatter.
 
-
 It never touches `~/.dsh/settings.yaml` (your providers) or `~/.dsh/.credentials.yaml` (your keys).
 
 **Point DSH at a model.** Edit `~/.dsh/settings.yaml` — this part is yours, and the package deliberately
@@ -235,7 +298,7 @@ dsh web --no-open        # then open http://127.0.0.1:3080
 The MCP child announces itself on stderr — this proves the server started:
 
 ```
-[synapse-mcp] ready · v1.1.0 · surface=orchestrator · vault=/path/to/my-vault
+[synapse-mcp] ready · v1.1.1 · surface=orchestrator · vault=/path/to/my-vault
 ```
 
 **A tool call**, scriptable:
@@ -266,18 +329,23 @@ creates `durable-spawn.db` and `episodes.db` itself on first use.
 
 ---
 
-## Upgrading a vault you already have
+<a id="path-b--upgrade-an-existing-vault"></a>
+<a id="upgrade-an-existing-vault"></a>
+<a id="upgrade"></a>
 
-You already have a vault on an older engine and want the current one, DSH included. Nothing here
-scaffolds — it bumps the engine and re-runs the generators.
+# Path B — Upgrade an existing vault
+
+You already have a vault on an older engine. Nothing here scaffolds.
+
+## Commands
 
 ```bash
 cd /path/to/your-vault
-npm install @eborja/synapse@^1.1.1     # bump the engine
-npx synapse install --write            # re-wire: MCP configs + shell CLI + harness skills
-                                       # (keeps your MCP surface; --surface orchestrator to change it)
-exec $SHELL                            # only if the shell CLI moved
-npx synapse lint                       # should end: clean (errors=0)
+npm install @eborja/synapse@^1.1.1
+npx synapse install --write     # re-wire: MCP configs + shell CLI + harness skills
+                                # (keeps your MCP surface; --surface orchestrator to change it)
+exec $SHELL                     # only if the shell CLI moved
+npx synapse lint                # should end: clean (errors=0)
 ```
 
 **Do NOT re-run `synapse init` to upgrade.** It scaffolds; it does not migrate. It fills gaps only, which
@@ -289,7 +357,7 @@ and only to pick up notes a new version ships.
 | Coming from | Also run |
 |---|---|
 | any version | `synapse install --write` — it is idempotent and covers everything below |
-| **< 1.1.0** | `synapse skills --write` — the `/synapse-<agent>` harness skills are new; nothing generates them automatically on `npm install`, so without this they simply will not exist |
+| **< 1.1.0** | `synapse skills --write` — only if you skipped `install --write`. The `/synapse-<agent>` harness skills are new; `npm install` alone does not generate them |
 | **< 1.0.0** | nothing extra — 1.x speaks both MCP protocol eras, and every client still negotiates the legacy one |
 
 Then, if you use DSH, re-run the harness wiring — the patch layer records absolute paths, so it must be
@@ -307,7 +375,7 @@ npx @eborja/dsh-synapse install --write
 > than one vault, because this writes into `~/.dsh` globally. Requires `@eborja/dsh-synapse` **0.1.1 or
 > newer**; 0.1.0 let `$SYNAPSE_VAULT` win and could wire the wrong vault silently.
 
-**Verify the upgrade landed:**
+## Verify the upgrade landed
 
 ```bash
 npx synapse --version     # the engine actually resolving here — expect the version you installed
@@ -320,9 +388,9 @@ dsh --profile web --dump-config | grep -E "^- id: (mcp-synapse|hooks-synapse|spi
 `npx synapse --version` is the one that matters: it reports the engine resolving *in this vault*, which
 is what you just bumped — not a globally installed copy.
 
----
+<a id="running-this-on-a-vault-that-already-has-agents"></a>
 
-## Running this on a vault that already has agents
+## What is safe to re-run
 
 Every command here is **additive or merging** — none replaces content you wrote. Precisely:
 
@@ -331,9 +399,9 @@ Every command here is **additive or merging** — none replaces content you wrot
 | `synapse init --write` | **never edited.** Fills gaps only — it writes a shipped note only when that path is *missing*. A customised `agent-oracle.md` is left byte-identical. | same rule for rules/, tools/, hubs |
 | `synapse mcp-config --write` | n/a | **merges.** Other MCP servers in `.mcp.json` / `.cursor/mcp.json` / `opencode.json` (github, postgres, figma, a vault plugin…) are kept; only the `synapse` entry is rewritten. opencode's `model` / `provider` survive too. |
 | `synapse skills --write` | **read, never written.** | a `SKILL.md` you hand-authored is reported `kept` and left alone |
-| `synapse install --write` | as above — it runs the two above | appends to `~/.zshrc` / `~/.claude/CLAUDE.md` behind its own marker, replacing only its own previous line |
+| `synapse install --write` | as above — it runs the two above | appends to `~/.zshrc` / `~/.claude/CLAUDE.md` behind its own marker, rewriting only a line **it** wrote. A marked line you edited by hand is kept (see below) |
 
-**Two behaviours worth knowing before you run them:**
+**Three behaviours worth knowing before you run them:**
 
 - **`init` re-adds a shipped note you deleted.** "Fills gaps" cannot tell *deleted on purpose* from
   *not yet installed*. If you removed `agent-ingester.md` deliberately, `init --write` brings it back —
@@ -347,11 +415,34 @@ Every command here is **additive or merging** — none replaces content you wrot
   changes nothing, because the skill is built from frontmatter and the body reaches the model through
   `synapse_brief`.
 
+- **`install` never exports `SYNAPSE_VAULT`, and never overwrites your edit of its rc line.** The rc
+  line it writes is:
+
+  ```bash
+  SYNAPSE_VAULT_FALLBACK="/path/to/vault"; source "/path/.../agents.sh"  # @eborja/synapse vault agent commands
+  ```
+
+  `SYNAPSE_VAULT_FALLBACK` is **not exported** and is consulted **last** — after the `$PWD` ancestor walk
+  and after a `$SYNAPSE_VAULT` you exported yourself. So it answers only in a shell standing inside no
+  vault, no child process inherits it, and **installing from vault B cannot redirect work in vault A.**
+  (Up to 1.1.x this line read `export SYNAPSE_VAULT="…"`, which pinned every shell on the machine to
+  whichever vault was installed from last. The next `--write` removes that export and says so.)
+
+  The **contract on that line**: install rewrites it only when it matches a shape install itself
+  generated — that is how the `agents.sh` path stays current across upgrades. If you have edited it, it
+  is treated as yours: install leaves it untouched, prints the line it *would* have written, and tells
+  you to merge it or re-run with `--force-rc`. If your rc sources **two different** `agents.sh` files,
+  install collapses its own duplicates and warns about any it did not write (the last `source` wins;
+  the earlier one is dead weight).
+
+  **After the migration**, shells you already have open still carry the old exported value. Run
+  `unset SYNAPSE_VAULT` in each, or just open a new terminal.
+
 Nothing here writes `db/synapse.db`; records change only through a migration you author and apply.
 
 ---
 
-## Troubleshooting
+# Troubleshooting
 
 **`dsh --dump-config` is missing the synapse rows.** The install did not apply, or a DSH upgrade changed
 the patch schema. Re-run `npx @eborja/dsh-synapse install` (dry-run) and read what it plans to write.
