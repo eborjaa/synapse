@@ -10,7 +10,8 @@
 //   synapse views                      regenerate SQL → Markdown derived views
 //   synapse migrate [--status]         apply pending SQL migrations
 //   synapse setup [--write]            probe/provision Ollama + embedding model
-//   synapse install [--write]          wire the agents.sh CLI + editor dirs
+//   synapse install [--write]          wire the agents.sh CLI + editor dirs + harness skills
+//   synapse skills [--write]           one SKILL.md per vault agent (/synapse-<agent> in the harness)
 //   synapse journal "slug"             scaffold today's journal entry
 //   synapse --help
 //
@@ -37,6 +38,7 @@ const CMDS = {
   journal: "journal-new.mjs",
   new: "new-note.mjs",
   "mcp-config": "mcp-config.mjs",
+  skills: "skills.mjs", // one harness SKILL.md per agent THIS vault defines (/synapse-<agent>)
   init: "init.mjs",
   "spawn-emit": "spawn-emit.mjs", // doer side of durable-spawn (append a status line)
   "handover-task": "note-as-task.mjs", // resolve a note (a handover) into a task string
@@ -61,7 +63,8 @@ commands:
   views                  regenerate SQL → Markdown derived views (contacts / accounts / summaries)
   migrate [--status]     apply pending migrations/NNNN-*.sql (the only DB writer)
   setup [--write]        probe/provision the semantic runtime (Ollama + embedding model)
-  install [--write]      wire the agents.sh CLI + editor dirs (dry-run without --write)
+  install [--write]      wire the agents.sh CLI + editor dirs + harness skills (dry-run
+                         without --write)
   journal "slug"         scaffold journal/<date>-<slug>.md for a work-session log
   man                    the FULL manual — launcher grammar, subcommands, memory tools, env
   new <kind> <name>      scaffold a wired note: hub | agent | note | handover
@@ -69,6 +72,8 @@ commands:
   init [dir] [--write]   scaffold a new vault from the notes this package ships
   mcp-config [--write]   generate .mcp.json / .cursor/mcp.json for THIS vault
                          (points at the vault's own synapse-mcp bin; plugins auto-discovered)
+  skills [--write]       generate one harness SKILL.md per agent THIS vault defines, so
+                         /synapse-<agent> works for your own roster (see: synapse skills --help)
 
 Shell-only subcommands (agents · hubs · profiles · models · bedrock · reload · gate)
 and the agent launchers (curator · oracle · reconciler · ingester) live in the sourced

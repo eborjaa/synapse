@@ -82,7 +82,7 @@ Three commands get confused with each other. Only the first two belong to this s
 | Command | What it does | Needed? |
 |---|---|---|
 | **`mcp-config --write`** | writes **only** the MCP client configs (`.mcp.json`, `.cursor/mcp.json`, `opencode.json`) | **yes** — this step's minimum |
-| **`install --write`** | a **superset**: the same configs **plus** the `agents.sh` shell CLI (one verb per agent, the `vault-*` helpers, the `--cli` sinks) and editor dirs | either this or the above |
+| **`install --write`** | a **superset**: the same configs **plus** the `agents.sh` shell CLI (one verb per agent, the `vault-*` helpers, the `--cli` sinks), editor dirs, and one `/synapse-<agent>` harness skill per agent your vault defines | either this or the above |
 | **`setup --write`** | **unrelated to both.** Provisions the *semantic* runtime — Ollama plus the embedding model — and builds the recall index. That is [step 3](#3-semantic-recall-optional). | no, optional |
 
 `setup` is the one people reach for by name, and it is the one with nothing to do with wiring — it never
@@ -96,7 +96,7 @@ That is what `synapse init` recommends when it finishes, and it is enough for th
 in your editors. Or take the superset, which also installs the shell CLI:
 
 ```bash
-npx synapse install --write      # MCP configs + agents.sh shell CLI + editor dirs
+npx synapse install --write      # MCP configs + agents.sh shell CLI + editor dirs + harness skills
 exec $SHELL                      # picks up the shell CLI
 ```
 
@@ -173,6 +173,12 @@ spawned child's env, so a bare `node` may not resolve):
 - **the lease hooks** — `claim-guard` refuses to delegate vault work without a claim; `lease-guard` catches
   a claim that was never released
 - **the agent skills** — symlinks so `/synapse-oracle` and friends work
+
+> **Your own agents get slash commands too.** The four above are what `@eborja/synapse` ships. If your
+> vault defines others, run `synapse skills --write` (or `synapse install --write`, which includes it) to
+> generate one `/synapse-<agent>` per `agents/agent-*.md`. They land in your vault repo's `.dsh/skills`,
+> which DSH discovers as its highest-ranked root — no symlink required.
+
 
 It never touches `~/.dsh/settings.yaml` (your providers) or `~/.dsh/.credentials.yaml` (your keys).
 
