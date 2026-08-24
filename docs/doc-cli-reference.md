@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[hub-synapse]]"]
+related: ["[[hub-synapse]]", "[[decision-0011-generated-harness-skills]]"]
 ---
 
 # CLI & command reference
@@ -114,8 +114,7 @@ synapse skills --write --force            # also overwrite hand-authored skills 
 Generates one harness skill per `agents/agent-*.md` **in the resolved vault**, so a vault with its own
 roster gets its own slash commands rather than the four the package happens to ship. The roster is read,
 never hardcoded — the same contract `agents.sh` and `synapse_list_agents` already honour
-([`decision-0008`](../_meta/decisions/decision-0008-addressable-vs-autonomous.md),
-[`decision-0011`](../_meta/decisions/decision-0011-generated-harness-skills.md)).
+([[decision-0008-addressable-vs-autonomous]], [[decision-0011-generated-harness-skills]]).
 
 **Where it writes.** Default is the vault **repo root**'s `.dsh/skills` — DSH discovers that as
 `project-dsh`, its highest-ranked root, so no symlink or YAML is involved. It is the repo root and not

@@ -7,7 +7,7 @@ tags:
   - area/architecture
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[hub-synapse]]", "[[tool-opencode]]"]
+related: ["[[hub-synapse]]", "[[tool-opencode]]", "[[decision-0011-generated-harness-skills]]"]
 ---
 
 # Agent architecture
@@ -71,9 +71,17 @@ opencode run -m ollama/qwen3.6-256k --dir . \
 - **Plan then Build.** Detection runs read-only (Plan); only the autofix step edits (Build), and only the
   `.md` it touched.
 
+## One roster, four surfaces
+The agents defined in `agents/agent-*.md` are the single source for every consumer surface: the sourced
+shell CLI auto-generates one verb per agent, the launcher renders each briefing into opencode's and
+Cursor's native identity formats, `synapse_list_agents` exposes the same frontmatter over MCP, and
+`synapse skills --write` generates one `/synapse-<agent>` harness skill apiece. Adding an agent is a
+vault edit, never a per-install re-wiring — see [[decision-0008-addressable-vs-autonomous]] for the
+contract and [[decision-0011-generated-harness-skills]] for the harness half of it.
+
 ## Optional lead
 A planning `lead` (decompose a multi-step goal, delegate to the writers) can be added later; the core loop
 needs only curator + reconciler + ingester, and the oracle answers on demand alongside them.
 
 ## Related
-[[doc-governance-model]] · [[doc-maintainer-loop]] · [[doc-runtime-wiring]] · [[decision-0004-opencode-local-ollama-runtime]] · [[agent-curator]] · [[agent-reconciler]] · [[agent-ingester]] · [[agent-oracle]] · [[hub-synapse]]
+[[doc-governance-model]] · [[doc-maintainer-loop]] · [[doc-runtime-wiring]] · [[decision-0004-opencode-local-ollama-runtime]] · [[decision-0011-generated-harness-skills]] · [[agent-curator]] · [[agent-reconciler]] · [[agent-ingester]] · [[agent-oracle]] · [[hub-synapse]]

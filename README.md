@@ -248,7 +248,7 @@ how to become that agent, how to delegate, and what the role must never do, then
 engine for the actual context. Branches key on declared frontmatter — `delegates_to` adds the three-call
 delegation spine, `uses_tools` decides whether the role may write at all, `addressable` adds the duty to
 publish in-thread. A `SKILL.md` you hand-author (no generated marker) is never overwritten without
-`--force`; the four this package ships are hand-tuned and stay that way. See
+`--force`; the four this package ships are hand-tuned and stay that way. Rationale:
 [`decision-0011`](_meta/decisions/decision-0011-generated-harness-skills.md).
 
 **Delegation is three calls, not one.** `synapse_claim_and_brief` takes the lease, opens the episode and
