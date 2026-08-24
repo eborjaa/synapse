@@ -30,7 +30,7 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ## Contents
 
-[Quick start](#-quick-start) · [Your first commands](#-your-first-commands) ·
+[Quick start](#-quick-start) · [Full install guide](docs/doc-install-end-to-end.md) · [Your first commands](#-your-first-commands) ·
 [Ask the vault + semantic recall](#-ask-the-vault--semantic-recall) ·
 [Use it from your AI tool (MCP)](#-use-it-from-your-ai-tool-mcp) ·
 [Pluggable runtime (`--cli`)](#-pluggable-runtime---cli) · [A day in the life](#-a-day-in-the-life) ·
@@ -40,6 +40,10 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 ---
 
 ## 🚀 Quick start
+
+> **Setting up a new machine end to end** — vault + editors + DeepSeek Harness with the delegation
+> governance wired — follow [`doc-install-end-to-end`](docs/doc-install-end-to-end.md) instead. This
+> section is the short version.
 
 **Starting from nothing** — `synapse init` scaffolds a working vault (manifest, the four agents, the
 rules, starter hubs) so you are not assembling one by hand:
@@ -213,9 +217,16 @@ Any MCP-capable harness works, including ones without a generated config —
           SYNAPSE_MCP_SURFACE: orchestrator
 ```
 
+Or let **[`@eborja/dsh-synapse`](https://github.com/eborjaa/dsh-synapse)** write all of it for you — the
+MCP row, the lease-governance hooks, and the skill symlinks — resolving your vault and node paths:
+
+```bash
+npx @eborja/dsh-synapse install          # dry-run
+npx @eborja/dsh-synapse install --write
+```
+
 The four agents also ship as **harness skills** in `.dsh/skills/synapse-{oracle,curator,ingester,reconciler}/`,
-so `/synapse-oracle` loads that role's procedure and boundaries. Symlink them into the harness's skills
-directory.
+so `/synapse-oracle` loads that role's procedure and boundaries.
 
 **Delegation is three calls, not one.** `synapse_claim_and_brief` takes the lease, opens the episode and
 returns the briefing — it launches **nothing**. You launch the doer with your own harness (its Task tool,
@@ -423,6 +434,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 
 - **What's shipped and what's next** → [ROADMAP.md](ROADMAP.md)
 
+- **Install end to end** (new machine → vault → editors → DSH, with the checks) → [`doc-install-end-to-end`](docs/doc-install-end-to-end.md)
 - **Full command reference** (every command, env var, flag, runtime sink) → [`doc-cli-reference`](docs/doc-cli-reference.md)
 - **Browse the graph in Obsidian** (color-coded by type) → [`doc-repo-layout`](docs/doc-repo-layout.md)
 - **The privacy gate** (framework readable, vault sealed; `vault-gate on|off`) → [`doc-deployment-gate`](docs/doc-deployment-gate.md)

@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[hub-synapse]]"]
+related: ["[[hub-synapse]]", "[[doc-install-end-to-end]]"]
 ---
 
 # Runtime wiring
