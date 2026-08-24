@@ -231,7 +231,7 @@ dsh web --no-open        # then open http://127.0.0.1:3080
 The MCP child announces itself on stderr — this proves the server started:
 
 ```
-[synapse-mcp] ready · v1.0.0 · surface=orchestrator · vault=/path/to/my-vault
+[synapse-mcp] ready · v1.1.0 · surface=orchestrator · vault=/path/to/my-vault
 ```
 
 **A tool call**, scriptable:

@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 1.1.0 — 2026-08-24
+
 ### Added
 - **`synapse skills` — your vault's agents become `/synapse-<agent>`.** The harness roster was the one
   consumer surface still hardcoded: four `SKILL.md` files shipped in `.dsh/skills/`, symlinked verbatim by
@@ -81,6 +83,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   `init` ships no migrations and no database; `init` itself recommends `mcp-config --write` rather than
   `install --write`; and the orchestration databases (`durable-spawn.db`, `episodes.db`) are not
   `db/synapse.db` and self-create on first use.
+
+Install: `npm install @eborja/synapse@^1.1.0`
 
 ## 1.0.0 — 2026-08-23 (dual-era line)
 
@@ -975,8 +979,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^0.18.2"
-// or: "github:eborjaa/synapse#v0.18.2"
+"@eborja/synapse": "^1.1.0"
+// or: "github:eborjaa/synapse#v1.1.0"
 ```
 
 ```sh
