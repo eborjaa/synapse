@@ -225,8 +225,31 @@ npx @eborja/dsh-synapse install          # dry-run
 npx @eborja/dsh-synapse install --write
 ```
 
-The four agents also ship as **harness skills** in `.dsh/skills/synapse-{oracle,curator,ingester,reconciler}/`,
-so `/synapse-oracle` loads that role's procedure and boundaries.
+#### Your agents as `/synapse-<agent>`
+
+The harness roster is **generated from your vault, not shipped with the package** — every
+`agents/agent-*.md` you define becomes a slash command:
+
+```bash
+synapse skills                 # dry run — what would be written
+synapse skills --write         # → <vault-repo-root>/.dsh/skills/synapse-<agent>/SKILL.md
+```
+
+`synapse install --write` already does this as its 5th step. A vault whose agents are `spec-author` and
+`qa-lead` gets `/synapse-spec-author` and `/synapse-qa-lead`; it does not get someone else's roster.
+
+The default target is your vault repo's own `.dsh/skills`, which DSH discovers as its highest-ranked
+root — no symlink needed. DSH finds that root by walking up for `.git`, falling back to its launch
+directory; if your vault isn't a git repo, `synapse skills` says so and `--out ~/.dsh/skills` writes to
+the user-scoped root instead, which works from anywhere.
+
+Each generated body is a **procedure that points at `synapse_brief`**, not a copy of the briefing: it says
+how to become that agent, how to delegate, and what the role must never do, then hands off to the render
+engine for the actual context. Branches key on declared frontmatter — `delegates_to` adds the three-call
+delegation spine, `uses_tools` decides whether the role may write at all, `addressable` adds the duty to
+publish in-thread. A `SKILL.md` you hand-author (no generated marker) is never overwritten without
+`--force`; the four this package ships are hand-tuned and stay that way. Rationale:
+[`decision-0011`](_meta/decisions/decision-0011-generated-harness-skills.md).
 
 **Delegation is three calls, not one.** `synapse_claim_and_brief` takes the lease, opens the episode and
 returns the briefing — it launches **nothing**. You launch the doer with your own harness (its Task tool,

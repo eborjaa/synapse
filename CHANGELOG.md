@@ -4,6 +4,51 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Added
+- **`synapse skills` — your vault's agents become `/synapse-<agent>`.** The harness roster was the one
+  consumer surface still hardcoded: four `SKILL.md` files shipped in `.dsh/skills/`, symlinked verbatim by
+  `@eborja/dsh-synapse`. A vault defining its own agents (`spec-author`, `qa-lead`, …) got a slash command
+  for none of them. Every other surface already read the vault — `agents.sh` `eval`s one verb per
+  `agents/agent-*.md`, the launcher renders the briefing into opencode's and Cursor's native identity
+  formats, and `synapse_list_agents` reads the same frontmatter — so this closes the fourth against a
+  contract `decision-0008` already set: *"the package declares the roster; the harness consumes it …
+  instead of a hand-maintained list of names."*
+
+  ```bash
+  synapse skills                            # dry run
+  synapse skills --write                    # → <vault>/.dsh/skills/synapse-<agent>/SKILL.md
+  synapse skills --write --agent oracle     # just one
+  synapse skills --write --out ~/.dsh/skills
+  ```
+
+  - **`synapse install --write` runs it as its 5th step**, so a fresh vault is wired by the same one
+    command that writes the MCP configs.
+  - **Default target is the vault REPO ROOT's `.dsh/skills`** — DSH discovers that as `project-dsh`, its
+    highest-ranked root, so the common case needs no symlink and no YAML. The repo root and not `vaultDir`
+    on purpose: DSH resolves that root by walking up from its launch directory for `.git`, which under the
+    nested layout lands on the repo root rather than `context-vault/`. With no `.git` anywhere DSH falls
+    back to its launch directory, so the command warns and points at `--out ~/.dsh/skills` — the
+    user-scoped root `@eborja/dsh-synapse` links, which works from anywhere.
+  - **The body is a pointer, not a payload.** Step 2 of every generated procedure is `synapse_brief` with
+    that agent's own id and `profile`; the render engine stays the single source of the real context.
+    Skill bodies have no size cap, so a `SKILL.md` that grows toward briefing size re-creates the exact
+    context problem the engine exists to solve.
+  - **Every branch keys on declared frontmatter, never on prose.** `delegates_to` adds the three-call
+    delegation spine (and names the targets); `uses_tools` containing `tool-lint`/`tool-git` decides
+    whether the role gets verify+record steps and "propose, do not push" or a flat **"never mutate"** — a
+    read-only agent is never handed a step that invites a write; `addressable: true` adds the
+    publish-in-thread duty; `outputs` adds "what you produce".
+  - **Hand-authored skills are never overwritten** without `--force`. The marker is an HTML comment on the
+    first body line, deliberately **not** a frontmatter key: DSH drops a whole skill on a malformed
+    frontmatter value, so nothing is added to a block whose parser we do not control. The four shipped
+    skills — tuned against observed local-30B failures (claim conflated with spawn, polling
+    `synapse_spawn_status` for a doer nobody launched, `refused: "held"` treated as fatal) — report as
+    `kept` and stay hand-authored.
+  - **An agent that cannot produce a valid skill is skipped loudly.** DSH validates `name` against
+    `^[a-z0-9]+(?:-[a-z0-9]+)*$` and drops a failure at load with only a warning; an id like
+    `agent-QA_Lead`, or an agent with no `purpose`/`title` to route on, now warns at generation instead.
+  - Rationale: `_meta/decisions/decision-0011-generated-harness-skills.md`. 17 new tests (242 total).
+
 ### Changed
 - **`synapse man` now tells you where to start.** It had no entry point: `synapse install` and
   `synapse setup` appeared nowhere in it, `mcp-config` only in passing, and the MCP surfaces were a single

@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]"]
-related: ["[[hub-synapse]]"]
+related: ["[[hub-synapse]]", "[[decision-0011-generated-harness-skills]]"]
 ---
 
 # CLI & command reference
@@ -97,6 +97,51 @@ synapse handover-task <ref> [--plain]        # print a note (a handover) as a ta
 synapse new <kind> <name> [--write]          # hub | agent | note | handover
 synapse mcp-config [--write]                 # MCP client config for this vault
 ```
+
+### `synapse skills` — your agents as `/synapse-<agent>`
+
+```bash
+synapse skills                            # dry run
+synapse skills --write                    # → <vault-repo-root>/.dsh/skills/synapse-<agent>/SKILL.md
+synapse skills --write --agent oracle     # just one
+synapse skills --write --out ~/.dsh/skills   # the user-scoped root instead of the vault's
+synapse skills --write --force            # also overwrite hand-authored skills (destructive)
+```
+
+> **`synapse install --write` already does this** (as its 5th step) — run `skills` on its own after adding
+> an agent, or to target a different root.
+
+Generates one harness skill per `agents/agent-*.md` **in the resolved vault**, so a vault with its own
+roster gets its own slash commands rather than the four the package happens to ship. The roster is read,
+never hardcoded — the same contract `agents.sh` and `synapse_list_agents` already honour
+([[decision-0008-addressable-vs-autonomous]], [[decision-0011-generated-harness-skills]]).
+
+**Where it writes.** Default is the vault **repo root**'s `.dsh/skills` — DSH discovers that as
+`project-dsh`, its highest-ranked root, so no symlink or YAML is involved. It is the repo root and not
+`vaultDir` on purpose: DSH resolves that root by walking up from its launch directory for `.git`, which
+under the nested layout lands on the repo root, not `context-vault/`. When there is no `.git` at all DSH
+falls back to its launch directory, so the command warns and points you at `--out ~/.dsh/skills` — the
+user-scoped root `@eborja/dsh-synapse` symlinks, which works from anywhere.
+
+**What lands in the file.** A procedure, not a payload: step 2 is always `synapse_brief` with that agent's
+own id and declared `profile`, and the briefing stays the real context. Conditional blocks key on declared
+frontmatter only:
+
+| Emitted | Condition |
+|---|---|
+| catalog `description` | `purpose` (capped) + a trigger sentence from `tags: area/*` |
+| `## Delegating` — the claim → `subagent` → release spine | `delegates_to` is non-empty |
+| verify + record steps, "propose, do not push" | `uses_tools` has `tool-lint` or `tool-git` |
+| "Never mutate" instead of those | it has neither |
+| "You are addressable" | `addressable: true` |
+| `## What you produce` | `outputs` is non-empty |
+
+An agent whose id cannot make a valid DSH skill name (`^[a-z0-9]+(?:-[a-z0-9]+)*$`), or that has no
+`purpose`/`title` to route on, is **skipped with a warning** rather than silently renamed — DSH would drop
+it at load anyway, and a warning here is visible.
+
+**Hand-authored wins.** A `SKILL.md` without the generated marker (an HTML comment on the first body line)
+is reported as `kept` and left alone. `--force` overwrites it and discards those edits.
 
 ### `synapse mcp-config` — wiring a vault for MCP
 
