@@ -80,9 +80,12 @@ commands:
   new <kind> <name>      scaffold a wired note: hub | agent | note | handover
                          (dry-run; --write to create — see: synapse new --help)
   init [dir] [--write]   scaffold a new vault from the notes this package ships
-  vaults [list|add|remove|sync]
+  vaults [list|add|remove|sync|roster|workspace]
                          the machine's vault registry. 'sync --write' rewires EVERY
-                         registered vault in one command (each keeps its own surface)
+                         registered vault in one command (each keeps its own surface);
+                         'roster --write' generates each vault's agent roster into its
+                         own dir; 'workspace <id…>' prints the skill dirs one workspace
+                         should see, so two vaults' agents never share a namespace
   mcp-config [--write]   generate .mcp.json / .cursor/mcp.json for THIS vault
                          (points at the vault's own synapse-mcp bin; plugins auto-discovered)
   skills [--write]       generate one harness SKILL.md per agent THIS vault defines, so
