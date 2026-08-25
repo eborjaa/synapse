@@ -40,6 +40,8 @@ The design notes, in reading order:
 - [[doc-deployment-gate]] — the intended one-parent layout and the host-level privacy gate: an external
   coding agent maintains the framework while the vault stays sealed (local-only, data never leaves your
   hardware).
+- [[plan-one-server-many-vaults]] — in flight: one MCP server across many vaults, split into a tools
+  plane (over the wire) and a roster plane (on disk), behind harness-agnostic ports.
 - [[doc-repo-layout]] — where everything lives. · [[doc-roadmap]] — what's next.
 
 ## Domains — what's inside
