@@ -36,6 +36,11 @@ Launch headlessly with `opencode run -m <model> --dir <vault> "<briefing>"`. The
 under a constrained permission posture (read freely; edits/bash gated) **plus** the human-gated PR — never
 `--dangerously-skip-permissions`, because the vault carries a finances DB.
 
+MCP is stdio by default (one env-pinned vault). `synapse-mcp --http` is the shared, bearer-bound path for
+separate clients/containers: bind only to `127.0.0.1`, `::1`, or an explicit VPN-interface address
+(`0.0.0.0`/`::` are refused), and run exactly one instance. The credential in `ctx.authInfo` decides the
+vault; a tool argument never does. See `docs/doc-runtime-wiring.md`.
+
 ## Guardrails
 
 Edit `.md` + migration files only — never write `db/synapse.db` directly, never edit a `generated: true`

@@ -22,8 +22,7 @@
 // (a bound context); the flat `VAULT`/`runSynapse`/`manifest` members are kept for existing plugins and
 // are derived from that same bound vault.
 
-import { serveStdio } from "@modelcontextprotocol/server/stdio";
-
+import { toolTransportAdapters } from "../lib/ports/index.mjs";
 import { envPinnedContext } from "./vault-context.mjs";
 import { buildServer, loadPlugins, resolveSurface, version } from "./build-server.mjs";
 
@@ -47,7 +46,12 @@ const plugins = await loadPlugins();
 // fall-forward path and would simply fail. See [[decision-0010-mcp-2026-07-28-dual-era]].
 //
 // The factory is invoked per connection, so it must stay cheap — plugins are already imported above.
-serveStdio(() => buildServer({ surface, plugins, vault }), { legacy: "serve" });
+// Going through ToolTransportPort is what makes stdio and HTTP share this exact buildServer factory
+// instead of growing two registration paths whose tool lists can drift.
+await toolTransportAdapters.get("stdio").serve(
+  () => buildServer({ surface, plugins, vault }),
+  { legacy: "serve" },
+);
 
 process.stderr.write(
   `[synapse-mcp] ready · v${version} · surface=${surface} · vault=${vault.vaultDir}`

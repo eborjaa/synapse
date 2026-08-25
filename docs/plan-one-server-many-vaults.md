@@ -149,9 +149,11 @@ today. Independent of everything below.
 rather than by module load. [[decision-0010-mcp-2026-07-28-dual-era]] names these explicitly as what
 breaks off stdio. Highest-risk stage; it touches the lease and fence path.
 
-**Stage 5 — HTTP transport.** A loopback HTTP adapter for `ToolTransportPort` with the bearer-token
-`VaultBindingPort`. stdio keeps working unchanged, and both transports run the same contract test.
-Optionally packaged as a single container instance afterwards.
+**Done — Stage 5: HTTP transport.** The authenticated HTTP `ToolTransportPort` adapter binds
+`ctx.authInfo` through the bearer-token `VaultBindingPort`, defaults to loopback, and refuses wildcard
+listeners. `synapse-mcp --http` is the runnable entrypoint. One executable contract test compares the
+live tool list over stdio and HTTP, while two concurrent credentials prove one process answers two
+vaults. Container packaging remains the next stage, not part of this one.
 
 ## Risks
 
@@ -164,9 +166,10 @@ The plan keeps both: central generation for workspace selection, repo-root gener
 files are never overwritten, and a surface is never silently downgraded. Both must become explicit
 contract tests in stage 1, or the refactor will quietly lose them.
 
-**Stage 4 touches the single-writer assumption.** The lease and fence design assumes one vault per
-process. Keying state per vault is necessary but not sufficient; the single-instance limit stays a
-standing constraint, not a temporary one.
+**Stage 4 touches the single-writer assumption.** The lease and fence design assumes one writer process
+per vault database. Keying state per vault makes one process safe across many vaults; it does not make
+many processes safe on one vault. The single-instance limit stays a standing constraint, not a
+temporary one.
 
 **The privacy gate does not inspect tool calls.** It is a path-based hook on the coding agent. A server
 able to reach every vault is a new path into a sealed one, and the gate as written would not see it.
@@ -174,9 +177,8 @@ This is an open question, not a solved problem — see below.
 
 ## Open questions
 
-1. **Where do credentials live, and what do they protect?** A mode-restricted file is the obvious
-   answer, but it makes vault access a filesystem permission. That may or may not match how the
-   boundary between a person's own workspaces is meant to work.
+1. **Resolved: credentials live in `$SYNAPSE_HOME/tokens.json` (0600), hashed at rest.** Each plaintext
+   token maps to exactly one registered vault and exists only at mint time.
 2. **Do rosters need harness-qualified names?** Per-workspace isolation means two rosters are never
    live together, so prefixing may be unnecessary — but it is cheap insurance for a workspace that
    deliberately spans two vaults.
