@@ -7,12 +7,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildServer, loadPlugins, discoverPluginPaths, resolveSurface, INSTRUCTIONS, SURFACES,
+  buildServer, loadPlugins, discoverPluginPaths, resolveSurface, surfaceForRequest,
+  INSTRUCTIONS, SURFACES, EVERYDAY_SURFACES,
 } from "./build-server.mjs";
+import { ADMIN_TOOL_NAMES } from "./tools/admin.mjs";
 
 // Tool counts per surface, captured from the wire before the factory refactor (mcp/conformance.mjs).
 // A change here means the surface moved — intended or not, it must be deliberate.
-const EXPECTED_COUNTS = { skeleton: 3, standard: 11, full: 20, orchestrator: 26 };
+const EXPECTED_COUNTS = { skeleton: 3, standard: 11, full: 20, orchestrator: 26, admin: 31 };
 
 /** The registered tool names, read off the server the factory returns. */
 function toolNames(server) {
@@ -28,19 +30,40 @@ test("buildServer is synchronous — it returns a server, not a promise", () => 
 });
 
 test("each surface registers exactly the tools it advertises", () => {
-  for (const surface of SURFACES) {
+  for (const surface of EVERYDAY_SURFACES) {
     const names = toolNames(buildServer({ surface }));
     assert.equal(names.length, EXPECTED_COUNTS[surface], `${surface}: tool count moved — ${names.join(", ")}`);
+    for (const name of ADMIN_TOOL_NAMES) {
+      assert.equal(names.includes(name), false, `${surface} must not register ${name}`);
+    }
   }
+  const admin = toolNames(buildServer({ surface: "admin", adminAuthorized: true }));
+  assert.equal(admin.length, EXPECTED_COUNTS.admin, `admin: tool count moved — ${admin.join(", ")}`);
+  for (const name of ADMIN_TOOL_NAMES) assert.ok(admin.includes(name), `admin missing ${name}`);
 });
 
 test("the surfaces nest — each one is a superset of the last", () => {
-  const [skeleton, standard, full, orchestrator] =
-    ["skeleton", "standard", "full", "orchestrator"].map((s) => new Set(toolNames(buildServer({ surface: s }))));
+  const skeleton = new Set(toolNames(buildServer({ surface: "skeleton" })));
+  const standard = new Set(toolNames(buildServer({ surface: "standard" })));
+  const full = new Set(toolNames(buildServer({ surface: "full" })));
+  const orchestrator = new Set(toolNames(buildServer({ surface: "orchestrator" })));
+  const admin = new Set(toolNames(buildServer({ surface: "admin", adminAuthorized: true })));
   for (const t of skeleton) assert.ok(standard.has(t), `standard lost ${t}`);
   for (const t of standard) assert.ok(full.has(t), `full lost ${t}`);
   for (const t of full) assert.ok(orchestrator.has(t), `orchestrator lost ${t}`);
+  for (const t of orchestrator) assert.ok(admin.has(t), `admin lost ${t}`);
   assert.ok(orchestrator.has("synapse_claim_and_brief"), "orchestrator must carry the delegation tools");
+});
+
+test("admin is credential-authorized, never a process flag", () => {
+  assert.throws(
+    () => buildServer({ surface: "admin" }),
+    /admin-scoped bearer credential/,
+  );
+  assert.equal(surfaceForRequest("skeleton", true), "admin");
+  assert.equal(surfaceForRequest("admin", false), "orchestrator");
+  assert.equal(surfaceForRequest("standard", false), "standard");
+  assert.equal(resolveSurface("admin"), "admin");
 });
 
 test("two builds are independent — no shared server instance", () => {

@@ -6,7 +6,7 @@ tags:
   - type/decision
   - area/runtime
   - status/active
-related: ["[[decision-0010-mcp-2026-07-28-dual-era]]", "[[decision-0013-ports-and-adapters]]", "[[doc-deployment-gate]]", "[[hub-synapse]]"]
+related: ["[[decision-0010-mcp-2026-07-28-dual-era]]", "[[decision-0013-ports-and-adapters]]", "[[doc-deployment-gate]]", "[[hub-synapse]]", "[[decision-0015-admin-surface]]"]
 ---
 
 **Status:** Accepted — 2026-08-24 · Amends [[decision-0010-mcp-2026-07-28-dual-era]] · **Implemented 2026-08-25.**
@@ -112,4 +112,4 @@ vault did not turn SQLite into multi-writer storage.
    scaling question closes permanently rather than staying deferred.
 
 ## Related
-[[decision-0010-mcp-2026-07-28-dual-era]] · [[decision-0013-ports-and-adapters]] · [[decision-0012-no-global-vault-pin]] · [[doc-deployment-gate]] · [[hub-synapse]]
+[[decision-0010-mcp-2026-07-28-dual-era]] · [[decision-0013-ports-and-adapters]] · [[decision-0012-no-global-vault-pin]] · [[decision-0015-admin-surface]] · [[doc-deployment-gate]] · [[hub-synapse]]

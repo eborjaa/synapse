@@ -30,7 +30,9 @@ export async function startHttpServer({
   surface = resolveSurface(surface);
   // Per-vault plugin auto-discovery is intentionally absent here. Discovering from cwd would make one
   // arbitrary vault's tools appear for every credential; loading a different set per vault would break
-  // ToolTransportPort's stable-catalogue contract. SYNAPSE_MCP_PLUGINS is explicit and shared.
+  // ToolTransportPort's stable-catalogue contract for everyday credentials. SYNAPSE_MCP_PLUGINS is
+  // explicit and shared. An admin-scoped bearer still upgrades the built-in catalogue
+  // ([[decision-0015-admin-surface]]); plugins do not.
   const loaded = plugins || await loadPlugins(sharedPluginPaths());
   const live = await toolTransportAdapters.get("http").serve(buildServer, {
     host,

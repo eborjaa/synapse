@@ -196,11 +196,13 @@ The launchers above are one way in. The other — and the one most people will a
 
 Regenerate any of them alone with `synapse mcp-config --write [--client claude\|cursor\|opencode] [--surface skeleton\|standard\|full\|orchestrator]`.
 
-**Four surfaces**, each a superset of the last — a permission dial, not a feature flag:
+**Four everyday surfaces**, each a superset of the last — a permission dial, not a feature flag:
 `skeleton` (3 tools) · `standard` (11, read-only) · `full` (20, adds authoring) · **`orchestrator`**
 (26, adds the delegation tools `synapse_claim_and_brief`, `synapse_spawn_*`, `synapse_spawn_release`)
 for agents that hand work to other agents. Pick with `--surface` or `SYNAPSE_MCP_SURFACE`; the default
-is `full`.
+is `full`. A fifth surface, **`admin`** (31 tools), is not a generated-config option: mint
+`synapse vaults token <id> --admin` and present that bearer over HTTP. Everyday sessions never list
+those tools.
 
 ### One shared endpoint (local HTTP)
 
@@ -209,6 +211,7 @@ instead of one stdio child per vault:
 
 ```bash
 synapse vaults token <vault-id> --label "client"
+synapse vaults token <vault-id> --admin --label "owner"   # privileged catalogue; shown once
 synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
 # http://127.0.0.1:3000/mcp · Authorization: Bearer syn_...
 ```

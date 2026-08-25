@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]", "[[doc-agent-memory]]", "[[doc-cli-reference]]"]
-related: ["[[hub-synapse]]", "[[decision-0010-mcp-2026-07-28-dual-era]]"]
+related: ["[[hub-synapse]]", "[[decision-0010-mcp-2026-07-28-dual-era]]", "[[decision-0015-admin-surface]]"]
 ---
 
 # MCP tools reference
@@ -17,11 +17,13 @@ Synapse exposes its engine as an MCP server (`synapse-mcp`; wire a vault with `s
 client config (`.mcp.json`). Each surface is a superset of the one before:
 
 ```
-skeleton  ⊂  standard  ⊂  full  ⊂  orchestrator
+skeleton  ⊂  standard  ⊂  full  ⊂  orchestrator  ⊂  admin
 ```
 
 A read-only agent on `standard` literally cannot see the authoring/delegation tools — they are not
-registered, not merely discouraged. Every tool returns TEXT and does not start a chat session. The MCP
+registered, not merely discouraged. `admin` is the same dial one step further, but it is **not** a
+generated-config surface: it is authorized by an admin-scoped HTTP bearer
+([[decision-0015-admin-surface]]). Every tool returns TEXT and does not start a chat session. The MCP
 server has two transport adapters: stdio is config-pinned to one vault (`$SYNAPSE_VAULT` from
 `.mcp.json`, `preferCwd:false`); HTTP binds one registered vault per request from `ctx.authInfo`. Neither
 path accepts vault identity as a tool argument (see [[doc-agent-memory]] §5).
@@ -61,6 +63,19 @@ path accepts vault identity as a tool argument (see [[doc-agent-memory]] §5).
 | `synapse_spawn_status` / `_list` | observe running spawns; classify liveness |
 | `synapse_spawn_renew` / `_release` | extend / release a lease. `_release` closes the episode with `summary` + `refs` |
 
+## admin — machine administration (adds to orchestrator; HTTP + admin-scoped bearer only)
+| Tool | Does |
+|---|---|
+| `synapse_admin_list` | registered vaults + hashed credential metadata; never returns plaintext |
+| `synapse_admin_register` | register or refresh one vault path; transcript names the registry row |
+| `synapse_admin_mint` | mint one bearer for one vault; plaintext is returned **once** in this transcript |
+| `synapse_admin_revoke` | revoke by label, hash, or hash prefix; transcript names what was removed |
+| `synapse_admin_sync` | plan (default) or `write:true` apply client config for registered vaults |
+
+These five tools are **absent** from every everyday catalogue — including a normal token against a
+process started with `--surface admin`. Mint the first admin credential from the CLI:
+`synapse vaults token <id> --admin`.
+
 ## Standing MEMORY brief
 Every read surface's `instructions` carry a short standing brief so an agent knows WHEN to reach for the
 tools: call `synapse_recall` on a topic shift, fetch an on-demand note when its trigger matches, check
@@ -78,9 +93,10 @@ auto-discovered on stdio. A shared HTTP server has no one startup vault, so it l
 - `synapse-mcp --http` — one long-lived, bearer-authenticated endpoint for many vaults. Defaults to
   `127.0.0.1:3000/mcp`; bind only to loopback or a VPN-interface address. Wildcard listeners are refused.
 
-Both call the same `buildServer()` factory and expose the same built-in tool catalogue for a surface.
-HTTP refuses a request before MCP dispatch when its credential is missing, unknown, revoked, or points
-to a vault that is no longer live.
+Both call the same `buildServer()` factory. Everyday credentials see the same built-in catalogue for a
+surface. An **admin-scoped** HTTP bearer upgrades that request to the admin surface
+([[decision-0015-admin-surface]]). HTTP refuses a request before MCP dispatch when its credential is
+missing, unknown, revoked, or points to a vault that is no longer live.
 
 ## Protocol era
 Both transports are **dual-era**: legacy `2025-11-25` and stateless `2026-07-28` use the same factory.
@@ -88,4 +104,4 @@ Never switch to modern-only while a supported client cannot fall forward. See
 [[decision-0010-mcp-2026-07-28-dual-era]].
 
 ## Related
-[[hub-synapse]] · [[doc-agent-memory]] · [[doc-cli-reference]] · [[doc-runtime-wiring]] · [[decision-0010-mcp-2026-07-28-dual-era]]
+[[hub-synapse]] · [[doc-agent-memory]] · [[doc-cli-reference]] · [[doc-runtime-wiring]] · [[decision-0010-mcp-2026-07-28-dual-era]] · [[decision-0015-admin-surface]]

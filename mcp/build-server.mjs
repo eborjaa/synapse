@@ -30,17 +30,38 @@ import { registerEpisodeTools } from "./tools/episodes.mjs";
 import { registerHandoverTools } from "./tools/handover.mjs";
 import { registerAuthoringTools } from "./tools/authoring.mjs";
 import { registerSpawnTools } from "./tools/spawn.mjs";
+import { registerAdminTools } from "./tools/admin.mjs";
 
 export const { version } = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 );
 
-export const SURFACES = ["skeleton", "standard", "full", "orchestrator"];
+export const EVERYDAY_SURFACES = Object.freeze(["skeleton", "standard", "full", "orchestrator"]);
+export const SURFACES = [...EVERYDAY_SURFACES, "admin"];
 
 /** The surface this process serves. Invalid values fall back to `full` rather than failing. */
 export function resolveSurface(raw = process.env.SYNAPSE_MCP_SURFACE) {
   const s = (raw || "full").toLowerCase();
   return SURFACES.includes(s) ? s : "full";
+}
+
+export function isAdminAuthorized(bound) {
+  return Array.isArray(bound?.scopes) && bound.scopes.includes("admin");
+}
+
+/**
+ * Choose the catalogue for one request.
+ *
+ * WHY this is a function of the credential, not of `--surface`. `--surface` is the everyday ceiling
+ * for this process. An admin-scoped bearer upgrades to `admin`; any other credential never sees those
+ * tools. If the process itself was started with `--surface admin`, a normal token is served
+ * `orchestrator` instead of inheriting privileged tools. Failure mode of the other design: a shared
+ * HTTP server started as admin would give every client mint/revoke.
+ */
+export function surfaceForRequest(requested, adminAuthorized) {
+  if (adminAuthorized) return "admin";
+  if (requested === "admin") return "orchestrator";
+  return requested;
 }
 
 const MEMORY_BRIEF =
@@ -90,6 +111,12 @@ export const INSTRUCTIONS = {
     + "that must survive your session, or when there is no harness to launch with.\n"
     + "CRITICAL for both: `job` MUST be a canonical id from stable facts (agent:TICKET:suite:branch) — "
     + "extract the ticket/branch, never name it from prose, or two phrasings of the same task both run."
+    + MEMORY_BRIEF,
+  admin:
+    "Synapse context vault — ADMIN surface (orchestrator + machine administration).\n\n"
+    + "This surface exists only for an admin-scoped bearer credential. Vault registration, credential "
+    + "mint/revoke, and config sync mutate machine or generated state and report every affected path in "
+    + "the transcript. Never paste a minted plaintext credential into a vault note or commit it."
     + MEMORY_BRIEF,
 };
 
@@ -144,11 +171,25 @@ export async function loadPlugins(paths = discoverPluginPaths()) {
  * to a vault first and passes THAT (US-2.2). Two vaults in one process get two servers that share no
  * handle, no epoch and no cached briefing (US-1.3) because they share no name.
  *
+ * `adminAuthorized` is the matching seam for the catalogue. Admin tools are registered only when the
+ * bound credential carries the `admin` scope. `--surface admin` alone is not authorization: a stdio
+ * process has no bearer, so it throws rather than serving privileged tools to whoever launched it.
+ *
  * It defaults to the env-pinned context so every existing caller — tests included — keeps working
  * unchanged. Resolution happens per CALL, never at module load: a module-load vault is precisely the
  * bug this parameter removes.
  */
-export function buildServer({ surface = resolveSurface(), plugins = [], vault = envPinnedContext() } = {}) {
+export function buildServer({
+  surface = resolveSurface(),
+  plugins = [],
+  vault = envPinnedContext(),
+  adminAuthorized = false,
+} = {}) {
+  if (surface === "admin" && !adminAuthorized) {
+    throw new Error(
+      "Admin surface requires an admin-scoped bearer credential; it is unavailable on stdio and normal credentials.",
+    );
+  }
   const server = new McpServer({ name: "synapse", version }, { instructions: INSTRUCTIONS[surface] });
 
   registerSkeletonTools(server, vault);
@@ -158,13 +199,14 @@ export function buildServer({ surface = resolveSurface(), plugins = [], vault = 
     registerHealthTools(server, vault);
     registerEpisodeTools(server, vault);
   }
-  if (surface === "full" || surface === "orchestrator") {
+  if (surface === "full" || surface === "orchestrator" || surface === "admin") {
     registerHandoverTools(server, vault);
     registerAuthoringTools(server, vault);
   }
-  if (surface === "orchestrator") {
+  if (surface === "orchestrator" || surface === "admin") {
     registerSpawnTools(server, vault);
   }
+  if (surface === "admin") registerAdminTools(server);
 
   // Plugins register LAST so they can extend any surface.
   //

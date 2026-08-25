@@ -29,7 +29,7 @@ The design notes, in reading order:
 - [[doc-runtime-wiring]] — OpenCode + Ollama over Tailscale; the permission posture.
 - [[doc-agent-memory]] — keeping an agent's context LIVE: freshness, episodic memory, on-demand notes,
   recall, suite-routing, and booting from a handover.
-- [[doc-mcp-tools]] — every `synapse_*` MCP tool, grouped by surface (skeleton ⊂ standard ⊂ full ⊂ orchestrator).
+- [[doc-mcp-tools]] — every `synapse_*` MCP tool, grouped by surface (skeleton ⊂ standard ⊂ full ⊂ orchestrator ⊂ admin). Admin is credential-authorized on HTTP ([[decision-0015-admin-surface]]), not a generated-config surface.
 - [[doc-semantic-recall]] — the opt-in hybrid-retrieval layer: deterministic render + local-embedding
   augment ([[decision-0005-hybrid-retrieval]], [[tool-ollama-embeddings]]).
 - [[doc-security-privacy]] — the privacy boundary (private repo, no public endpoint).

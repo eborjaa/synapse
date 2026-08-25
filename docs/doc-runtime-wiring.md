@@ -34,6 +34,7 @@ instead run one long-lived HTTP endpoint:
 ```bash
 synapse vaults add /path/to/vault
 synapse vaults token <vault-id> --label "this client"   # copy the plaintext now; only its hash is stored
+synapse vaults token <vault-id> --admin --label "owner" # first admin credential; not a process flag
 synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
 # client endpoint: http://127.0.0.1:3000/mcp
 # client header:   Authorization: Bearer syn_...
@@ -52,7 +53,10 @@ enumerate credentials.
 
 Both stdio and HTTP call the same `buildServer()` factory and serve both MCP eras. HTTP has no single
 startup vault, so `<vault>/_meta/mcp-plugins/` auto-discovery remains a stdio feature; shared HTTP plugins
-must be named explicitly in `SYNAPSE_MCP_PLUGINS`, giving every credential the same catalogue.
+must be named explicitly in `SYNAPSE_MCP_PLUGINS`. Everyday credentials still share that plugin set and
+the process `--surface`. An **admin-scoped** bearer upgrades that request to the admin catalogue
+([[decision-0015-admin-surface]]); a normal bearer never lists those tools, even if the process was
+started with `--surface admin`.
 
 Run **exactly one** shared server. Per-vault database handles and epochs make many vaults in one process
 safe; they do not make many processes on one SQLite vault safe. TLS/VPN termination and the four-container
