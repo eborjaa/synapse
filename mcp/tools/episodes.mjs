@@ -17,15 +17,12 @@ import { VAULT, vaultContext } from "../vault.mjs";
 import * as lease from "../../lib/durable-spawn/lease.mjs";
 import * as episodes from "../../lib/durable-spawn/episodes.mjs";
 import { recall as recallDelta } from "../../lib/recall.mjs";
+import { vaultStore } from "../../lib/ports/vault-store.mjs";
 
-const DB_PATH = join(VAULT, "db", "episodes.db");
-
-let _db = null;
+// Keyed BY VAULT rather than memoized per module load — see lib/ports/vault-store.mjs for why the
+// module-level singleton was correct on stdio and silently wrong off it.
 function db() {
-  if (_db) return _db;
-  mkdirSync(join(VAULT, "db"), { recursive: true });
-  _db = episodes.openEpisodeDb(DB_PATH);
-  return _db;
+  return vaultStore.db(VAULT, { name: "episodes", open: (path) => episodes.openEpisodeDb(path) });
 }
 
 const text = (obj) => ({
