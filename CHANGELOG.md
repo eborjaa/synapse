@@ -4,6 +4,52 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Fixed
+- **`synapse install --write` no longer writes a global `export SYNAPSE_VAULT=` into your shell rc.**
+  The rc line was `export SYNAPSE_VAULT="<vault>"; source "<agents.sh>"` — a **global pin**, evaluated at
+  the top of every interactive shell and inherited by every child process. Three failures fell out of it,
+  all silent: running `install --write` from vault **B** re-pinned every shell to B, so work in vault A
+  resolved to B wherever `$PWD` detection did not apply; the env-wins resolution paths
+  (`resolveVault({preferCwd:false})`, a bare `node lib/<tool>.mjs`) treated *the residue of the last
+  install* as deliberate intent; and it was **unfixable by hand**, because the self-heal branch replaced
+  any marked line with the freshly generated one, so deleting the export survived exactly until the next
+  install.
+
+  The line is now:
+
+  ```bash
+  SYNAPSE_VAULT_FALLBACK="/path/to/vault"; source "/path/.../agents.sh"  # @eborja/synapse vault agent commands
+  ```
+
+  `SYNAPSE_VAULT_FALLBACK` keeps the safety net the export existed for — a vault to fall back on when
+  self-detection comes back empty — without any of its costs. It is **not exported** (nothing inherits
+  it), and `__mx_vault` consults it **last**: after the `$PWD` ancestor walk, and after a `$SYNAPSE_VAULT`
+  you exported yourself. `$PWD` always wins, an explicit export still outranks the installer, and setups
+  that already export `SYNAPSE_VAULT` are unaffected. So `synapse lint` still works from outside every
+  vault: `__mx_run` hands the resolved vault to the child as a per-command `SYNAPSE_VAULT=… cmd`
+  assignment, which dies with the process.
+
+  **Migration is automatic and reported.** The next `--write` removes the old export, prints what it
+  removed and why, and reminds you that already-open shells still carry the exported value
+  (`unset SYNAPSE_VAULT`, or open a new terminal). If it re-points the fallback at another vault it says
+  so, and says why that cannot redirect anything.
+
+  **New contract on that line** — install rewrites it only when it matches a shape install itself
+  generated (that is how the `agents.sh` path stays current across upgrades). A marked line **you** edited
+  is treated as yours: install leaves it untouched, prints the line it would have written, and names
+  `--force-rc` as the opt-in override — the same "kept, never clobbered" rule `synapse skills` already
+  applies to a hand-authored `SKILL.md`. Duplicate marked lines (one rc sourcing two vaults' `agents.sh`)
+  collapse to one and are listed; an unmarked foreign `source` is warned about, never touched.
+
+  `lib/install.test.mjs` is new and pins all of it: no outcome ever emits an export, re-running from
+  another vault does not redirect, an existing export is healed, a hand-edit is kept, and the dry run
+  prints byte-for-byte the line `--write` applies. The shell half runs under bash **and** zsh.
+
+### Changed
+- **`doc-install-end-to-end` leads with two quick starts.** New vault vs already-have-a-vault, each a
+  command block at the top. The upgrade path was previously after the DSH verification loop, so a
+  returning reader never saw it as a start guide.
+
 ## 1.1.1 — 2026-08-24
 
 ### Fixed

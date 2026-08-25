@@ -41,9 +41,9 @@ question — in any CLI — starts with the full picture. Your second brain, ver
 
 ## 🚀 Quick start
 
-> **Setting up a new machine end to end** — vault + editors + DeepSeek Harness with the delegation
-> governance wired — follow [`doc-install-end-to-end`](docs/doc-install-end-to-end.md) instead. This
-> section is the short version.
+> **Full install guide** — two paths, each with its own quick start:
+> [new vault](docs/doc-install-end-to-end.md#new-vault-quick-start) or
+> [upgrade an existing one](docs/doc-install-end-to-end.md#upgrade-quick-start). This section is the short version.
 
 **Starting from nothing** — `synapse init` scaffolds a working vault (manifest, the four agents, the
 rules, starter hubs) so you are not assembling one by hand:
@@ -60,9 +60,8 @@ synapse agents              # ← list agents (or: vault-agents)
 synapse hubs                # ← list hub targets (or: vault-hubs)
 ```
 
-**Already have a vault on an older engine?** See [upgrading a vault you already
-have](docs/doc-install-end-to-end.md#upgrading-a-vault-you-already-have) — coming from < 1.1.0 you also
-need `synapse skills --write` for the `/synapse-<agent>` harness skills.
+**Already have a vault on an older engine?** Four commands — see [upgrade an existing
+vault](docs/doc-install-end-to-end.md#upgrade-quick-start). Do not run `init`.
 
 **Already have a vault?** Skip `init`:
 
@@ -447,7 +446,8 @@ Alternate installs (dev / pin a git SHA): `npm install github:eborjaa/synapse#v0
 
 The consumer keeps `context.manifest.json` under `_meta/tools/` (flat) or `context-vault/_meta/tools/`
 (nested). Copy [`schema/context.manifest.example.json`](schema/context.manifest.example.json). Vault
-resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`](CHANGELOG.md) and
+resolution: ancestor walk from `$PWD` → `$SYNAPSE_VAULT` → `$SYNAPSE_VAULT_FALLBACK` (written
+non-exported to your shell rc by `install --write`). See [`CHANGELOG.md`](CHANGELOG.md) and
 [`doc-fork-and-extend`](docs/doc-fork-and-extend.md).
 
 | Command | Does |
@@ -474,7 +474,7 @@ resolution: `$SYNAPSE_VAULT` → ancestor walk from `$PWD`. See [`CHANGELOG.md`]
 
 - **What's shipped and what's next** → [ROADMAP.md](ROADMAP.md)
 
-- **Install end to end** (new machine → vault → editors → DSH, with the checks) → [`doc-install-end-to-end`](docs/doc-install-end-to-end.md)
+- **Install** (new vault, or upgrade an existing one — pick a path) → [`doc-install-end-to-end`](docs/doc-install-end-to-end.md)
 - **Full command reference** (every command, env var, flag, runtime sink) → [`doc-cli-reference`](docs/doc-cli-reference.md)
 - **Browse the graph in Obsidian** (color-coded by type) → [`doc-repo-layout`](docs/doc-repo-layout.md)
 - **The privacy gate** (framework readable, vault sealed; `vault-gate on|off`) → [`doc-deployment-gate`](docs/doc-deployment-gate.md)

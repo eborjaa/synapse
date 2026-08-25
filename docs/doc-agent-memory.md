@@ -111,8 +111,11 @@ A consumer vault can add the same as a `tool-*` note wired into each agent's `us
 ## Vault resolution (which vault a command uses)
 Interactive tools resolve **cwd-first** (v0.16.1): the vault you `cd` into wins, and an exported
 `$SYNAPSE_VAULT` is a FALLBACK used only when cwd is not inside a vault — a stale rc export can no longer
-silently override the vault you are standing in. The **MCP server** is the deliberate exception: it is
-config-pinned (`.mcp.json` sets `$SYNAPSE_VAULT`) and cannot `cd`, so its env wins (`preferCwd: false`).
+silently override the vault you are standing in. Since 1.1.2 the installer does not write that export at
+all: its rc line sets the **non-exported** `$SYNAPSE_VAULT_FALLBACK`, ranked below both `$PWD` and a
+`$SYNAPSE_VAULT` you exported yourself, so installing from one vault cannot redirect another. The **MCP
+server** is the deliberate exception: it is config-pinned (`.mcp.json` sets `$SYNAPSE_VAULT`) and cannot
+`cd`, so its env wins (`preferCwd: false`).
 
 ## Related
 [[hub-synapse]] · [[doc-semantic-recall]] · [[doc-cli-reference]] · [[conventions]]

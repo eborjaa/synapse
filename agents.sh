@@ -3,17 +3,19 @@
 #
 # Source from your shell rc (one-time setup via `synapse install --write`). Since the engine
 # ships as an npm package, this file lives at the package root (or node_modules/@eborja/synapse/):
-#     export SYNAPSE_VAULT="/path/to/vault"; source ".../node_modules/@eborja/synapse/agents.sh"
+#     SYNAPSE_VAULT_FALLBACK="/path/to/vault"; source ".../node_modules/@eborja/synapse/agents.sh"
 #
 # One-time setup:
 #     npx synapse install --write
-# That sources this file and bakes SYNAPSE_VAULT as a safety-net override. Per-call vault
-# resolution still prefers $PWD (flat or nested layout).
+# That writes the line above. SYNAPSE_VAULT_FALLBACK is NOT exported and is consulted LAST — it is a
+# safety net for shells whose cwd is inside no vault, not a pin. Per-call resolution prefers $PWD.
 #
 # Vault resolution (per command, from $PWD):
 #   • dir with agents/ + _meta/tools/context.manifest.json  → that vault (flat)
 #   • dir/context-vault/ with the same                       → nested vault
-#   • else $SYNAPSE_VAULT override / monorepo synapse-vault default
+#   • else $SYNAPSE_VAULT (an override YOU exported — still honored, highest of the fallbacks)
+#   • else $SYNAPSE_VAULT_FALLBACK (written by `synapse install --write`; never exported)
+#   • else the monorepo synapse-vault default
 #
 # ── What you get ──────────────────────────────────────────────────────────────
 #
@@ -80,6 +82,29 @@ export SYNAPSE_MODEL SYNAPSE_CLI SYNAPSE_OLLAMA_URL SYNAPSE_CURSOR_MODEL SYNAPSE
 # Engine code lives in the npm package (lib/), not under _meta/tools/.
 __mx_is_vault() { [ -d "$1/agents" ] && [ -f "$1/_meta/tools/context.manifest.json" ]; }
 
+# Print $1 as a vault if it IS one (flat), or $1/context-vault if that is (nested). Else fail.
+__mx_vault_at() {
+  [ -n "${1:-}" ] || return 1
+  if   __mx_is_vault "$1";               then printf '%s\n' "$1"; return 0
+  elif __mx_is_vault "$1/context-vault"; then printf '%s\n' "$1/context-vault"; return 0
+  fi
+  return 1
+}
+
+# Resolution order — $PWD ALWAYS wins, and the two env fallbacks are ranked by how deliberate they are.
+#
+#   1. the $PWD ancestor walk. You cd into a vault and expect commands to brief from THERE. Nothing
+#      overrides this, ever.
+#   2. $SYNAPSE_VAULT — an override the USER exported (or prefixed onto one command). Explicit intent,
+#      so it outranks anything the installer baked in. Kept for backward compatibility: setups that
+#      already export it keep working unchanged.
+#   3. $SYNAPSE_VAULT_FALLBACK — written by `synapse install --write` into your shell rc, NOT exported.
+#      Purely a safety net for shells / direnv setups where (1) comes back empty. It is last-but-one on
+#      purpose: the installer's guess about "which vault did I last install from" must never outrank a
+#      human's. (Before 1.1.x the installer wrote `export SYNAPSE_VAULT=` here instead, which sat at
+#      rank 2 in EVERY shell and every child process — so installing from vault B silently redirected
+#      work in vault A, and deleting the line by hand was undone by the next install.)
+#   4. the monorepo synapse-vault sibling, when this package sits next to one.
 __mx_vault() {
   _mx_d="$PWD"
   while [ -n "$_mx_d" ] && [ "$_mx_d" != "/" ]; do
@@ -88,14 +113,9 @@ __mx_vault() {
     fi
     _mx_d="$(dirname "$_mx_d")"
   done
-  if [ -n "${SYNAPSE_VAULT:-}" ]; then
-    if   __mx_is_vault "$SYNAPSE_VAULT";               then printf '%s\n' "$SYNAPSE_VAULT"; return 0
-    elif __mx_is_vault "$SYNAPSE_VAULT/context-vault"; then printf '%s\n' "$SYNAPSE_VAULT/context-vault"; return 0
-    fi
-  fi
-  if [ -n "${_MX_DEFAULT_VAULT:-}" ] && __mx_is_vault "$_MX_DEFAULT_VAULT"; then
-    printf '%s\n' "$_MX_DEFAULT_VAULT"; return 0
-  fi
+  __mx_vault_at "${SYNAPSE_VAULT:-}"          && return 0
+  __mx_vault_at "${SYNAPSE_VAULT_FALLBACK:-}" && return 0
+  __mx_vault_at "${_MX_DEFAULT_VAULT:-}"      && return 0
   return 1
 }
 
@@ -180,9 +200,19 @@ __mx_tool() {
 __mx_run() {
   # $1 = synapse CLI subcommand (render|augment|index|…) OR legacy tool basename without .mjs
   _mx_cmd="$1"; shift
+  # Hand the resolved vault to the child as a PER-COMMAND env assignment (`VAR=v cmd`), never as a shell
+  # export. The engine's resolveVault() prefers $PWD too, so this changes nothing when you are standing
+  # in a vault — it exists so `synapse lint` still works from OUTSIDE one, which used to depend on the
+  # global `export SYNAPSE_VAULT` the installer baked into the rc. Per-command means it dies with the
+  # process: no other shell, and no later `claude`/`opencode` launched from this one, inherits it.
+  _mx_v="$(__mx_vault 2>/dev/null || true)"
   if __mx_have_bin; then
     # Prefer the PATH binary — never recurse into the synapse() shell function.
-    command synapse "$_mx_cmd" "$@"
+    if [ -n "$_mx_v" ]; then
+      SYNAPSE_VAULT="$_mx_v" command synapse "$_mx_cmd" "$@"
+    else
+      command synapse "$_mx_cmd" "$@"
+    fi
     _mx_rc=$?
   else
     _mx_toolpath="$(__mx_tool "$(__mx_cli_to_tool "$_mx_cmd")")"
@@ -194,15 +224,21 @@ __mx_run() {
       unset _mx_cmd _mx_toolpath
       return 127
     fi
-    node "$_mx_toolpath" "$@"
+    if [ -n "$_mx_v" ]; then
+      SYNAPSE_VAULT="$_mx_v" node "$_mx_toolpath" "$@"
+    else
+      node "$_mx_toolpath" "$@"
+    fi
     _mx_rc=$?
     unset _mx_toolpath
   fi
-  unset _mx_cmd
+  unset _mx_cmd _mx_v
   return $_mx_rc
 }
 
-if ! __mx_vault >/dev/null 2>&1 && [ -z "${SYNAPSE_VAULT:-}" ]; then
+# __mx_vault already consults $SYNAPSE_VAULT and $SYNAPSE_VAULT_FALLBACK, so its failure is the whole
+# story — a separate env check here would only re-announce what it already answered.
+if ! __mx_vault >/dev/null 2>&1; then
   echo "ℹ️  [synapse] no vault found yet (cd into a vault, or set SYNAPSE_VAULT). Commands will resolve per-call." >&2
 fi
 
@@ -368,7 +404,10 @@ __mx_cli_model_ids() {
       # Optional Bedrock tenant IDs — only when explicitly opted in (slow probe).
       if __mx_cursor_bedrock_wanted; then
         __mx_cursor_bedrock_ensure 2>/dev/null || true
-        _mx_probe_dir="${SYNAPSE_VAULT:-$_MX_DEFAULT_VAULT}"
+        # Any real vault dir will do for the probe — go through __mx_vault so it honors cwd first
+        # and the non-exported rc fallback, not just an exported override.
+        _mx_probe_dir="$(__mx_vault 2>/dev/null || true)"
+        [ -n "$_mx_probe_dir" ] || _mx_probe_dir="$_MX_DEFAULT_VAULT"
         bedrock="$(cd "$_mx_probe_dir" 2>/dev/null && cursor-agent -p --model __invalid_probe__ "x" 2>&1 \
           | tr ',' '\n' | sed 's/^ *//;s/ *$//' \
           | grep -E '^(us|eu|ap|sa)\.(anthropic|amazon|meta|cohere|mistral)\.' \
@@ -437,6 +476,12 @@ __mx_profile_emoji() {
 __mx_launch() {
   agent="$1"; profile="$2"; shift 2
 
+  # This one IS exported, and it has to be: the CLI we exec below (claude / cursor-agent / opencode) is a
+  # long-lived child that must see the vault, and it is launched by name — not through a `VAR=v cmd`
+  # prefix, which the print-mode argv assertions in lib/launcher.test.mjs pin byte-for-byte.
+  # It is NOT the bug this file's resolution order guards against: the value is re-derived from
+  # __mx_vault on EVERY launch (so $PWD still wins), it lives only in the shell you launched from, and it
+  # dies with that shell. What must never come back is a pin evaluated at rc time in every shell.
   SYNAPSE_VAULT="$(__mx_vault 2>/dev/null)" || true
   if [ -z "$SYNAPSE_VAULT" ]; then
     echo "❌ [synapse] could not locate a vault (cd into one, or set SYNAPSE_VAULT)." >&2
@@ -845,7 +890,7 @@ for _mx_name in curator oracle reconciler ingester; do
   _MX_AGENT_NAMES="$_MX_AGENT_NAMES $_mx_name"
 done
 _mx_agents_root="$(__mx_vault 2>/dev/null || true)"
-[ -n "$_mx_agents_root" ] || _mx_agents_root="${SYNAPSE_VAULT:-}"
+[ -n "$_mx_agents_root" ] || _mx_agents_root="${SYNAPSE_VAULT:-${SYNAPSE_VAULT_FALLBACK:-}}"
 if [ -n "$_mx_agents_root" ] && [ -d "$_mx_agents_root/agents" ]; then
   for _mx_f in "$_mx_agents_root"/agents/agent-*.md; do
     [ -f "$_mx_f" ] || continue
