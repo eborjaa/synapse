@@ -38,6 +38,7 @@ const CMDS = {
   journal: "journal-new.mjs",
   new: "new-note.mjs",
   "mcp-config": "mcp-config.mjs",
+  vaults: "vaults.mjs", // the machine's vault registry + one-command rewire of every registered vault
   skills: "skills.mjs", // one harness SKILL.md per agent THIS vault defines (/synapse-<agent>)
   init: "init.mjs",
   "spawn-emit": "spawn-emit.mjs", // doer side of durable-spawn (append a status line)
@@ -79,6 +80,9 @@ commands:
   new <kind> <name>      scaffold a wired note: hub | agent | note | handover
                          (dry-run; --write to create — see: synapse new --help)
   init [dir] [--write]   scaffold a new vault from the notes this package ships
+  vaults [list|add|remove|sync]
+                         the machine's vault registry. 'sync --write' rewires EVERY
+                         registered vault in one command (each keeps its own surface)
   mcp-config [--write]   generate .mcp.json / .cursor/mcp.json for THIS vault
                          (points at the vault's own synapse-mcp bin; plugins auto-discovered)
   skills [--write]       generate one harness SKILL.md per agent THIS vault defines, so
