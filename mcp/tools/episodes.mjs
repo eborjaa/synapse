@@ -13,24 +13,26 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { VAULT, vaultContext } from "../vault.mjs";
 import * as lease from "../../lib/durable-spawn/lease.mjs";
 import * as episodes from "../../lib/durable-spawn/episodes.mjs";
 import { recall as recallDelta } from "../../lib/recall.mjs";
+import { envPinnedContext } from "../vault-context.mjs";
 import { vaultStore } from "../../lib/ports/vault-store.mjs";
 
 // Keyed BY VAULT rather than memoized per module load — see lib/ports/vault-store.mjs for why the
-// module-level singleton was correct on stdio and silently wrong off it.
-function db() {
-  return vaultStore.db(VAULT, { name: "episodes", open: (path) => episodes.openEpisodeDb(path) });
-}
+// module-level singleton was correct on stdio and silently wrong off it. The KEY now comes from the
+// bound context rather than a module constant, which is what closes the last half of that gap: the
+// store was already keyed per vault, but every caller handed it the same key.
+const dbFor = (vault) =>
+  vaultStore.db(vault.vaultDir, { name: "episodes", open: (path) => episodes.openEpisodeDb(path) });
 
 const text = (obj) => ({
   content: [{ type: "text", text: typeof obj === "string" ? obj : JSON.stringify(obj, null, 2) }],
 });
 
-export function registerEpisodeTools(server) {
-  registerRecallTool(server);
+export function registerEpisodeTools(server, vault = envPinnedContext()) {
+  const db = () => dbFor(vault);
+  registerRecallTool(server, vault);
 
   server.registerTool(
     "synapse_history",
@@ -114,7 +116,8 @@ export function registerEpisodeTools(server) {
  * notes (semantic), rules that now apply (on-demand triggers), and prior work (episodes). It never
  * re-renders the spine the agent already holds.
  */
-function registerRecallTool(server) {
+function registerRecallTool(server, vault) {
+  const db = () => dbFor(vault);
   server.registerTool(
     "synapse_recall",
     {
@@ -137,7 +140,7 @@ function registerRecallTool(server) {
         ? null
         : (t) => episodes.searchEpisodes(db(), { query: t, limit: 3 })
             .map((e) => ({ when: new Date(e.startedAt).toISOString(), outcome: e.outcome, summary: e.summary, job: e.job }));
-      const r = await recallDelta({ vault: vaultContext(), task, k: k || 6, episodesFn });
+      const r = await recallDelta({ vault, task, k: k || 6, episodesFn });
       return text(r);
     },
   );

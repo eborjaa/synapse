@@ -10,15 +10,15 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { z } from "zod";
-import { VAULT, manifest } from "../vault.mjs";
 import { build, existingIds, wireInbound, DIR_FOR_TYPE, AUTHORABLE_TYPES } from "../../lib/scaffold.mjs";
 import { fieldForLink } from "../../lib/schema.mjs";
+import { envPinnedContext } from "../vault-context.mjs";
 
 const asText = (text, isError = false) => ({ isError, content: [{ type: "text", text }] });
 
-/** Shared: build → validate → (optionally) write + wire. */
-function run({ kind, args }) {
-  const m = manifest();
+/** Shared: build → validate → (optionally) write + wire. Every path is relative to `vault`. */
+function run({ vault, kind, args }) {
+  const m = vault.manifest;
   let out;
   try {
     out = build({ ...args, kind, manifest: m });
@@ -26,9 +26,9 @@ function run({ kind, args }) {
     return asText(`Cannot scaffold: ${err.message}`, true);
   }
 
-  const abs = join(VAULT, out.path);
+  const abs = join(vault.vaultDir, out.path);
   if (existsSync(abs)) return asText(`Already exists: ${out.path}`, true);
-  if (out.type !== "handover" && existingIds(VAULT, m.skipDirs || []).has(out.id)) {
+  if (out.type !== "handover" && existingIds(vault.vaultDir, m.skipDirs || []).has(out.id)) {
     return asText(`Id "${out.id}" already exists elsewhere — note ids are global. Pick another name.`, true);
   }
 
@@ -36,7 +36,7 @@ function run({ kind, args }) {
   const usedBy = (args.used_by || []).map((a) => (a.startsWith("agent-") ? a : `agent-${a}`));
   const plan = [];
   for (const id of usedBy) {
-    const p = join(VAULT, DIR_FOR_TYPE.agent, `${id}.md`);
+    const p = join(vault.vaultDir, DIR_FOR_TYPE.agent, `${id}.md`);
     if (!existsSync(p)) return asText(`used_by agent not found: ${DIR_FOR_TYPE.agent}/${id}.md`, true);
     plan.push({ id, p, field: fieldForLink({ sourceType: "agent", targetType: out.type, manifest: m }) });
   }
@@ -110,7 +110,7 @@ const common = {
   write: z.boolean().optional().describe("false (default) proposes; true creates the file"),
 };
 
-export function registerAuthoringTools(server) {
+export function registerAuthoringTools(server, vault = envPinnedContext()) {
   server.registerTool("synapse_create_hub", {
     title: "Create a hub",
     description:
@@ -118,7 +118,7 @@ export function registerAuthoringTools(server) {
       + "Members are notes that link TO the hub; never hand-list them.",
     inputSchema: { slug: z.string().describe("Domain name, e.g. 'climbing'"),
       parent: z.string().optional().describe("Parent hub id for sub-hub composition"), ...common },
-  }, async (args) => run({ kind: "hub", args }));
+  }, async (args) => run({ vault, kind: "hub", args }));
 
   server.registerTool("synapse_create_agent", {
     title: "Create an agent",
@@ -135,7 +135,7 @@ export function registerAuthoringTools(server) {
         .describe("true = a standing agent Cortex should provision and run (adds `addressable: true`). "
           + "Default false: a role/persona note used only for rendering briefings."),
       ...common },
-  }, async (args) => run({ kind: "agent", args }));
+  }, async (args) => run({ vault, kind: "agent", args }));
 
   server.registerTool("synapse_create_note", {
     title: "Create a typed note",
@@ -149,7 +149,7 @@ export function registerAuthoringTools(server) {
       hub: z.string().optional().describe("Hub to bind this note to, via related"),
       ...common,
     },
-  }, async (args) => run({ kind: "note", args }));
+  }, async (args) => run({ vault, kind: "note", args }));
 
   server.registerTool("synapse_create_handover", {
     title: "Create a handover note",
@@ -158,5 +158,5 @@ export function registerAuthoringTools(server) {
       + "left / escalations). Proposes by default. Human-triggered: do not call unless asked.",
     inputSchema: { slug: z.string().describe("Short slug, e.g. 'continue-gate-6'"),
       plan: z.string().optional().describe("Plan note id to inherit first"), ...common },
-  }, async (args) => run({ kind: "handover", args }));
+  }, async (args) => run({ vault, kind: "handover", args }));
 }

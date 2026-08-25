@@ -4,6 +4,47 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Changed
+- **A request now carries its own vault.** `mcp/vault.mjs` resolved the vault **once, at module load**,
+  into a `VAULT` constant that ~60 references across eight tool modules read. On stdio that was correct
+  and [[decision-0010-mcp-2026-07-28-dual-era]] said so — one connection is one process is one vault, so
+  "the vault" and "this request's vault" are the same string and a constant cannot be wrong. Off stdio it
+  was wrong, and quietly: under an HTTP handler the module loads once and serves many vaults, so every
+  tool would answer from whichever vault won the import race.
+
+  A bound vault is now a **value** — `mcp/vault-context.mjs` — passed to `buildServer({ vault })` and
+  closed over by each tool handler. The seam sits at the factory because of what the MCP SDK guarantees:
+  `McpServerFactory` is invoked **once per HTTP request** under `createMcpHandler` (carrying `authInfo`)
+  and once per connection under `serveStdio`. So "one server per bound vault" and "one server per serving
+  unit" are the same object, and a per-request vault needs no ambient state to travel in. Two vaults in
+  one process share no database handle, no epoch and no cached briefing — not by convention, but because
+  they share no name to read.
+
+  **Nothing changes for the existing stdio setup.** `buildServer()` with no vault defaults to the
+  env-pinned context, resolved per call. Verified: the full suite passes, generated client config is
+  byte-identical, and the live server's **wire surface is byte-identical on all four surfaces**
+  (skeleton/standard/full/orchestrator — 3/11/20/26 tools) under raw JSON-RPC in both protocol eras.
+
+  This satisfies the precondition [[decision-0014-multi-vault-amendment]] recorded for the HTTP
+  transport. What remains there is the adapter, not a prerequisite.
+
+### Fixed
+- **`synapse_embeddings_status` measured the wrong index.** It printed `vault=<pinned vault>` in its
+  header while calling `embeddingsStatus()` with its cwd-first default, so on any server whose working
+  directory differed from its pinned vault the header and the measurement disagreed. It is now pinned to
+  the bound vault.
+- **`synapse_resume_from_handover` read handovers from the wrong vault.** It called `resolveVault()`
+  fresh — cwd-first — instead of using the server's vault. Invisible on stdio where the two coincide; a
+  cross-vault read the moment they do not.
+
+### Deprecated
+- `mcp/vault.mjs`'s single-vault surface — `VAULT`, `AGENTS_DIR`, `HANDOVER_DIR`, `manifest()`,
+  `vaultContext()`, `runSynapse()` and the `list*` helpers. They still resolve exactly as before, because
+  `<vault>/_meta/mcp-plugins/*.mjs` is a documented extension point with consumers this package does not
+  ship. Nothing inside the package imports them any more, and a test enforces that. Plugins should read
+  `ctx.vault` (the bound context); `ctx.VAULT`, `ctx.runSynapse` and `ctx.manifest` remain and are now
+  derived from the bound vault, so an existing plugin becomes multi-vault-correct unchanged.
+
 ### Fixed
 - **`synapse install --write` no longer writes a global `export SYNAPSE_VAULT=` into your shell rc.**
   The rc line was `export SYNAPSE_VAULT="<vault>"; source "<agents.sh>"` — a **global pin**, evaluated at

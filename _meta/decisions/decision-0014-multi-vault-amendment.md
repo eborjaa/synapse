@@ -58,15 +58,28 @@ and is neutral here — where it runs is the question, and the answer is the own
 ## What is implemented, and what is not
 
 Implemented: the per-vault state seam, the credential store and the bearer-token binding, the vault
-registry and one-command rewire, and per-workspace roster isolation.
+registry and one-command rewire, per-workspace roster isolation, **and the per-request vault context**.
 
-**Not implemented: the HTTP transport itself**, and the reason is recorded here so it is not
-rediscovered. It is not an SDK gap — the handler ships in the current server package. It is that
-`mcp/vault.mjs` resolves the vault **once at module load**, and dozens of references across the tool
-modules read that constant. Shipping HTTP before threading the bound vault through those call sites
-would accept a per-request credential, resolve it correctly, and then serve every request from
-whichever vault loaded first: multi-vault in the URL, single-vault in the data. **That is worse than no
-HTTP, because it looks like it works.** Thread the vault first.
+**The threading precondition this section used to record as outstanding is now met.** It read: shipping
+HTTP before threading the bound vault through the tool call sites would accept a per-request credential,
+resolve it correctly, and then serve every request from whichever vault loaded first — multi-vault in
+the URL, single-vault in the data, *worse than no HTTP because it looks like it works*. That reasoning
+was right and is why the order was what it was; it is simply no longer a blocker.
+
+The module-load `VAULT` constant is gone from every call site. A bound vault is now a **value** —
+`mcp/vault-context.mjs` — passed to `buildServer({ vault })` and closed over by each tool handler. The
+seam sits there rather than deeper because of what the SDK guarantees: `McpServerFactory` is invoked
+**once per HTTP request** under `createMcpHandler` (with `authInfo`) and once per connection under
+`serveStdio`, so "one server per bound vault" and "one server per serving unit" are the same object and
+no ambient per-request state is needed. Two vaults in one process therefore share no handle, no epoch
+and no cached briefing — not by convention, but because they share no name to read.
+
+`mcp/vault.mjs` still exports `VAULT` and friends, deprecated, because `<vault>/_meta/mcp-plugins/*.mjs`
+is a documented extension point with consumers this package does not ship. Nothing inside the package
+imports them, and a test asserts that — the old bug is re-introducible by one careless import, and would
+be invisible again until something served two vaults.
+
+**Still not implemented: the HTTP transport itself.** What remains is the adapter, not a prerequisite.
 
 ## Consequences
 

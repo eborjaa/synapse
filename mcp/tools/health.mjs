@@ -1,10 +1,11 @@
 // health.mjs — vault mechanical health (lint).
 
 import { z } from "zod";
-import { runSynapse, asToolResult } from "../vault.mjs";
+import { asToolResult } from "../vault.mjs";
+import { envPinnedContext } from "../vault-context.mjs";
 
 /** Available on standard + full — curator needs this. */
-export function registerHealthTools(server) {
+export function registerHealthTools(server, vault = envPinnedContext()) {
   server.registerTool(
     "synapse_lint",
     {
@@ -22,7 +23,7 @@ export function registerHealthTools(server) {
       const args = ["lint"];
       if (strict) args.push("--strict");
       // lint exits non-zero when errors>0; still return stdout/stderr as content
-      const res = await runSynapse(args, { timeoutMs: 120_000 });
+      const res = await vault.runSynapse(args, { timeoutMs: 120_000 });
       if (res.timedOut) {
         return {
           isError: true,

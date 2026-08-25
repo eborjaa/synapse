@@ -17,15 +17,21 @@
 // every vault carries its own tools with no per-machine configuration. SYNAPSE_MCP_PLUGINS adds
 // extra paths on top, for plugins that live outside the vault.
 //
-// ctx = { server, surface, VAULT, runSynapse, asToolResult, manifest } — the same helpers the
-// built-in tool modules use, so a plugin is written exactly like `tools/health.mjs`.
+// ctx = { server, surface, vault, asToolResult, VAULT, runSynapse, manifest } — the same helpers the
+// built-in tool modules use, so a plugin is written exactly like `tools/health.mjs`. Prefer `ctx.vault`
+// (a bound context); the flat `VAULT`/`runSynapse`/`manifest` members are kept for existing plugins and
+// are derived from that same bound vault.
 
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
-import { assertVault, VAULT } from "./vault.mjs";
+import { envPinnedContext } from "./vault-context.mjs";
 import { buildServer, loadPlugins, resolveSurface, version } from "./build-server.mjs";
 
-assertVault();
+// THIS process serves exactly one vault, chosen by its environment — that is what stdio IS (one
+// connection, one process, one vault). Resolve it ONCE here and hand the same context to every
+// connection, so the failure is loud at startup rather than on the first tool call.
+const vault = envPinnedContext();
+vault.assertVault();
 
 const surface = resolveSurface();
 
@@ -41,9 +47,9 @@ const plugins = await loadPlugins();
 // fall-forward path and would simply fail. See [[decision-0010-mcp-2026-07-28-dual-era]].
 //
 // The factory is invoked per connection, so it must stay cheap — plugins are already imported above.
-serveStdio(() => buildServer({ surface, plugins }), { legacy: "serve" });
+serveStdio(() => buildServer({ surface, plugins, vault }), { legacy: "serve" });
 
 process.stderr.write(
-  `[synapse-mcp] ready · v${version} · surface=${surface} · vault=${VAULT}`
+  `[synapse-mcp] ready · v${version} · surface=${surface} · vault=${vault.vaultDir}`
   + `${plugins.length ? ` · plugins=${plugins.map((p) => p.name).join(",")}` : ""}\n`,
 );

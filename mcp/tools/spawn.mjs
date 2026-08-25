@@ -12,7 +12,8 @@ import { mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
-import { VAULT, runSynapse, normalizeAgentId } from "../vault.mjs";
+import { normalizeAgentId } from "../vault.mjs";
+import { envPinnedContext } from "../vault-context.mjs";
 import * as lease from "../../lib/durable-spawn/lease.mjs";
 import * as registry from "../../lib/durable-spawn/registry.mjs";
 import * as episodes from "../../lib/durable-spawn/episodes.mjs";
@@ -26,28 +27,35 @@ import { resolveOllamaBase, resolveEmbedModel, embedText, cosine } from "../../l
 // connection, one process, one vault — this is byte-for-byte the old behavior. Off stdio it is what
 // stops the first vault to touch the DB from owning it for every other vault, and what stops
 // staleSpawns() reporting every other caller's spawns as stale (decision-0010).
-const EPOCH = () => vaultStore.epoch(VAULT);
+//
+// EPOCH IS PER (VAULT, PROCESS) AND MUST STAY THAT WAY. It is the reconciliation key staleSpawns()
+// compares against: spawns recorded under a DIFFERENT epoch are the ones a previous orchestrator boot
+// left behind. Mint it per request and every concurrent caller's spawns read as stale; share it across
+// vaults and vault A's boot invalidates vault B's live spawns. vaultStore.epoch(vaultDir) is exactly
+// "once per vault, for the life of the process", which is the only correct reading of both.
+const EPOCH = (vault) => vaultStore.epoch(vault.vaultDir);
 
 // The durable-spawn file's absolute path. Still needed as a PATH (not a handle) because it is handed to
 // the detached doer process, which opens the file itself — a handle cannot cross a process boundary.
-const dbPath = () => join(VAULT, "db", "durable-spawn.db");
+const dbPath = (vault) => join(vault.vaultDir, "db", "durable-spawn.db");
 const SIM_THRESHOLD = Number(process.env.SYNAPSE_SPAWN_SIM_THRESHOLD || 0.86);
 const DEFAULT_TTL_MS = Number(process.env.SYNAPSE_SPAWN_TTL_MS || 60 * 60 * 1000); // 1h > a long turn
 
 // The store owns keying and lifetime; this module owns MEANING — which opener a file needs and whether
 // it migrates on open. durable-spawn migrates; episodes does not.
-function db() {
-  return vaultStore.db(VAULT, {
-    name: "durable-spawn",
-    open: (path) => { const d = lease.openDb(path); registry.migrate(d); return d; },
-  });
-}
+//
+// SINGLE-WRITER IS UNCHANGED BY THIS. Keying the handle per vault makes MANY VAULTS in one process
+// safe; it says nothing about many processes on one vault, and the lease/fence design still assumes
+// exactly one writer per vault database (see PLAN constraint 2 — exactly one synapse-core instance).
+const dbFor = (vault) => vaultStore.db(vault.vaultDir, {
+  name: "durable-spawn",
+  open: (path) => { const d = lease.openDb(path); registry.migrate(d); return d; },
+});
 
 // Episodes live in their OWN file: db/durable-spawn.db is disposable runtime state (a stuck lease is
 // cleared by deleting it), and permanent memory must not ride along with something people delete.
-function edb() {
-  return vaultStore.db(VAULT, { name: "episodes", open: (path) => episodes.openEpisodeDb(path) });
-}
+const edbFor = (vault) =>
+  vaultStore.db(vault.vaultDir, { name: "episodes", open: (path) => episodes.openEpisodeDb(path) });
 
 const text = (obj) => ({
   content: [{ type: "text", text: typeof obj === "string" ? obj : JSON.stringify(obj, null, 2) }],
@@ -105,7 +113,7 @@ function statusFacts(d, spawn) {
  * never start without), routing delegation through it makes the lease unskippable regardless of who
  * performs the launch. Returns {ok:true, owner, token, briefing} or {refusal} / {failure}.
  */
-async function claimAndRender(d, { agent, task, job, target, profile, ttlMs, force }, render) {
+async function claimAndRender(d, edb, { agent, task, job, target, profile, ttlMs, force }, render) {
   if (!force) {
     const dup = await semanticDuplicate(d, task);
     if (dup) {
@@ -136,7 +144,7 @@ async function claimAndRender(d, { agent, task, job, target, profile, ttlMs, for
   // triage next week is legitimate work; re-running it UNKNOWINGLY is the waste worth naming.
   let priorRun = null;
   try {
-    const prev = episodes.lastForJob(edb(), job);
+    const prev = episodes.lastForJob(edb, job);
     if (prev && prev.outcome !== "open") {
       priorRun = {
         outcome: prev.outcome,
@@ -154,8 +162,17 @@ async function claimAndRender(d, { agent, task, job, target, profile, ttlMs, for
 // `launch`/`render` are injectable so tests can drive the tools without a real runtime or vault render.
 export function registerSpawnTools(
   server,
-  { launch = launchDetached, render = (opts) => renderBriefing(runSynapse, opts) } = {},
+  vault = envPinnedContext(),
+  { launch = launchDetached, render = null } = {},
 ) {
+  // Every handle, path and epoch below is derived from the BOUND vault — nothing in this module reads
+  // an ambient vault any more, which is what makes a lease taken for vault A unreachable from B.
+  const db = () => dbFor(vault);
+  const edb = () => edbFor(vault);
+  const epoch = () => EPOCH(vault);
+  // Default render shells out to THIS vault's CLI. Injectable so tests drive the tools without a
+  // real runtime or vault render.
+  render = render || ((opts) => renderBriefing(vault.runSynapse.bind(vault), opts));
   server.registerTool(
     "synapse_claim_and_brief",
     {
@@ -188,6 +205,7 @@ export function registerSpawnTools(
       const agentId = normalizeAgentId(agent);
       const claim = await claimAndRender(
         d,
+        edb(),
         { agent: agentId, task, job, target, profile: profile || "standard", ttlMs: ttlMs || DEFAULT_TTL_MS, force },
         render,
       );
@@ -198,7 +216,7 @@ export function registerSpawnTools(
       const spawnId = randomUUID();
       registry.record(
         d,
-        { spawnId, job, owner: claim.owner, epoch: EPOCH(), token: claim.token, statusFile: null, task },
+        { spawnId, job, owner: claim.owner, epoch: epoch(), token: claim.token, statusFile: null, task },
         lease.dbNow(d),
       );
 
@@ -253,13 +271,13 @@ export function registerSpawnTools(
       const d = db();
       const agentId = normalizeAgentId(agent);
       cli = cli || process.env.SYNAPSE_CLI || "cursor";
-      cwd = cwd || VAULT;
+      cwd = cwd || vault.vaultDir;
       model = model || "";
       profile = profile || "standard";
       ttlMs = ttlMs || DEFAULT_TTL_MS;
 
       // 1-3. The same enforced gate the primary path uses: semantic net → lease → briefing.
-      const claim = await claimAndRender(d, { agent: agentId, task, job, target, profile, ttlMs, force }, render);
+      const claim = await claimAndRender(d, edb(), { agent: agentId, task, job, target, profile, ttlMs, force }, render);
       if (!claim.ok) return claim.isError ? fail(claim.body) : text(claim.body);
       const owner = claim.owner;
       const acq = { token: claim.token };
@@ -267,15 +285,15 @@ export function registerSpawnTools(
 
       // 4. Launch detached — the one thing this path does that claim_and_brief leaves to the caller.
       const spawnId = randomUUID();
-      const runDir = join(VAULT, "db", "spawn", spawnId);
+      const runDir = join(vault.vaultDir, "db", "spawn", spawnId);
       const statusFile = join(runDir, "status.log");
       const logFile = join(runDir, "runtime.log");
       let pid;
       try {
         ({ pid } = launch({
           cli, briefing: r.briefing, task, statusFile, logFile,
-          vault: VAULT, model, permMode: "auto",
-          job, owner, token: acq.token, dbPath: dbPath(), cwd,
+          vault: vault.vaultDir, model, permMode: "auto",
+          job, owner, token: acq.token, dbPath: dbPath(vault), cwd,
         }));
       } catch (e) {
         lease.release(d, job, owner, acq.token);
@@ -283,7 +301,7 @@ export function registerSpawnTools(
       }
 
       // 5. Durable record (survives an orchestrator restart → staleSpawns reconciliation) + the episode.
-      registry.record(d, { spawnId, job, owner, epoch: EPOCH(), token: acq.token, statusFile, task }, lease.dbNow(d));
+      registry.record(d, { spawnId, job, owner, epoch: epoch(), token: acq.token, statusFile, task }, lease.dbNow(d));
       const { episodeId } = episodes.open(edb(), { agent: agentId, job, spawnId, task, hub: target ?? null }, lease.dbNow(d));
 
       return text({ ok: true, spawnId, episodeId, job, token: acq.token, owner, pid, cli, statusFile,
@@ -342,8 +360,8 @@ export function registerSpawnTools(
       const running = registry.listByState(d, "running").map((s) => ({
         spawnId: s.spawn_id, job: s.job, cli: undefined, ...statusFacts(d, s),
       }));
-      const stale = registry.staleSpawns(d, EPOCH()).map((s) => ({ spawnId: s.spawn_id, job: s.job, ...statusFacts(d, s) }));
-      return text({ epoch: EPOCH(), running, staleFromPriorBoot: stale });
+      const stale = registry.staleSpawns(d, epoch()).map((s) => ({ spawnId: s.spawn_id, job: s.job, ...statusFacts(d, s) }));
+      return text({ epoch: epoch(), running, staleFromPriorBoot: stale });
     },
   );
 
