@@ -7,6 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { vaultStore } from "../lib/ports/vault-store.mjs";
 import { join, dirname } from "node:path";
 
 const M = {
@@ -41,8 +42,18 @@ async function harness() {
   put("notes/note-sensors.md", note("note-sensors", "note", "", "sensors grid regression notes"));
   process.env.SYNAPSE_VAULT = VAULT;
 
-  // fresh module instances per harness: the tools cache a DB handle keyed to VAULT at import, so a new
-  // temp vault needs a fresh import (cache-bust with a query string).
+  // Fresh module instances per harness. Two separate caches have to be cleared, for two reasons:
+  //
+  //  1. The cache-bust below gives each harness its own copy of the tool modules. That is still needed
+  //     because mcp/vault.mjs resolves VAULT at ITS module load and is not busted, so every harness in
+  //     this process shares one VAULT value — the first temp vault's path.
+  //  2. Database handles now live in the vault store, which is a DIFFERENT module and therefore
+  //     survives the bust. Since all harnesses share one VAULT key (see 1), harness #2 would otherwise
+  //     be handed harness #1's still-open handle — whose data outlives the rmSync of its file — and
+  //     would see the previous test's episodes as prior work.
+  //
+  // Resetting the store is the honest fix: the state is explicit now, so clearing it is explicit too.
+  vaultStore._reset();
   const bust = `?v=${Math.random()}`;
   const { registerEpisodeTools } = await import("./tools/episodes.mjs" + bust);
   const { registerSpawnTools } = await import("./tools/spawn.mjs" + bust);

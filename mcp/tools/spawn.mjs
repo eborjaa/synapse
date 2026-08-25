@@ -18,32 +18,35 @@ import * as registry from "../../lib/durable-spawn/registry.mjs";
 import * as episodes from "../../lib/durable-spawn/episodes.mjs";
 import { parseStatus } from "../../lib/durable-spawn/heartbeat.mjs";
 import { classify } from "../../lib/durable-spawn/liveness.mjs";
+import { vaultStore } from "../../lib/ports/vault-store.mjs";
 import { renderBriefing, launchDetached } from "../../lib/spawn-runtime.mjs";
 import { resolveOllamaBase, resolveEmbedModel, embedText, cosine } from "../../lib/gen-embeddings.mjs";
 
-const EPOCH = randomUUID(); // per MCP-server boot — the reconciliation key for staleSpawns()
-const DB_PATH = join(VAULT, "db", "durable-spawn.db");
-const EPISODE_DB_PATH = join(VAULT, "db", "episodes.db");
+// EPOCH and both database handles are keyed BY VAULT, not memoized per module load. On stdio — one
+// connection, one process, one vault — this is byte-for-byte the old behavior. Off stdio it is what
+// stops the first vault to touch the DB from owning it for every other vault, and what stops
+// staleSpawns() reporting every other caller's spawns as stale (decision-0010).
+const EPOCH = () => vaultStore.epoch(VAULT);
+
+// The durable-spawn file's absolute path. Still needed as a PATH (not a handle) because it is handed to
+// the detached doer process, which opens the file itself — a handle cannot cross a process boundary.
+const dbPath = () => join(VAULT, "db", "durable-spawn.db");
 const SIM_THRESHOLD = Number(process.env.SYNAPSE_SPAWN_SIM_THRESHOLD || 0.86);
 const DEFAULT_TTL_MS = Number(process.env.SYNAPSE_SPAWN_TTL_MS || 60 * 60 * 1000); // 1h > a long turn
 
-let _db = null;
+// The store owns keying and lifetime; this module owns MEANING — which opener a file needs and whether
+// it migrates on open. durable-spawn migrates; episodes does not.
 function db() {
-  if (_db) return _db;
-  mkdirSync(join(VAULT, "db"), { recursive: true });
-  _db = lease.openDb(DB_PATH);
-  registry.migrate(_db);
-  return _db;
+  return vaultStore.db(VAULT, {
+    name: "durable-spawn",
+    open: (path) => { const d = lease.openDb(path); registry.migrate(d); return d; },
+  });
 }
 
 // Episodes live in their OWN file: db/durable-spawn.db is disposable runtime state (a stuck lease is
 // cleared by deleting it), and permanent memory must not ride along with something people delete.
-let _edb = null;
 function edb() {
-  if (_edb) return _edb;
-  mkdirSync(join(VAULT, "db"), { recursive: true });
-  _edb = episodes.openEpisodeDb(EPISODE_DB_PATH);
-  return _edb;
+  return vaultStore.db(VAULT, { name: "episodes", open: (path) => episodes.openEpisodeDb(path) });
 }
 
 const text = (obj) => ({
@@ -195,7 +198,7 @@ export function registerSpawnTools(
       const spawnId = randomUUID();
       registry.record(
         d,
-        { spawnId, job, owner: claim.owner, epoch: EPOCH, token: claim.token, statusFile: null, task },
+        { spawnId, job, owner: claim.owner, epoch: EPOCH(), token: claim.token, statusFile: null, task },
         lease.dbNow(d),
       );
 
@@ -272,7 +275,7 @@ export function registerSpawnTools(
         ({ pid } = launch({
           cli, briefing: r.briefing, task, statusFile, logFile,
           vault: VAULT, model, permMode: "auto",
-          job, owner, token: acq.token, dbPath: DB_PATH, cwd,
+          job, owner, token: acq.token, dbPath: dbPath(), cwd,
         }));
       } catch (e) {
         lease.release(d, job, owner, acq.token);
@@ -280,7 +283,7 @@ export function registerSpawnTools(
       }
 
       // 5. Durable record (survives an orchestrator restart → staleSpawns reconciliation) + the episode.
-      registry.record(d, { spawnId, job, owner, epoch: EPOCH, token: acq.token, statusFile, task }, lease.dbNow(d));
+      registry.record(d, { spawnId, job, owner, epoch: EPOCH(), token: acq.token, statusFile, task }, lease.dbNow(d));
       const { episodeId } = episodes.open(edb(), { agent: agentId, job, spawnId, task, hub: target ?? null }, lease.dbNow(d));
 
       return text({ ok: true, spawnId, episodeId, job, token: acq.token, owner, pid, cli, statusFile,
@@ -339,8 +342,8 @@ export function registerSpawnTools(
       const running = registry.listByState(d, "running").map((s) => ({
         spawnId: s.spawn_id, job: s.job, cli: undefined, ...statusFacts(d, s),
       }));
-      const stale = registry.staleSpawns(d, EPOCH).map((s) => ({ spawnId: s.spawn_id, job: s.job, ...statusFacts(d, s) }));
-      return text({ epoch: EPOCH, running, staleFromPriorBoot: stale });
+      const stale = registry.staleSpawns(d, EPOCH()).map((s) => ({ spawnId: s.spawn_id, job: s.job, ...statusFacts(d, s) }));
+      return text({ epoch: EPOCH(), running, staleFromPriorBoot: stale });
     },
   );
 
