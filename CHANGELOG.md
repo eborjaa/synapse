@@ -5,6 +5,45 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## Unreleased
 
 ### Added
+- **Synapse ships as four disposable containers.** `deploy/compose.yml` runs `vpn-sidecar`, `dsh`,
+  `synapse-core` and `ollama` over five named volumes, and the same file runs on a laptop and on a home
+  server — **only `BIND_ADDR` differs**, and nothing in any image knows where it is running.
+
+  `dsh` owns the network namespace; `synapse-core` and `vpn-sidecar` join it with
+  `network_mode: service:dsh`. That is what lets MCP keep binding `127.0.0.1:3000` — the existing
+  local-only guard, on the existing code path — while `dsh` still reaches it. Only `dsh` publishes to the
+  host, as `${BIND_ADDR}:8080:8080`; core is never given `BIND_ADDR`. `deploy/up.sh` runs
+  `deploy/assert-bind.mjs` — the *same* wildcard set the MCP listener refuses — **before** compose
+  starts, because Docker publishes the port before Node ever runs. Destroying and recreating every
+  container keeps vaults, registry, credentials and rosters. `ollama` sits behind
+  `profiles: [embeddings]`; the deterministic core works without it. The `dsh` image is a stub until the
+  real harness arrives (`DSH_IMAGE`), and the VPN sidecar idles until `VPN_IMAGE` names a tunnel.
+  See [[decision-0016-four-container-deployment]] and [[doc-four-containers]].
+
+- **Exactly one `synapse-core` per config volume is now enforced, not just documented.**
+  `synapse-mcp --http` takes `$SYNAPSE_HOME/synapse-core.lock` **before** it listens — so a refused
+  second core cannot first steal the port — and releases it on `close()` and on every failed start. A
+  second process exits `3` naming the owner. The compose file adds the same rule a layer up
+  (`container_name` + `deploy.replicas: 1` make `--scale synapse-core=2` collide).
+
+  The lock records `pid` + `host` + `startedAt`, because in containers a bare pid lies in both
+  directions. A hard-killed core leaves the file behind and the restarted core is routinely handed the
+  **same** low pid it reads out of it — it signals that pid, finds *itself*, and refuses, crash-looping
+  until a retry happens to drift onto another number (observed in the real stack, not theorised).
+  Meanwhile two containers each have a pid 7, so trusting `kill(pid, 0)` across namespaces would let a
+  second core **steal** a lock a live one holds. Liveness is therefore consulted only for records
+  written on this host; a record from another host is refused rather than stolen, and
+  `deploy/core-entrypoint.sh` is the one place allowed to clear one — sound only because compose has
+  already guaranteed a single core container.
+
+- **`SYNAPSE_SKILLS_ROOT` separates the roster plane from the config volume.** Rosters hung off
+  `$SYNAPSE_HOME`, which is also where `tokens.json` (0600) lives, so sharing rosters with `dsh` would
+  have meant mounting the credential store beside them. `dsh` now mounts a `skills` volume read-only and
+  discovers agents as files, with no MCP call involved. Unset — every host install — it resolves to the
+  old `$SYNAPSE_HOME/skills` and nothing moves.
+
+- The published package now ships `deploy/`.
+
 - **Privileged vault and credential operations are a separate MCP catalogue.** An everyday session —
   any of skeleton/standard/full/orchestrator, including a normal bearer against a process started with
   `--surface admin` — never lists `synapse_admin_list` / `_register` / `_mint` / `_revoke` / `_sync`.

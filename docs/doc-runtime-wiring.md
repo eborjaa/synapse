@@ -59,8 +59,13 @@ the process `--surface`. An **admin-scoped** bearer upgrades that request to the
 started with `--surface admin`.
 
 Run **exactly one** shared server. Per-vault database handles and epochs make many vaults in one process
-safe; they do not make many processes on one SQLite vault safe. TLS/VPN termination and the four-container
-packaging are separate deployment work — this command does not publish or host an endpoint.
+safe; they do not make many processes on one SQLite vault safe. This is now enforced rather than merely
+documented: `--http` takes `$SYNAPSE_HOME/synapse-core.lock` before the listener opens, and a second
+process against the same config volume exits **3** naming the owner ([[doc-four-containers]]).
+
+This command still does not publish or host an endpoint. The packaged deployment —
+four containers, one compose file, VPN termination in a swappable sidecar — is
+[[doc-four-containers]] ([[decision-0016-four-container-deployment]]).
 
 ## The CLI is pluggable (`--cli`)
 

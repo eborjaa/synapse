@@ -40,6 +40,9 @@ The design notes, in reading order:
 - [[doc-deployment-gate]] — the intended one-parent layout and the host-level privacy gate: an external
   coding agent maintains the framework while the vault stays sealed (local-only, data never leaves your
   hardware).
+- [[doc-four-containers]] — the packaged deployment: four disposable containers over five named volumes,
+  one compose file for laptop and server, `BIND_ADDR` the only switch
+  ([[decision-0016-four-container-deployment]]).
 - [[plan-one-server-many-vaults]] — in flight: one MCP server across many vaults, split into a tools
   plane (over the wire) and a roster plane (on disk), behind harness-agnostic ports.
 - [[doc-repo-layout]] — where everything lives. · [[doc-roadmap]] — what's next.
