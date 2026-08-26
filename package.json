@@ -53,7 +53,8 @@
     "vault:migrate": "synapse migrate",
     "vault:setup": "synapse setup",
     "vault:install": "synapse install",
-    "conformance": "node mcp/conformance.mjs --all"
+    "conformance": "node mcp/conformance.mjs --all",
+    "epic6": "node --experimental-sqlite mcp/four-harness-e2e.mjs"
   },
   "keywords": [
     "context-vault",

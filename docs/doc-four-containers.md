@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]", "[[doc-runtime-wiring]]", "[[doc-deployment-gate]]"]
-related: ["[[hub-synapse]]", "[[decision-0016-four-container-deployment]]"]
+related: ["[[hub-synapse]]", "[[decision-0016-four-container-deployment]]", "[[decision-0018-dsh-session-vault-router]]", "[[plan-four-containers]]"]
 ---
 
 # The four-container stack
@@ -74,10 +74,21 @@ because compose has already settled the question a layer above.
 
 ## What is not here yet
 
-The `dsh` image is a **stub** (`deploy/dsh-stub`) that proves the roster mount and the port; the real
-harness arrives with `DSH_IMAGE` in Epic 5. The VPN sidecar idles until `VPN_IMAGE` names a real tunnel.
-The privacy posture is unchanged: nothing is published on a public interface
+The `dsh` image is a **stub** (`deploy/dsh-stub`) that proves the roster mount and the port; a real
+DSH image is `DSH_IMAGE`. Vault switching in DSH is not a generated preset — opening a folder is the
+whole act ([[decision-0018-dsh-session-vault-router]]). The VPN sidecar idles until `VPN_IMAGE` names
+a real tunnel. The privacy posture is unchanged: nothing is published on a public interface
 ([[doc-deployment-gate]]).
+
+## Four harnesses, isolation proven
+
+`mcp/four-harness-e2e.mjs` is Epic 6: one command, four harnesses (Claude Code · Cursor · opencode ·
+DeepSeek Harness), four vault fixtures. Each harness must connect, list the orchestrator tools, reach
+its bound vault, and **not** reach another — assertion four runs per harness. Offline, no API key;
+assertions are on the MCP handshake and tool list, never model output. Claude / Cursor / opencode are
+driven through the generated config's spawn line (those CLIs are not headless without a key, and the
+result is labelled `config-spawn`). DSH is the plugin (`plugin`). Run it with
+`npm run epic6` or `node --experimental-sqlite mcp/four-harness-e2e.mjs`.
 
 ## Related
 [[decision-0016-four-container-deployment]] · [[doc-runtime-wiring]] · [[doc-deployment-gate]] · [[doc-repo-layout]] · [[decision-0014-multi-vault-amendment]] · [[hub-synapse]]
