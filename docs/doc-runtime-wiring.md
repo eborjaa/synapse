@@ -40,6 +40,33 @@ synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
 # client header:   Authorization: Bearer syn_...
 ```
 
+### One credential, several vaults, one address each
+
+A credential grants a **set** of vaults, and the request's URL path says which of them answers
+([[decision-0017-path-addressed-vaults]]):
+
+```bash
+synapse vaults token work personal --label "laptop"   # one secret, two vaults
+# http://127.0.0.1:3000/mcp/work       → the work vault
+# http://127.0.0.1:3000/mcp/personal   → the personal vault
+```
+
+**The credential grants; the path only narrows.** A path naming a vault the credential does not grant is
+refused, and that refusal is byte-identical to an unknown token and to a vault that does not exist — so
+the endpoint cannot be used to discover which vaults are on the machine. The id is one path segment,
+compared for exact equality after decoding: `work` never matches `work-archive`, and a traversal segment
+resolves nowhere.
+
+**There is no default.** A request with no vault in its path binds only when the credential grants
+exactly one vault — so every existing single-vault client keeps working untouched. A credential granting
+several, asked at the bare `/mcp`, is **refused** rather than resolved to the first one; a client that
+forgot its path segment must not silently read the wrong vault. Tokens minted before this change store a
+single `vaultId` and are read as a one-element grant, with no migration.
+
+Generated client config still writes **stdio** rows, which bind by directory and need no running server.
+The addresses above are for clients that talk to a long-lived server — the container stack, or several
+clients sharing one process.
+
 `--host` may name loopback or an address assigned to the owner's VPN interface. `0.0.0.0`, `::`, and an
 empty address are refused before a socket opens — local-only is the deployment boundary, not a default
 someone may accidentally turn off. `SYNAPSE_MCP_HOST` (or container-oriented `BIND_ADDR`),

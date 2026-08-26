@@ -5,6 +5,45 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## Unreleased
 
 ### Added
+- **One credential can now grant several vaults, and the URL path chooses which one answers.**
+  `synapse vaults token work personal` mints a single secret for both, and the address selects:
+
+  ```
+  http://127.0.0.1:3000/mcp/work       → the work vault
+  http://127.0.0.1:3000/mcp/personal   → the personal vault
+  ```
+
+  Previously one token bound exactly one vault, which is what made per-vault client configuration
+  unavoidable — every client reaching two vaults needed two rows carrying two secrets, one written into
+  each vault's own repo.
+
+  **The credential grants; the path only ever narrows.** A path naming a vault the credential does not
+  grant is refused, byte-identically to an unknown token and to a vault that does not exist, so the
+  endpoint is not an oracle for which vaults exist on the machine. The id is a single path segment
+  compared for exact equality after decoding: `work` never matches `work-archive`, and a traversal
+  segment resolves nowhere.
+
+  **No defaults anywhere.** A request with no vault in its path binds only when the credential grants
+  exactly one — so every existing single-vault client is untouched. A multi-vault credential asked at the
+  bare `/mcp` is *refused* rather than resolved to the first entry, because a client that forgot its path
+  segment must not silently read the wrong vault. Tokens minted before this change store a single
+  `vaultId` and are read as a one-element grant; nothing is migrated, since rewriting a credential file to
+  change a field's shape is a risk with no upside.
+
+  This is a deliberate change to the security posture, reviewed as
+  [[decision-0017-path-addressed-vaults]]: **a leaked credential now exposes every vault it grants.**
+  What has not changed is the rule [[decision-0010-mcp-2026-07-28-dual-era]] was protecting — the vault
+  is something the caller *has*, never something the model *says*. A URL path is transport configuration,
+  fixed when a client is configured and unwritable by the model; it is not a tool argument, and no MCP
+  parameter is read on the binding path.
+
+  Generated client config still writes stdio rows, which bind by directory and need no running server.
+
+### Fixed
+- `synapse vaults token <id> --label "some label"` read the label's value as a second vault id. Bare
+  arguments were collected by "does not start with `--`", which the single-id version never noticed
+  because it only ever used the first one.
+
 - **Synapse ships as four disposable containers.** `deploy/compose.yml` runs `vpn-sidecar`, `dsh`,
   `synapse-core` and `ollama` over five named volumes, and the same file runs on a laptop and on a home
   server — **only `BIND_ADDR` differs**, and nothing in any image knows where it is running.
