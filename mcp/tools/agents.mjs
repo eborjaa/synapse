@@ -2,15 +2,24 @@
 
 import { join, relative } from "node:path";
 import { z } from "zod";
-import {
-  AGENTS_DIR, VAULT, listAgentFiles, listHubFiles, readFrontmatter,
-  normalizeAgentId, runSynapse, asToolResult,
-} from "../vault.mjs";
+import { readFrontmatter, normalizeAgentId, asToolResult } from "../vault.mjs";
+import { envPinnedContext } from "../vault-context.mjs";
 
 const PROFILE = z.enum(["lean", "standard", "fat"]);
 
-/** Gate 1: discovery + deterministic render (one hub in the happy path). */
-export function registerSkeletonTools(server) {
+/**
+ * Gate 1: discovery + deterministic render (one hub in the happy path).
+ *
+ * EVERY register* IN THIS DIRECTORY TAKES THE VAULT SECOND, and defaults it to the env-pinned context
+ * so a caller that omits it behaves exactly as before — one vault, chosen by the environment. The
+ * default is resolved per CALL, never at module load; a module-load vault is the bug the parameter
+ * exists to remove.
+ *
+ * @param vault the BOUND vault context — every handler below closes over this one and can reach no
+ *              other, which is what makes two vaults in one process incapable of leaking into each
+ *              other (see mcp/vault-context.mjs).
+ */
+export function registerSkeletonTools(server, vault = envPinnedContext()) {
   server.registerTool(
     "synapse_list_agents",
     {
@@ -26,8 +35,8 @@ export function registerSkeletonTools(server) {
     async () => {
       // Frontmatter values arrive as strings — `addressable: true` parses to "true", not true.
       const flag = (v) => String(v).trim() === "true";
-      const agents = listAgentFiles().map((f) => {
-        const fm = readFrontmatter(join(AGENTS_DIR, f));
+      const agents = vault.listAgentFiles().map((f) => {
+        const fm = readFrontmatter(join(vault.agentsDir, f));
         return {
           id: fm.id || f.replace(/\.md$/, ""),
           short: (fm.id || f).replace(/^agent-/, "").replace(/\.md$/, ""),
@@ -67,12 +76,12 @@ export function registerSkeletonTools(server) {
       annotations: { readOnlyHint: true },
     },
     async () => {
-      const hubs = listHubFiles().map(({ id, path }) => {
+      const hubs = vault.listHubFiles().map(({ id, path }) => {
         const fm = readFrontmatter(path);
         return {
           id,
           title: fm.title || id,
-          path: relative(VAULT, path),
+          path: relative(vault.vaultDir, path),
         };
       });
       return {
@@ -105,13 +114,13 @@ export function registerSkeletonTools(server) {
       const args = ["render", ...ids];
       if (profile) args.push("--profile", profile);
       if (dryRun) args.push("--dry-run");
-      return asToolResult(await runSynapse(args));
+      return asToolResult(await vault.runSynapse(args));
     },
   );
 }
 
 /** Gate 2: convenience wrapper — one optional hub; task enables augment. */
-export function registerBriefTool(server) {
+export function registerBriefTool(server, vault = envPinnedContext()) {
   server.registerTool(
     "synapse_brief",
     {
@@ -140,7 +149,7 @@ export function registerBriefTool(server) {
       if (note && !agent) {
         const args = ["render", note];
         if (profile) args.push("--profile", profile);
-        return asToolResult(await runSynapse(args));
+        return asToolResult(await vault.runSynapse(args));
       }
       if (!agent) {
         return { isError: true, content: [{ type: "text", text: "synapse_brief needs `agent` (to brief an agent) or `note` (to fetch one note by id)." }] };
@@ -150,11 +159,11 @@ export function registerBriefTool(server) {
       if (task) {
         const args = ["augment", ...ids, "--task", task];
         if (profile) args.push("--profile", profile);
-        return asToolResult(await runSynapse(args));
+        return asToolResult(await vault.runSynapse(args));
       }
       const args = ["render", ...ids];
       if (profile) args.push("--profile", profile);
-      return asToolResult(await runSynapse(args));
+      return asToolResult(await vault.runSynapse(args));
     },
   );
 }

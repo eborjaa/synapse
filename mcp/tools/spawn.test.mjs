@@ -11,9 +11,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const VAULT = mkdtempSync(join(tmpdir(), "synapse-spawn-test-"));
-process.env.SYNAPSE_VAULT = VAULT;
 
-const { registerSpawnTools } = await import("./spawn.mjs");
+import { createVaultContext } from "../vault-context.mjs";
+import { registerSpawnTools } from "./spawn.mjs";
+
+// The vault is passed IN, so this file no longer has to set $SYNAPSE_VAULT before importing the module
+// under test and hope the import order holds. That ordering dependency was the smell; the argument is
+// the fix.
+const vault = createVaultContext({ root: VAULT, vaultDir: VAULT });
 
 function harness() {
   const handlers = {};
@@ -26,7 +31,7 @@ function harness() {
     return { pid: 4242 };
   };
   const render = async () => ({ ok: true, briefing: "# stub briefing\ndo the thing\n" });
-  registerSpawnTools(server, { launch, render });
+  registerSpawnTools(server, vault, { launch, render });
   const call = async (name, args) => JSON.parse((await handlers[name](args)).content[0].text);
   return { call, launched };
 }
@@ -78,12 +83,12 @@ test("render failure releases the lease so the job can be retried", async () => 
   const handlers = {};
   const server = { registerTool: (n, _s, fn) => { handlers[n] = fn; } };
   const stubLaunch = ({ statusFile }) => { mkdirSync(join(statusFile, ".."), { recursive: true }); writeFileSync(statusFile, "x\n"); return { pid: 2 }; };
-  registerSpawnTools(server, { launch: stubLaunch, render: async () => ({ ok: false, error: "boom" }) });
+  registerSpawnTools(server, vault, { launch: stubLaunch, render: async () => ({ ok: false, error: "boom" }) });
   const call = async (n, a) => JSON.parse((await handlers[n](a)).content[0].text);
   const r1 = await call("synapse_spawn", { agent: "x", task: "t", job: "spec-builder:REL-6:z", force: true });
   assert.equal(r1.error, "render-failed");
   // Re-register with a working render; the lease must be free to re-acquire.
-  registerSpawnTools(server, { launch: stubLaunch, render: async () => ({ ok: true, briefing: "b" }) });
+  registerSpawnTools(server, vault, { launch: stubLaunch, render: async () => ({ ok: true, briefing: "b" }) });
   const r2 = await call("synapse_spawn", { agent: "x", task: "t", job: "spec-builder:REL-6:z", force: true });
   assert.equal(r2.ok, true);
 });
@@ -210,7 +215,7 @@ function spyHarness() {
   const rendered = [];
   const render = async (opts) => { rendered.push(opts); return { ok: true, briefing: "# stub\n" }; };
   const launch = ({ statusFile }) => { mkdirSync(join(statusFile, ".."), { recursive: true }); writeFileSync(statusFile, "HEARTBEAT start ok\n", "utf8"); return { pid: 1 }; };
-  registerSpawnTools(server, { launch, render });
+  registerSpawnTools(server, vault, { launch, render });
   const call = async (name, args) => JSON.parse((await handlers[name](args)).content[0].text);
   return { call, rendered };
 }

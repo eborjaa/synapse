@@ -1,104 +1,31 @@
-// vault.mjs — Synapse vault root + subprocess helper (shell out to the @eborja/synapse CLI).
+// vault.mjs — the pure helpers every tool shares, plus the DEPRECATED single-vault surface.
 //
-// This module ships INSIDE the package, so it must never assume it lives under the consumer's
-// vault: the vault is located with lib/vault-root.mjs (the same resolver every other tool uses),
-// and the CLI is resolved relative to this package rather than the consumer's node_modules.
+// A bound vault is now a VALUE: see ./vault-context.mjs, and buildServer({ vault }) for where one is
+// minted. This file keeps two things.
+//
+// 1. THE VAULT-INDEPENDENT HELPERS. `asToolResult`, `normalizeAgentId` and `readFrontmatter` are pure
+//    functions of their arguments — they never needed a vault, and duplicating them into the context
+//    would have implied they did.
+//
+// 2. THE BACK-COMPAT SURFACE, deprecated but load-bearing. `VAULT`, `AGENTS_DIR`, `manifest()` and the
+//    rest are the documented contract for out-of-tree MCP plugins — <vault>/_meta/mcp-plugins/*.mjs is
+//    a public extension point, and a vault on disk somewhere is importing these names right now.
+//    Removing them would break code we do not ship and cannot test. They behave exactly as before:
+//    resolved once, from the environment, at module load.
+//
+//    NOTHING IN THIS PACKAGE MAY USE THEM ANY MORE. They are module-load constants, so under an HTTP
+//    handler — where one process serves many vaults — they answer for whichever vault loaded first.
+//    That is the whole bug Epic 1 removes. A plugin that wants to be multi-vault-correct reads
+//    `ctx.vault` (the bound context, passed to register()) instead; `ctx.VAULT` remains for the ones
+//    that do not.
 
-import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
-import { resolveVault } from "../lib/vault-root.mjs";
+import { envPinnedContext, createVaultContext, SYNAPSE_BIN } from "./vault-context.mjs";
 
-// The CLI is a sibling in this package — not in the consumer's node_modules.
-export const SYNAPSE_BIN = fileURLToPath(new URL("../bin/synapse.mjs", import.meta.url));
+export { SYNAPSE_BIN, createVaultContext, envPinnedContext };
 
-// Resolve tolerantly at import time so a misconfigured vault fails in assertVault() with a good
-// message, rather than throwing during module evaluation (which the MCP client reports as a crash).
-let _resolved = null;
-function resolved() {
-  if (_resolved === null) {
-    // preferCwd:false — the MCP server is config-pinned: the harness launches it with $SYNAPSE_VAULT
-    // set in .mcp.json, and a long-lived server cannot `cd`, so the env is the authoritative vault and
-    // must win over whatever cwd the harness happened to start in. (Interactive tools use the cwd-first
-    // default; see lib/vault-root.mjs.)
-    try { _resolved = resolveVault({ readManifest: true, preferCwd: false }); } catch { _resolved = false; }
-  }
-  return _resolved || null;
-}
-
-export const VAULT = resolved()?.vaultDir || process.env.SYNAPSE_VAULT || process.cwd();
-
-/** The consumer's context.manifest.json, or {} when the vault could not be resolved. */
-export function manifest() {
-  return resolved()?.manifest || {};
-}
-
-/**
- * The server's PINNED vault context ({root, vaultDir, manifest}) — for in-process libs (recall) that
- * would otherwise re-resolve with the cwd-first default and could pick a different vault than the rest
- * of this env-pinned server. Resolved FRESH each call (preferCwd:false, so env wins) rather than from
- * the module-load memo: resolution is cheap, a fresh read honors the current pin, and it keeps a
- * single test process that drives many vaults correct (the memo would pin the first one). Falls back
- * to a best-effort shape when no vault resolves.
- */
-export function vaultContext() {
-  try {
-    const r = resolveVault({ readManifest: true, preferCwd: false });
-    return { root: r.root, vaultDir: r.vaultDir, manifest: r.manifest || {} };
-  } catch {
-    const fallback = process.env.SYNAPSE_VAULT || process.cwd();
-    return { root: fallback, vaultDir: fallback, manifest: {} };
-  }
-}
-
-export const AGENTS_DIR = join(VAULT, "agents");
-export const HANDOVER_DIR = join(VAULT, "inbox", "handovers");
-
-export function assertVault() {
-  if (!resolved()) {
-    throw new Error(
-      `Synapse vault not found (no _meta/tools/context.manifest.json at or above ${process.cwd()}). `
-      + `Set SYNAPSE_VAULT to the vault root.`,
-    );
-  }
-  if (!existsSync(SYNAPSE_BIN)) {
-    throw new Error(`Missing the synapse CLI at ${SYNAPSE_BIN} — reinstall @eborja/synapse.`);
-  }
-}
-
-/**
- * Run `node synapse.mjs <args…>` with cwd=VAULT. stdout/stderr captured separately.
- * Never throws on non-zero exit — returns { code, stdout, stderr, timedOut }.
- */
-export function runSynapse(args = [], { timeoutMs = 180_000 } = {}) {
-  return new Promise((resolve) => {
-    const child = spawn(process.execPath, [SYNAPSE_BIN, ...args], {
-      cwd: VAULT,
-      env: { ...process.env, SYNAPSE_VAULT: VAULT },
-    });
-
-    let stdout = "";
-    let stderr = "";
-    let timedOut = false;
-
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill("SIGKILL");
-    }, timeoutMs);
-
-    child.stdout.on("data", (d) => (stdout += d));
-    child.stderr.on("data", (d) => (stderr += d));
-    child.on("error", (err) => {
-      clearTimeout(timer);
-      resolve({ code: -1, stdout, stderr: `${stderr}\n${err.message}`, timedOut });
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      resolve({ code: code ?? -1, stdout, stderr, timedOut });
-    });
-  });
-}
+// ── pure helpers (no vault involved) ─────────────────────────────────────────
 
 export function asToolResult(res, { emptyMessage = "(no output)" } = {}) {
   if (res.timedOut) {
@@ -148,81 +75,33 @@ export function readFrontmatter(path) {
   return out;
 }
 
-export function listAgentFiles() {
-  if (!existsSync(AGENTS_DIR)) return [];
-  return readdirSync(AGENTS_DIR)
-    .filter((f) => f.startsWith("agent-") && f.endsWith(".md"))
-    .sort();
-}
+// ── DEPRECATED single-vault surface — for out-of-tree plugins only ───────────
+// Resolved once, at module load, exactly as before. Do not add a caller inside this package.
 
-// Directories never worth walking for hubs. Consumer-specific exclusions belong in the manifest's
-// `skipDirs` (the same list the linter honours) — never hardcoded here.
-const HUB_WALK_SKIP_BASE = ["node_modules", ".git", ".cursor", "db", "migrations", "inbox"];
+/** @deprecated read `ctx.vault` (a bound context) instead — this answers for one vault per process. */
+const legacy = envPinnedContext();
 
-/** Find hub-*.md under the vault (recursive under hub/ + vault root). */
-export function listHubFiles() {
-  const out = [];
-  const seen = new Set();
-  const HUB_WALK_SKIP = new Set([...HUB_WALK_SKIP_BASE, ...(manifest().skipDirs || [])]);
+/** @deprecated */ export const VAULT = legacy.vaultDir;
+/** @deprecated */ export const AGENTS_DIR = legacy.agentsDir;
+/** @deprecated */ export const HANDOVER_DIR = legacy.handoverDir;
 
-  const take = (dir) => {
-    if (!existsSync(dir)) return;
-    let entries;
-    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const ent of entries) {
-      if (ent.name.startsWith(".")) continue;
-      const p = join(dir, ent.name);
-      if (ent.isDirectory()) {
-        if (HUB_WALK_SKIP.has(ent.name)) continue;
-        take(p);
-        continue;
-      }
-      if (!ent.isFile() || !ent.name.startsWith("hub-") || !ent.name.endsWith(".md")) continue;
-      const id = ent.name.replace(/\.md$/, "");
-      if (seen.has(id)) continue;
-      seen.add(id);
-      out.push({ id, path: p });
-    }
-  };
+/** @deprecated */ export function manifest() { return legacy.manifest; }
+/** @deprecated */ export function assertVault() { return legacy.assertVault(); }
+/** @deprecated */ export function runSynapse(args, opts) { return legacy.runSynapse(args, opts); }
+/** @deprecated */ export function listAgentFiles() { return legacy.listAgentFiles(); }
+/** @deprecated */ export function listHubFiles() { return legacy.listHubFiles(); }
+/** @deprecated */ export function listHandoverFiles() { return legacy.listHandoverFiles(); }
+/** @deprecated */ export function ensureHandoverDir() { return legacy.ensureHandoverDir(); }
+/** @deprecated */ export function writeHandoverNote(f, b) { return legacy.writeHandoverNote(f, b); }
 
-  // Root-level hub-*.md (e.g. hub-synapse.md) without walking the whole vault tree.
-  if (existsSync(VAULT)) {
-    for (const f of readdirSync(VAULT)) {
-      if (!f.startsWith("hub-") || !f.endsWith(".md")) continue;
-      const id = f.replace(/\.md$/, "");
-      if (seen.has(id)) continue;
-      seen.add(id);
-      out.push({ id, path: join(VAULT, f) });
-    }
-  }
-  take(join(VAULT, "hub"));
-  return out.sort((a, b) => a.id.localeCompare(b.id));
-}
-
-export function listHandoverFiles() {
-  if (!existsSync(HANDOVER_DIR)) return [];
-  return readdirSync(HANDOVER_DIR)
-    .filter((f) => f.endsWith(".md") && f !== "README.md")
-    .map((f) => {
-      const p = join(HANDOVER_DIR, f);
-      let mtime = 0;
-      try { mtime = readFileSync(p).length; } catch { /* ignore */ }
-      return f;
-    })
-    .sort()
-    .reverse();
-}
-
-export function ensureHandoverDir() {
-  mkdirSync(HANDOVER_DIR, { recursive: true });
-}
-
-export function writeHandoverNote(filename, body) {
-  ensureHandoverDir();
-  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, "-");
-  const path = join(HANDOVER_DIR, safe.endsWith(".md") ? safe : `${safe}.md`);
-  writeFileSync(path, body, "utf8");
-  return path;
+/**
+ * @deprecated pass the bound context instead.
+ * Kept resolving FRESH per call (not from `legacy`): that was already this function's documented
+ * behaviour, and a test process driving several vaults depends on it.
+ */
+export function vaultContext() {
+  const c = envPinnedContext();
+  return { root: c.root, vaultDir: c.vaultDir, manifest: c.manifest };
 }
 
 export { existsSync, readFileSync, join };

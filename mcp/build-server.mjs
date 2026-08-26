@@ -21,7 +21,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/server";
 
-import { VAULT, manifest, runSynapse, asToolResult } from "./vault.mjs";
+import { asToolResult } from "./vault.mjs";
+import { envPinnedContext } from "./vault-context.mjs";
 import { registerSkeletonTools, registerBriefTool } from "./tools/agents.mjs";
 import { registerRetrievalTools } from "./tools/retrieval.mjs";
 import { registerHealthTools } from "./tools/health.mjs";
@@ -96,8 +97,8 @@ export const INSTRUCTIONS = {
  * Plugin paths, by convention from <vault>/_meta/mcp-plugins/*.mjs so any vault carries its own
  * tools with no per-machine config, plus explicit paths from SYNAPSE_MCP_PLUGINS.
  */
-export function discoverPluginPaths(vault = VAULT) {
-  const dir = join(vault, "_meta", "mcp-plugins");
+export function discoverPluginPaths(vault = envPinnedContext().vaultDir) {
+  const dir = join(typeof vault === "string" ? vault : vault.vaultDir, "_meta", "mcp-plugins");
   const fromVault = existsSync(dir)
     ? readdirSync(dir)
         .filter((f) => f.endsWith(".mjs") && !f.startsWith(".") && !f.endsWith(".test.mjs"))
@@ -126,30 +127,60 @@ export async function loadPlugins(paths = discoverPluginPaths()) {
 }
 
 /**
- * Build a fully-registered server. Synchronous by contract — see the note at the top of this file:
- * the SDK would permit an async factory, we decline it. A plugin whose register() returns a promise is
- * rejected here rather than silently producing a server with missing tools.
+ * Build a fully-registered server bound to ONE vault. Synchronous by contract — see the note at the top
+ * of this file: the SDK would permit an async factory, we decline it. A plugin whose register() returns
+ * a promise is rejected here rather than silently producing a server with missing tools.
+ *
+ * `vault` IS THE PER-REQUEST SEAM, and it is here rather than deeper because of what the SDK promises:
+ *
+ *     type McpServerFactory = (ctx: McpRequestContext) => McpServer | Server | Promise<…>
+ *     // createMcpHandler invokes it ONCE PER HTTP REQUEST (ctx carries authInfo);
+ *     // serveStdio invokes it ONCE PER CONNECTION.
+ *
+ * So "one server per bound vault" and "one server per serving unit" are the same object, and a
+ * per-request vault needs no ambient state to travel in — every handler simply closes over the context
+ * it was built with. On stdio the caller passes the env-pinned context every time, which is what makes
+ * this change invisible there (US-1.2); under Epic 2's HTTP adapter the caller resolves the credential
+ * to a vault first and passes THAT (US-2.2). Two vaults in one process get two servers that share no
+ * handle, no epoch and no cached briefing (US-1.3) because they share no name.
+ *
+ * It defaults to the env-pinned context so every existing caller — tests included — keeps working
+ * unchanged. Resolution happens per CALL, never at module load: a module-load vault is precisely the
+ * bug this parameter removes.
  */
-export function buildServer({ surface = resolveSurface(), plugins = [] } = {}) {
+export function buildServer({ surface = resolveSurface(), plugins = [], vault = envPinnedContext() } = {}) {
   const server = new McpServer({ name: "synapse", version }, { instructions: INSTRUCTIONS[surface] });
 
-  registerSkeletonTools(server);
+  registerSkeletonTools(server, vault);
   if (surface !== "skeleton") {
-    registerBriefTool(server);
-    registerRetrievalTools(server);
-    registerHealthTools(server);
-    registerEpisodeTools(server);
+    registerBriefTool(server, vault);
+    registerRetrievalTools(server, vault);
+    registerHealthTools(server, vault);
+    registerEpisodeTools(server, vault);
   }
   if (surface === "full" || surface === "orchestrator") {
-    registerHandoverTools(server);
-    registerAuthoringTools(server);
+    registerHandoverTools(server, vault);
+    registerAuthoringTools(server, vault);
   }
   if (surface === "orchestrator") {
-    registerSpawnTools(server);
+    registerSpawnTools(server, vault);
   }
 
   // Plugins register LAST so they can extend any surface.
-  const ctx = { server, surface, VAULT, runSynapse, asToolResult, manifest };
+  //
+  // `vault` is the new, multi-vault-correct member. `VAULT`, `runSynapse` and `manifest` are kept
+  // because <vault>/_meta/mcp-plugins/*.mjs is a documented extension point with out-of-tree consumers
+  // — but they are now derived from the BOUND vault rather than from a module constant, so an existing
+  // plugin becomes per-request correct without its author changing a line.
+  const ctx = {
+    server,
+    surface,
+    vault,
+    asToolResult,
+    VAULT: vault.vaultDir,
+    runSynapse: (args, opts) => vault.runSynapse(args, opts),
+    manifest: () => vault.manifest,
+  };
   for (const p of plugins) {
     const r = p.register(server, ctx);
     if (r && typeof r.then === "function") {

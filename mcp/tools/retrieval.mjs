@@ -4,11 +4,12 @@ import { mkdirSync, openSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { spawn } from "node:child_process";
 import { z } from "zod";
-import { VAULT, SYNAPSE_BIN, runSynapse, asToolResult } from "../vault.mjs";
+import { SYNAPSE_BIN, asToolResult } from "../vault.mjs";
+import { envPinnedContext } from "../vault-context.mjs";
 
 const PROFILE = z.enum(["lean", "standard", "fat"]);
 
-export function registerRetrievalTools(server) {
+export function registerRetrievalTools(server, vault = envPinnedContext()) {
   server.registerTool(
     "synapse_augment",
     {
@@ -29,7 +30,7 @@ export function registerRetrievalTools(server) {
     async ({ ids, task, profile }) => {
       const args = ["augment", ...ids, "--task", task];
       if (profile) args.push("--profile", profile);
-      return asToolResult(await runSynapse(args));
+      return asToolResult(await vault.runSynapse(args));
     },
   );
 
@@ -61,8 +62,12 @@ export function registerRetrievalTools(server) {
       } catch (e) {
         return { isError: true, content: [{ type: "text", text: `Freshness check unavailable: ${e.message}` }] };
       }
-      const st = mod.embeddingsStatus({ precise: !fast, deep: !fast });
-      const lines = [`vault=${VAULT}`, mod.formatStatus(st)];
+      // freshnessPaths(vault) — NOT the default. The default is freshnessPaths(resolveVault()), which
+      // is cwd-first, so this tool could report `vault=<pinned>` in its header while measuring the
+      // index of whatever directory the server was started in. Pinning it to the bound vault fixes
+      // that and is what makes the answer per-request correct once one process serves many vaults.
+      const st = mod.embeddingsStatus({ paths: mod.freshnessPaths(vault), precise: !fast, deep: !fast });
+      const lines = [`vault=${vault.vaultDir}`, mod.formatStatus(st)];
       if (st.stale) {
         lines.push("");
         lines.push(st.present
@@ -102,15 +107,15 @@ export function registerRetrievalTools(server) {
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     },
     async ({ all }) => {
-      const logPath = join(VAULT, "db", "embed-rebuild.log");
+      const logPath = join(vault.vaultDir, "db", "embed-rebuild.log");
       try {
         mkdirSync(dirname(logPath), { recursive: true });
         const fd = openSync(logPath, "a");
         const args = [SYNAPSE_BIN, "embeddings-status", "--refresh", "--force"];
         if (all) args.push("--all");
         const child = spawn(process.execPath, args, {
-          cwd: VAULT,
-          env: { ...process.env, SYNAPSE_VAULT: VAULT },
+          cwd: vault.vaultDir,
+          env: { ...process.env, SYNAPSE_VAULT: vault.vaultDir },
           detached: true,
           stdio: ["ignore", fd, fd],
         });

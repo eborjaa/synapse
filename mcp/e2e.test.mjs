@@ -8,6 +8,9 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { vaultStore } from "../lib/ports/vault-store.mjs";
+import { createVaultContext } from "./vault-context.mjs";
+import { registerEpisodeTools } from "./tools/episodes.mjs";
+import { registerSpawnTools } from "./tools/spawn.mjs";
 import { join, dirname } from "node:path";
 
 const M = {
@@ -42,25 +45,24 @@ async function harness() {
   put("notes/note-sensors.md", note("note-sensors", "note", "", "sensors grid regression notes"));
   process.env.SYNAPSE_VAULT = VAULT;
 
-  // Fresh module instances per harness. Two separate caches have to be cleared, for two reasons:
+  // THE PER-MODULE CACHE-BUST THAT USED TO LIVE HERE IS GONE, and its absence is the point.
   //
-  //  1. The cache-bust below gives each harness its own copy of the tool modules. That is still needed
-  //     because mcp/vault.mjs resolves VAULT at ITS module load and is not busted, so every harness in
-  //     this process shares one VAULT value — the first temp vault's path.
-  //  2. Database handles now live in the vault store, which is a DIFFERENT module and therefore
-  //     survives the bust. Since all harnesses share one VAULT key (see 1), harness #2 would otherwise
-  //     be handed harness #1's still-open handle — whose data outlives the rmSync of its file — and
-  //     would see the previous test's episodes as prior work.
+  // It existed because mcp/vault.mjs resolved VAULT at ITS module load and was never busted, so every
+  // harness in this process shared one vault path — the FIRST temp vault's. Re-importing the tool
+  // modules under a fresh URL was the only way to get a second harness that was not quietly answering
+  // from the first harness's vault. Now the vault is an argument, so a second harness is just a second
+  // argument, and the tool modules are imported once like any other module.
   //
-  // Resetting the store is the honest fix: the state is explicit now, so clearing it is explicit too.
+  // The store reset stays, and is a different concern: vaultStore caches a handle per vaultDir for the
+  // life of the process, and an open handle outlives the rmSync of its file. Each harness gets a fresh
+  // temp dir, so this is belt-and-braces rather than load-bearing — but it keeps the test honest if a
+  // future harness ever reuses a path.
   vaultStore._reset();
-  const bust = `?v=${Math.random()}`;
-  const { registerEpisodeTools } = await import("./tools/episodes.mjs" + bust);
-  const { registerSpawnTools } = await import("./tools/spawn.mjs" + bust);
   const H = {};
   const server = { registerTool: (n, _s, fn) => { H[n] = fn; } };
-  registerEpisodeTools(server);
-  registerSpawnTools(server, { launch: () => ({ pid: 111 }), render: async () => ({ ok: true, briefing: "# briefing\n" }) });
+  const vault = createVaultContext({ root: VAULT, vaultDir: VAULT, manifest: M });
+  registerEpisodeTools(server, vault);
+  registerSpawnTools(server, vault, { launch: () => ({ pid: 111 }), render: async () => ({ ok: true, briefing: "# briefing\n" }) });
   const call = async (n, a) => JSON.parse((await H[n](a)).content[0].text);
   return { call, cleanup: () => rmSync(VAULT, { recursive: true, force: true }) };
 }

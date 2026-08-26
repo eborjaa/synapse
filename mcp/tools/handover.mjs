@@ -1,17 +1,15 @@
 // handover.mjs — list / resolve / read / write / resume.
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
 import { z } from "zod";
-import {
-  HANDOVER_DIR, join, listHandoverFiles, ensureHandoverDir, writeHandoverNote,
-  normalizeAgentId, runSynapse, asToolResult,
-} from "../vault.mjs";
+import { normalizeAgentId, asToolResult } from "../vault.mjs";
+import { envPinnedContext } from "../vault-context.mjs";
 
-function resolveRef(ref) {
-  ensureHandoverDir();
+function resolveRef(vault, ref) {
+  vault.ensureHandoverDir();
   const needle = String(ref).replace(/\.md$/, "").toLowerCase();
-  const files = readdirSync(HANDOVER_DIR).filter((f) => f.endsWith(".md") && f !== "README.md");
+  const files = readdirSync(vault.handoverDir).filter((f) => f.endsWith(".md") && f !== "README.md");
   const exact = files.filter((f) => f.replace(/\.md$/, "").toLowerCase() === needle);
   if (exact.length === 1) return { status: "unique", file: exact[0] };
   const partial = files.filter((f) => f.toLowerCase().includes(needle));
@@ -20,7 +18,7 @@ function resolveRef(ref) {
   return { status: "ambiguous", matches: partial };
 }
 
-export function registerHandoverTools(server) {
+export function registerHandoverTools(server, vault = envPinnedContext()) {
   server.registerTool(
     "synapse_handover_list",
     {
@@ -33,7 +31,7 @@ export function registerHandoverTools(server) {
     },
     async ({ limit }) => {
       const n = limit ?? 20;
-      const files = listHandoverFiles().slice(0, n);
+      const files = vault.listHandoverFiles().slice(0, n);
       if (!files.length) {
         return { content: [{ type: "text", text: "No handover notes in inbox/handovers/." }] };
       }
@@ -57,7 +55,7 @@ export function registerHandoverTools(server) {
       annotations: { readOnlyHint: true },
     },
     async ({ ref }) => {
-      const r = resolveRef(ref);
+      const r = resolveRef(vault, ref);
       if (r.status === "unique") {
         return { content: [{ type: "text", text: `unique: ${r.file}` }] };
       }
@@ -87,14 +85,14 @@ export function registerHandoverTools(server) {
       annotations: { readOnlyHint: true },
     },
     async ({ ref }) => {
-      const r = resolveRef(ref);
+      const r = resolveRef(vault, ref);
       if (r.status !== "unique") {
         return {
           isError: true,
           content: [{ type: "text", text: `Cannot read: ${r.status}` }],
         };
       }
-      const path = join(HANDOVER_DIR, r.file);
+      const path = join(vault.handoverDir, r.file);
       const body = readFileSync(path, "utf8");
       return {
         content: [{ type: "text", text: `# file: ${r.file}\n\n${body}` }],
@@ -115,7 +113,7 @@ export function registerHandoverTools(server) {
       annotations: { readOnlyHint: false },
     },
     async ({ filename, body }) => {
-      const path = writeHandoverNote(filename, body);
+      const path = vault.writeHandoverNote(filename, body);
       return {
         content: [{ type: "text", text: `Wrote ${path}\n(Commit yourself — this tool does not git-add.)` }],
       };
@@ -138,10 +136,11 @@ export function registerHandoverTools(server) {
     async ({ ref, agent, profile }) => {
       // Resolve via the shared lib: a path anywhere (incl. a skipDir like journal/) OR a fuzzy slug in
       // inbox/handovers/ — matching the CLI (`synapse handover-task`) and launcher (`--handover`) exactly.
-      const { resolveVault } = await import("../../lib/vault-root.mjs");
+      // The vaultDir comes from the BOUND context, not a fresh resolveVault(): that default is cwd-first,
+      // so this tool used to read handovers from the server's working directory rather than the vault
+      // the request was for — invisible on stdio where they coincide, a cross-vault read once they do not.
       const { noteAsTask } = await import("../../lib/note-as-task.mjs");
-      const { vaultDir } = resolveVault();
-      const nt = noteAsTask(ref, { vaultDir, handover: true });
+      const nt = noteAsTask(ref, { vaultDir: vault.vaultDir, handover: true });
       if (!nt.ok) return { isError: true, content: [{ type: "text", text: `Cannot resume: ${nt.reason}` }] };
 
       // The note IS the task: augment briefs the agent AND uses the note text as the recall query, so
@@ -149,7 +148,7 @@ export function registerHandoverTools(server) {
       const id = normalizeAgentId(agent || "oracle");
       const args = ["augment", id, "--task", nt.task];
       if (profile) args.push("--profile", profile);
-      const brief = asToolResult(await runSynapse(args));
+      const brief = asToolResult(await vault.runSynapse(args));
       const briefText = brief.content?.[0]?.text || "";
       return {
         content: [{
