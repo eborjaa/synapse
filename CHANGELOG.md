@@ -61,6 +61,13 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   Generated client config still writes stdio rows, which bind by directory and need no running server.
 
 ### Fixed
+- **The DSH plugin would not load.** Its `Config` was a JSON-Schema-shaped object.
+  Cordis validates plugin config through the Standard Schema interface
+  (`Config["~standard"].validate`); a plain object has no such method, so pointing a
+  DSH profile at `@eborja/synapse/dsh-plugin` threw at load and registered no vault
+  tools. `Config` is now a Zod object (this package already depends on Zod 4, which
+  implements that interface). Pinned by `dsh/plugin.test.mjs`.
+
 - `synapse vaults token <id> --label "some label"` read the label's value as a second vault id. Bare
   arguments were collected by "does not start with `--`", which the single-id version never noticed
   because it only ever used the first one.
