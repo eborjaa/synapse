@@ -13,7 +13,7 @@ related: ["[[hub-synapse]]", "[[decision-0016-four-container-deployment]]", "[[d
 # PLAN — Synapse in Four Containers
 
 > Epics 1–4 and the DSH vault router are on `main`. Epic 5 as written (generated presets) was
-> rejected. Epic 6 is `mcp/four-harness-e2e.mjs`. Release 2.0.0 waits until after Epic 6.
+> rejected. Epic 6 is `mcp/four-harness-e2e.mjs`. Release 2.0.0 is the tagged package of this work.
 
 ---
 
@@ -33,13 +33,13 @@ MCP tools are available to you.
 | `main` | `c4a29f0` — 9 PRs merged (#57–#66) |
 | Tests | 374 passing, 0 failing |
 | Lint | `node lib/lint.mjs --strict` → errors=0 |
-| Package version | `1.1.1` (npm also 1.1.1 — **2.0.0 not released**) |
+| Package version | `2.0.0` |
 | Ports | 5 declared in `lib/ports/` |
 | Vaults registered | 4 — framework, synapse-vault, arch-vault, univa |
 | Setup | complete: vaults wired, rosters generated, shell rc clean |
 
-**Until `2.0.0` ships, `synapse` on `PATH` is the old published package.** Run new commands as
-`node lib/vaults.mjs …`, not `synapse vaults …`.
+**After `2.0.0` is on npm, `synapse vaults …` is the real command.** Until `npm view @eborja/synapse version`
+shows `2.0.0`, run new commands from this checkout as `node lib/vaults.mjs …`.
 
 ---
 

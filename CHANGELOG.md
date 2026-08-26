@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 2.0.0 — 2026-08-26
+
 ### Added
 - **In DSH, the vault now follows the folder you opened.** Synapse ships its own DSH plugin
   (`@eborja/synapse/dsh-plugin`) replacing the generic MCP client row for synapse.
@@ -232,6 +234,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 - **`doc-install-end-to-end` leads with two quick starts.** New vault vs already-have-a-vault, each a
   command block at the top. The upgrade path was previously after the DSH verification loop, so a
   returning reader never saw it as a start guide.
+
+Install: `npm install @eborja/synapse@^2.0.0`
 
 ## 1.1.1 — 2026-08-24
 
@@ -1266,8 +1270,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^1.1.1"
-// or: "github:eborjaa/synapse#v1.1.1"
+"@eborja/synapse": "^2.0.0"
+// or: "github:eborjaa/synapse#v2.0.0"
 ```
 
 ```sh
