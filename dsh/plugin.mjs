@@ -19,19 +19,23 @@
 //
 // Everything testable lives in ./session-tools.mjs and ./vault-pool.mjs; this file is the wiring.
 
+import { z } from "zod";
+
 import { createVaultPool } from "./vault-pool.mjs";
 import { bindSessionTools } from "./session-tools.mjs";
 
 export const name = "synapse-vault-router";
 export const inject = ["tools"];
 
-export const Config = {
-  type: "object",
-  properties: {
-    surface: { type: "string", default: "orchestrator" },
-    idleMs: { type: "number", default: 300000 },
-  },
-};
+// Cordis validates plugin Config through the Standard Schema interface
+// (`Config["~standard"].validate`). A JSON-Schema-shaped object has no such
+// method, so a DSH profile that named this plugin would throw at load — before
+// any session started, and with no vault tools at all. Zod 4 implements that
+// interface; this package already depends on it.
+export const Config = z.object({
+  surface: z.string().default("orchestrator"),
+  idleMs: z.number().default(300_000),
+});
 
 export function apply(ctx, config = {}) {
   const log = (line) => ctx.logger?.info?.(line) ?? process.stderr.write(`${line}\n`);
