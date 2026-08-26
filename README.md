@@ -219,7 +219,29 @@ synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
 The credential, never a tool argument, chooses the vault. Missing/unknown/revoked credentials are
 refused before a vault is attached. Bind only to loopback or an explicit VPN-interface address;
 `0.0.0.0` and `::` are rejected. Run exactly one server — many vaults in one process are supported,
-multiple writer processes on one vault are not. Details: [`doc-runtime-wiring`](docs/doc-runtime-wiring.md).
+multiple writer processes on one vault are not, and that is now **enforced**: `--http` takes
+`$SYNAPSE_HOME/synapse-core.lock` before it listens, and a second process exits `3` naming the owner.
+Details: [`doc-runtime-wiring`](docs/doc-runtime-wiring.md).
+
+### The four-container stack
+
+The packaged deployment. One compose file runs on a laptop and on a home server — **only `BIND_ADDR`
+differs**, and nothing in any image knows where it is running:
+
+```bash
+cp deploy/.env.example deploy/.env          # BIND_ADDR=127.0.0.1 on a laptop
+BIND_ADDR=127.0.0.1 ./deploy/up.sh up -d --build
+```
+
+`vpn-sidecar` (swappable tunnel) · `dsh` (the web UI) · `synapse-core` (engine + MCP, **exactly one**) ·
+`ollama` (embeddings, optional). `dsh` owns the network namespace and the other two join it, so MCP keeps
+binding `127.0.0.1` — the same local-only guard, unweakened — while only `dsh` publishes to the host.
+Every durable path is a named volume, so destroying and recreating every container keeps your vaults,
+registry, credentials and rosters.
+
+Use `deploy/up.sh`, not raw `docker compose`: it refuses a wildcard `BIND_ADDR` **before** compose runs,
+because Docker publishes the port before Node ever starts. Details:
+[`doc-four-containers`](docs/doc-four-containers.md).
 
 ### DeepSeek Harness
 

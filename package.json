@@ -34,11 +34,12 @@
     "hub-synapse.md",
     "agents.sh",
     "schema/",
+    "deploy/",
     "README.md",
     "CHANGELOG.md"
   ],
   "scripts": {
-    "test": "node --experimental-sqlite --test lib/*.test.mjs lib/ports/*.test.mjs lib/durable-spawn/*.test.mjs mcp/*.test.mjs mcp/tools/*.test.mjs",
+    "test": "node --experimental-sqlite --test lib/*.test.mjs lib/ports/*.test.mjs lib/durable-spawn/*.test.mjs mcp/*.test.mjs mcp/tools/*.test.mjs deploy/*.test.mjs",
     "smoke": "node --experimental-sqlite mcp/smoke.mjs",
     "vault:render": "synapse render",
     "vault:augment": "synapse augment",

@@ -1,0 +1,10 @@
+node_modules
+.git
+.worktrees
+db
+inbox
+*.md
+!README.md
+!CHANGELOG.md
+.cursor
+.obsidian

@@ -1,0 +1,99 @@
+# Four disposable containers. All durable state is in the named volumes below.
+#
+# Laptop vs server: set BIND_ADDR (127.0.0.1 vs the VPN interface). Never 0.0.0.0.
+# Swapping the VPN is swapping VPN_IMAGE on vpn-sidecar, not a second compose file.
+#
+#   BIND_ADDR=127.0.0.1 ./deploy/up.sh up --build
+#
+# synapse-core shares dsh's network namespace so MCP can bind 127.0.0.1 (the existing
+# local-only guard) while dsh still reaches it. Rosters travel as files on `skills`.
+
+name: synapse
+
+services:
+  vpn-sidecar:
+    image: ${VPN_IMAGE:-synapse-vpn-idle}
+    build:
+      context: ./vpn-idle
+    container_name: synapse-vpn
+    init: true
+    restart: unless-stopped
+    network_mode: service:dsh
+    depends_on:
+      - dsh
+    cap_add:
+      - NET_ADMIN
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+    volumes:
+      - vpn-state:/var/lib/tailscale
+
+  dsh:
+    image: ${DSH_IMAGE:-synapse-dsh-stub}
+    build:
+      context: ./dsh-stub
+    container_name: synapse-dsh
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR}:8080:8080"
+    volumes:
+      - skills:/skills:ro
+    environment:
+      SYNAPSE_MCP_URL: http://127.0.0.1:3000/mcp
+    networks:
+      - synapse
+
+  synapse-core:
+    build:
+      # Repo root, reached from THIS file's directory. Compose resolves every relative path against
+      # the project directory, which defaults to the compose file's parent — NOT your shell's cwd. A
+      # root-relative `context: .` here silently becomes deploy/, and the build fails looking for
+      # deploy/deploy/Dockerfile. deploy/compose.test.mjs pins this.
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: synapse-core
+    init: true
+    restart: unless-stopped
+    network_mode: service:dsh
+    depends_on:
+      - dsh
+    # WHY container_name + replicas 1: `docker compose up --scale synapse-core=2` then collides
+    # on the name. The process-level lock in lib/core-lock.mjs is the same rule for a host process.
+    deploy:
+      mode: replicated
+      replicas: 1
+    volumes:
+      - vaults:/synapse/vaults
+      - config:/synapse/config
+      - skills:/synapse/skills
+    environment:
+      SYNAPSE_HOME: /synapse/config
+      SYNAPSE_SKILLS_ROOT: /synapse/skills
+      SYNAPSE_MCP_HOST: "127.0.0.1"
+      SYNAPSE_MCP_PORT: "3000"
+      SYNAPSE_MCP_PATH: /mcp
+      SYNAPSE_MCP_SURFACE: orchestrator
+      SYNAPSE_OLLAMA_URL: http://ollama:11434
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: synapse-ollama
+    profiles:
+      - embeddings
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - synapse
+
+volumes:
+  vaults:
+  config:
+  skills:
+  vpn-state:
+  ollama:
+
+networks:
+  synapse:
+    driver: bridge

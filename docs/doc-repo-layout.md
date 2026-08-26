@@ -42,6 +42,13 @@ synapse/
 ├── tools/                       # tool-* reference notes
 ├── migrations/                  # NNNN-*.sql + change-request notes (the SQL write gate + audit log)
 ├── db/                          # synapse.db (gitignored — derived, sensitive, binary)
+├── deploy/                      # the four-container stack (engine repo only, not a vault's)
+│   ├── compose.yml              #   four services, five named volumes; BIND_ADDR is the only switch
+│   ├── Dockerfile               #   synapse-core: engine + MCP over HTTP
+│   ├── up.sh                    #   refuses a wildcard BIND_ADDR BEFORE compose publishes the port
+│   ├── assert-bind.mjs          #   that refusal, sharing the MCP listener's wildcard set
+│   ├── dsh-stub/ vpn-idle/      #   placeholder images; swap via DSH_IMAGE / VPN_IMAGE
+│   └── compose.test.mjs         #   the stack's claims as assertions
 └── inbox/
     ├── attention/               # escalations awaiting a human decision (Options + stop)
     ├── handovers/               # session handover notes
@@ -54,6 +61,9 @@ synapse/
   `notes/ journal/ projects/ plans/ people/` are yours; `contacts/ accounts/ finances/ health/ places/`
   are regenerated ([[rule-derived-views-are-generated]]).
 - **`migrations/` is the only path that writes the DB** ([[doc-governance-model]]).
+- **`deploy/` belongs to the engine repo, not to a vault.** A vault is *data* the stack mounts; the stack
+  is shipped with the package (`files` includes `deploy/`) so a consumer gets it too
+  ([[doc-four-containers]]).
 
 ## Browse the graph in Obsidian
 Open the **repo root** as an Obsidian vault (`node_modules`, `db/`, `_meta/logs/` are excluded via
@@ -64,4 +74,4 @@ Open the **repo root** as an Obsidian vault (`node_modules`, `db/`, `_meta/logs/
 | 🫒 decision | 🟢 note | 🩵 journal | 🌊 plan | 🌿 project | 🌸 person | 🧡 contact / account | 🟨 summary |
 
 ## Related
-[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[hub-synapse]]
+[[conventions]] · [[doc-storage-model]] · [[doc-governance-model]] · [[doc-four-containers]] · [[hub-synapse]]

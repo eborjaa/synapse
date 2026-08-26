@@ -6,6 +6,7 @@
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
+import { acquireCoreLock } from "../lib/core-lock.mjs";
 import { toolTransportAdapters } from "../lib/ports/index.mjs";
 import { buildServer, loadPlugins, resolveSurface, version } from "./build-server.mjs";
 
@@ -25,31 +26,63 @@ export async function startHttpServer({
   surface = resolveSurface(),
   plugins = null,
   onerror = null,
+  home = undefined,
   log = (line) => process.stderr.write(`${line}\n`),
 } = {}) {
   surface = resolveSurface(surface);
-  // Per-vault plugin auto-discovery is intentionally absent here. Discovering from cwd would make one
-  // arbitrary vault's tools appear for every credential; loading a different set per vault would break
-  // ToolTransportPort's stable-catalogue contract for everyday credentials. SYNAPSE_MCP_PLUGINS is
-  // explicit and shared. An admin-scoped bearer still upgrades the built-in catalogue
-  // ([[decision-0015-admin-surface]]); plugins do not.
-  const loaded = plugins || await loadPlugins(sharedPluginPaths());
-  const live = await toolTransportAdapters.get("http").serve(buildServer, {
-    host,
-    port,
-    path,
-    surface,
-    plugins: loaded,
-    legacy: "stateless",
-    onerror,
-  });
 
-  log(
-    `[synapse-mcp] ready · v${version} · transport=http · surface=${surface} · ${live.url}`
-    + " · vault=bearer-bound"
-    + `${loaded.length ? ` · plugins=${loaded.map((plugin) => plugin.name).join(",")}` : ""}`,
-  );
-  return live;
+  // WHY the singleton lock is HERE and not inside the HTTP adapter. serve() is the socket primitive,
+  // and mcp/http-transport.test.mjs starts two listeners in one process ON PURPOSE — that is the test
+  // proving vault A and vault B stay isolated. Locking the adapter would break the test that proves
+  // the feature. The rule being enforced is about a DEPLOYMENT — one core process per $SYNAPSE_HOME,
+  // because spawn.mjs's lease/fence is a single-writer design (see lib/core-lock.mjs) — so it belongs
+  // on the startup path a container or a shell actually runs, which is this function.
+  //
+  // Acquired BEFORE listen: a refused second core must not first steal the port from the live one.
+  const lock = acquireCoreLock(home);
+
+  let live;
+  try {
+    // Per-vault plugin auto-discovery is intentionally absent here. Discovering from cwd would make one
+    // arbitrary vault's tools appear for every credential; loading a different set per vault would break
+    // ToolTransportPort's stable-catalogue contract for everyday credentials. SYNAPSE_MCP_PLUGINS is
+    // explicit and shared. An admin-scoped bearer still upgrades the built-in catalogue
+    // ([[decision-0015-admin-surface]]); plugins do not.
+    const loaded = plugins || await loadPlugins(sharedPluginPaths());
+    live = await toolTransportAdapters.get("http").serve(buildServer, {
+      host,
+      port,
+      path,
+      surface,
+      plugins: loaded,
+      legacy: "stateless",
+      onerror,
+    });
+
+    log(
+      `[synapse-mcp] ready · v${version} · transport=http · surface=${surface} · ${live.url}`
+      + " · vault=bearer-bound"
+      + `${loaded.length ? ` · plugins=${loaded.map((plugin) => plugin.name).join(",")}` : ""}`,
+    );
+  } catch (error) {
+    // Nothing is listening, so holding the file would lock this SYNAPSE_HOME out until a human deleted
+    // it. Release on every failure path — a bad --port must not cost the next attempt its lock.
+    lock.release();
+    throw error;
+  }
+
+  const closeTransport = live.close.bind(live);
+  return {
+    ...live,
+    coreLock: lock,
+    async close() {
+      try {
+        await closeTransport();
+      } finally {
+        lock.release();
+      }
+    },
+  };
 }
 
 export function closeOnSignals(live) {
