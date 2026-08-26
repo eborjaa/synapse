@@ -19,7 +19,7 @@
 
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, "server.mjs");
@@ -28,18 +28,23 @@ const SURFACES = ["skeleton", "standard", "full", "orchestrator"];
 const MODERN_REVISION = "2026-07-28";
 
 /** The modern era carries what the handshake used to, inline on every request. */
-const modernMeta = () => ({
+export const modernMeta = () => ({
   "io.modelcontextprotocol/protocolVersion": MODERN_REVISION,
   "io.modelcontextprotocol/clientInfo": { name: "synapse-conformance", version: "1" },
   "io.modelcontextprotocol/clientCapabilities": {},
 });
 
 /** Speak raw JSON-RPC to one server process and return the captured wire surface. */
-function probe(surface, { timeoutMs = 60000 } = {}) {
+export function probe(surface, {
+  timeoutMs = 60000,
+  server = SERVER,
+  vault = VAULT,
+  env = {},
+} = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--experimental-sqlite", SERVER], {
-      cwd: VAULT,
-      env: { ...process.env, SYNAPSE_VAULT: VAULT, SYNAPSE_MCP_SURFACE: surface },
+    const child = spawn(process.execPath, ["--experimental-sqlite", server], {
+      cwd: vault,
+      env: { ...process.env, ...env, SYNAPSE_VAULT: vault, SYNAPSE_MCP_SURFACE: surface },
       stdio: ["pipe", "pipe", "ignore"],
     });
 
@@ -117,11 +122,16 @@ function probe(surface, { timeoutMs = 60000 } = {}) {
  * (serveStdio classifies it and never re-negotiates), so `server/discover` on a connection that
  * already sent `initialize` correctly answers "Method not found". Two eras, two processes.
  */
-function probeModern(surface, { timeoutMs = 60000 } = {}) {
+export function probeModern(surface, {
+  timeoutMs = 60000,
+  server = SERVER,
+  vault = VAULT,
+  env = {},
+} = {}) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, ["--experimental-sqlite", SERVER], {
-      cwd: VAULT,
-      env: { ...process.env, SYNAPSE_VAULT: VAULT, SYNAPSE_MCP_SURFACE: surface },
+    const child = spawn(process.execPath, ["--experimental-sqlite", server], {
+      cwd: vault,
+      env: { ...process.env, ...env, SYNAPSE_VAULT: vault, SYNAPSE_MCP_SURFACE: surface },
       stdio: ["pipe", "pipe", "ignore"],
     });
     const want = new Map();
@@ -170,7 +180,7 @@ function probeModern(surface, { timeoutMs = 60000 } = {}) {
 }
 
 /** Deterministic key order, so the JSON is diffable. */
-function sortKeys(v) {
+export function sortKeys(v) {
   if (Array.isArray(v)) return v.map(sortKeys);
   if (v && typeof v === "object") {
     return Object.fromEntries(Object.keys(v).sort().map((k) => [k, sortKeys(v[k])]));
@@ -178,32 +188,35 @@ function sortKeys(v) {
   return v;
 }
 
-const args = process.argv.slice(2);
-const asJson = args.includes("--json");
-const all = args.includes("--all");
-const one = (() => { const i = args.indexOf("--surface"); return i >= 0 ? args[i + 1] : null; })();
-const targets = all ? SURFACES : [one ?? "full"];
+const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (isMain) {
+  const args = process.argv.slice(2);
+  const asJson = args.includes("--json");
+  const all = args.includes("--all");
+  const one = (() => { const i = args.indexOf("--surface"); return i >= 0 ? args[i + 1] : null; })();
+  const targets = all ? SURFACES : [one ?? "full"];
 
-const result = {};
-for (const s of targets) {
-  result[s] = await probe(s);
-  result[s].modern = await probeModern(s);
-}
-
-if (asJson) {
-  console.log(JSON.stringify(sortKeys(result), null, 2));
-} else {
-  for (const [s, r] of Object.entries(result)) {
-    console.log(`\nsurface=${s}`);
-    console.log(`  protocolVersion : ${r.initialize.protocolVersion}`);
-    console.log(`  serverName      : ${r.initialize.serverName}`);
-    console.log(`  capabilities    : ${JSON.stringify(r.initialize.capabilities)}`);
-    console.log(`  instructions    : ${r.initialize.instructionsBytes} bytes — "${r.initialize.instructionsHead}…"`);
-    console.log(`  tools (${r.toolCount}) : ${r.tools.map((t) => t.name).join(", ")}`);
-    const m = r.modern;
-    console.log(m.served
-      ? `  modern era      : SERVED — ${JSON.stringify(m.supportedVersions)}, ${m.toolsWithoutHandshake?.length ?? 0} tools with no handshake (ttlMs=${m.listTtlMs}, cacheScope=${m.listCacheScope})`
-      : `  modern era      : NOT served — ${m.error?.code} ${m.error?.message}`);
+  const result = {};
+  for (const s of targets) {
+    result[s] = await probe(s);
+    result[s].modern = await probeModern(s);
   }
-  console.log();
+
+  if (asJson) {
+    console.log(JSON.stringify(sortKeys(result), null, 2));
+  } else {
+    for (const [s, r] of Object.entries(result)) {
+      console.log(`\nsurface=${s}`);
+      console.log(`  protocolVersion : ${r.initialize.protocolVersion}`);
+      console.log(`  serverName      : ${r.initialize.serverName}`);
+      console.log(`  capabilities    : ${JSON.stringify(r.initialize.capabilities)}`);
+      console.log(`  instructions    : ${r.initialize.instructionsBytes} bytes — "${r.initialize.instructionsHead}…"`);
+      console.log(`  tools (${r.toolCount}) : ${r.tools.map((t) => t.name).join(", ")}`);
+      const m = r.modern;
+      console.log(m.served
+        ? `  modern era      : SERVED — ${JSON.stringify(m.supportedVersions)}, ${m.toolsWithoutHandshake?.length ?? 0} tools with no handshake (ttlMs=${m.listTtlMs}, cacheScope=${m.listCacheScope})`
+        : `  modern era      : NOT served — ${m.error?.code} ${m.error?.message}`);
+    }
+    console.log();
+  }
 }

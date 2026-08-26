@@ -75,7 +75,8 @@ exec $SHELL
 
 > `install --write` also generates the MCP client configs (`.mcp.json` / `.cursor/mcp.json` /
 > `opencode.json`) so the synapse **MCP tools work in Claude Code, Cursor, and opencode** out of the box —
-> no separate step. (Regenerate with a different surface/client anytime via `synapse mcp-config`.)
+> no separate step. That path is stdio, one vault per client process; the optional shared local HTTP
+> endpoint is below. (Regenerate with a different surface/client anytime via `synapse mcp-config`.)
 
 > The engine is the **`@eborja/synapse` npm package** (`bin/synapse`, `lib/*`, `agents.sh`). Your vault
 > keeps only content + `_meta/tools/context.manifest.json`. After install, `synapse <sub>` is the unified
@@ -200,6 +201,22 @@ Regenerate any of them alone with `synapse mcp-config --write [--client claude\|
 (26, adds the delegation tools `synapse_claim_and_brief`, `synapse_spawn_*`, `synapse_spawn_release`)
 for agents that hand work to other agents. Pick with `--surface` or `SYNAPSE_MCP_SURFACE`; the default
 is `full`.
+
+### One shared endpoint (local HTTP)
+
+When clients cannot share a process tree — notably separate containers — run one bearer-bound server
+instead of one stdio child per vault:
+
+```bash
+synapse vaults token <vault-id> --label "client"
+synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
+# http://127.0.0.1:3000/mcp · Authorization: Bearer syn_...
+```
+
+The credential, never a tool argument, chooses the vault. Missing/unknown/revoked credentials are
+refused before a vault is attached. Bind only to loopback or an explicit VPN-interface address;
+`0.0.0.0` and `::` are rejected. Run exactly one server — many vaults in one process are supported,
+multiple writer processes on one vault are not. Details: [`doc-runtime-wiring`](docs/doc-runtime-wiring.md).
 
 ### DeepSeek Harness
 

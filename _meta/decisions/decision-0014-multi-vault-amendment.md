@@ -9,7 +9,7 @@ tags:
 related: ["[[decision-0010-mcp-2026-07-28-dual-era]]", "[[decision-0013-ports-and-adapters]]", "[[doc-deployment-gate]]", "[[hub-synapse]]"]
 ---
 
-**Status:** Accepted — 2026-08-24 · Amends [[decision-0010-mcp-2026-07-28-dual-era]] · Partially implemented.
+**Status:** Accepted — 2026-08-24 · Amends [[decision-0010-mcp-2026-07-28-dual-era]] · **Implemented 2026-08-25.**
 
 ## Context
 
@@ -57,8 +57,9 @@ and is neutral here — where it runs is the question, and the answer is the own
 
 ## What is implemented, and what is not
 
-Implemented: the per-vault state seam, the credential store and the bearer-token binding, the vault
-registry and one-command rewire, per-workspace roster isolation, **and the per-request vault context**.
+Implemented: the per-vault state seam, the credential store and bearer-token binding, the vault registry
+and one-command rewire, per-workspace roster isolation, the per-request vault context, **and the
+authenticated HTTP `ToolTransportPort` adapter**.
 
 **The threading precondition this section used to record as outstanding is now met.** It read: shipping
 HTTP before threading the bound vault through the tool call sites would accept a per-request credential,
@@ -79,7 +80,19 @@ is a documented extension point with consumers this package does not ship. Nothi
 imports them, and a test asserts that — the old bug is re-introducible by one careless import, and would
 be invisible again until something served two vaults.
 
-**Still not implemented: the HTTP transport itself.** What remains is the adapter, not a prerequisite.
+`synapse-mcp --http` now runs that adapter. It authenticates before MCP dispatch, passes the credential
+through the SDK's `authInfo`, binds it to one live registry entry, and hands that context to the same
+`buildServer()` factory stdio uses. Missing, unknown, revoked, and gone-vault credentials attach no vault.
+The response for an unknown token and a known token whose vault path is gone is byte-identical — status,
+body, and bearer challenge — because any distinction is an enumeration oracle.
+
+The listener defaults to `127.0.0.1` and rejects wildcard addresses (`0.0.0.0`, `::`) before opening a
+socket. An explicit non-loopback bind exists only for the owner's VPN-interface address; it does not
+make hosted deployment an accepted shape.
+
+**Not implemented here:** the four-container package, TLS/VPN termination, DSH presets, or replicas.
+Those are later epics. Exactly one `synapse-core` remains the standing limit because keying handles by
+vault did not turn SQLite into multi-writer storage.
 
 ## Consequences
 
@@ -94,10 +107,8 @@ be invisible again until something served two vaults.
 
 ## Open
 
-1. Where credentials live, and whether filesystem permissions are the right boundary between a
-   person's own workspaces.
-2. Whether the privacy gate needs a seam it does not currently have.
-3. Whether one instance is in fact enough — worth measuring before designing around it. If it is, the
+1. Whether the privacy gate needs a seam it does not currently have.
+2. Whether one instance is in fact enough — worth measuring before designing around it. If it is, the
    scaling question closes permanently rather than staying deferred.
 
 ## Related

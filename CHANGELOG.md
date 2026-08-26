@@ -4,6 +4,24 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Added
+- **One Synapse MCP server can now serve many vaults over authenticated local HTTP.**
+  `synapse-mcp --http` starts the second `ToolTransportPort` adapter on `127.0.0.1:3000/mcp` by default;
+  `--host`, `--port`, `--path`, and `--surface` configure it. The listener accepts loopback or an
+  explicitly selected VPN-interface address and refuses `0.0.0.0`, `::`, and empty/wildcard bindings
+  before opening a socket.
+
+  Every request's `Authorization: Bearer …` credential is passed as the SDK's `authInfo`, resolved by
+  `bearerVaultBinding`, and turned into the `vault` handed to the same `buildServer()` factory stdio
+  uses. Tool arguments never enter that path. Missing, unknown, revoked, and no-longer-live vault
+  credentials receive a 401 with no vault attached; **unknown token** and **known token whose vault is
+  gone** have byte-identical status, body, and challenge, so the endpoint is not a credential-enumeration
+  oracle.
+
+  The acceptance test opens one real loopback listener, connects two vaults concurrently, proves a
+  request whose arguments name vault B still answers from credential A, and compares HTTP's live tool
+  list with a raw-JSON-RPC stdio process. stdio remains the default and still serves both MCP eras.
+
 ### Changed
 - **A request now carries its own vault.** `mcp/vault.mjs` resolved the vault **once, at module load**,
   into a `VAULT` constant that ~60 references across eight tool modules read. On stdio that was correct
@@ -26,7 +44,7 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   (skeleton/standard/full/orchestrator — 3/11/20/26 tools) under raw JSON-RPC in both protocol eras.
 
   This satisfies the precondition [[decision-0014-multi-vault-amendment]] recorded for the HTTP
-  transport. What remains there is the adapter, not a prerequisite.
+  transport; the authenticated adapter above now uses that seam.
 
 ### Fixed
 - **`synapse_embeddings_status` measured the wrong index.** It printed `vault=<pinned vault>` in its

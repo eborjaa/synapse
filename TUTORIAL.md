@@ -535,6 +535,20 @@ non-empty `note_vectors` index exists), so the briefing gains the labeled "seman
 from the hybrid-retrieval phase above. `--no-semantic` (or `SYNAPSE_SEMANTIC=off`) forces the pure
 deterministic render.
 
+### MCP tools: one factory, two transports
+
+The launcher carries a briefing *into* a model session; MCP is the other direction — it lets that
+session call Synapse tools. Both transports register tools through the same `buildServer()` factory:
+
+- **stdio (default):** one client child process, one vault pinned by environment.
+- **local HTTP (`synapse-mcp --http`):** one long-lived process, with each request's bearer credential
+  binding exactly one registered vault before any tool runs.
+
+Vault identity is never a tool argument. The HTTP listener defaults to loopback, rejects
+`0.0.0.0`/`::`, and may bind off-host only to an explicitly selected VPN interface. Many vaults in one
+process are supported; many writer processes on one vault are not, so run exactly one shared server.
+See [[doc-runtime-wiring]] for the command and credential flow.
+
 ### Where are the behavioral gates?
 
 Synapse's `rule-*` library is governance: [[rule-synapse-fail-loudly]], [[rule-no-unprompted-actions]],

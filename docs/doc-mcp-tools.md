@@ -22,8 +22,9 @@ skeleton  ⊂  standard  ⊂  full  ⊂  orchestrator
 
 A read-only agent on `standard` literally cannot see the authoring/delegation tools — they are not
 registered, not merely discouraged. Every tool returns TEXT and does not start a chat session. The MCP
-server is config-pinned to its vault (`$SYNAPSE_VAULT` from `.mcp.json`, `preferCwd:false`), unlike the
-cwd-first CLI (see [[doc-agent-memory]] §5).
+server has two transport adapters: stdio is config-pinned to one vault (`$SYNAPSE_VAULT` from
+`.mcp.json`, `preferCwd:false`); HTTP binds one registered vault per request from `ctx.authInfo`. Neither
+path accepts vault identity as a tool argument (see [[doc-agent-memory]] §5).
 
 ## skeleton — discovery + raw render
 | Tool | Does |
@@ -67,12 +68,24 @@ tools: call `synapse_recall` on a topic shift, fetch an on-demand note when its 
 
 ## Consumer plugins
 A vault may add its own tools by dropping `_meta/mcp-plugins/*.mjs` (auto-discovered) or via
-`SYNAPSE_MCP_PLUGINS`. They register last and can extend any surface.
+`SYNAPSE_MCP_PLUGINS`. They register last and can extend any surface. The per-vault directory is
+auto-discovered on stdio. A shared HTTP server has no one startup vault, so it loads only the explicit
+`SYNAPSE_MCP_PLUGINS` set, identically for every credential.
+
+## Transports and vault binding
+
+- `synapse-mcp` — stdio, one process/connection pinned to one vault.
+- `synapse-mcp --http` — one long-lived, bearer-authenticated endpoint for many vaults. Defaults to
+  `127.0.0.1:3000/mcp`; bind only to loopback or a VPN-interface address. Wildcard listeners are refused.
+
+Both call the same `buildServer()` factory and expose the same built-in tool catalogue for a surface.
+HTTP refuses a request before MCP dispatch when its credential is missing, unknown, revoked, or points
+to a vault that is no longer live.
 
 ## Protocol era
-This surface currently speaks the **legacy** MCP protocol (`2025-11-25`) over stdio. Adopting the
-`2026-07-28` stateless standard is planned as a **dual-era** server — never modern-only, because three of
-the four clients we support cannot fall forward. See [[decision-0010-mcp-2026-07-28-dual-era]].
+Both transports are **dual-era**: legacy `2025-11-25` and stateless `2026-07-28` use the same factory.
+Never switch to modern-only while a supported client cannot fall forward. See
+[[decision-0010-mcp-2026-07-28-dual-era]].
 
 ## Related
 [[hub-synapse]] · [[doc-agent-memory]] · [[doc-cli-reference]] · [[doc-runtime-wiring]] · [[decision-0010-mcp-2026-07-28-dual-era]]

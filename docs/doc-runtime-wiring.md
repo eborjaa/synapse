@@ -25,6 +25,39 @@ behind this is [[decision-0004-opencode-local-ollama-runtime]]; the schema it re
         └─ read-only query ─▶ SQLite db/synapse.db  (records: contacts, accounts, finances, …)
 ```
 
+## One MCP server over local HTTP
+
+stdio remains the default: one client process starts one `synapse-mcp`, pinned to one vault. For
+container-to-container wiring or several clients on one owner-controlled machine, the same binary can
+instead run one long-lived HTTP endpoint:
+
+```bash
+synapse vaults add /path/to/vault
+synapse vaults token <vault-id> --label "this client"   # copy the plaintext now; only its hash is stored
+synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
+# client endpoint: http://127.0.0.1:3000/mcp
+# client header:   Authorization: Bearer syn_...
+```
+
+`--host` may name loopback or an address assigned to the owner's VPN interface. `0.0.0.0`, `::`, and an
+empty address are refused before a socket opens — local-only is the deployment boundary, not a default
+someone may accidentally turn off. `SYNAPSE_MCP_HOST` (or container-oriented `BIND_ADDR`),
+`SYNAPSE_MCP_PORT`, and `SYNAPSE_MCP_PATH` are the environment equivalents.
+
+The adapter authenticates before reading the MCP body. The token is carried into the SDK as
+`ctx.authInfo`, and `bearerVaultBinding` resolves exactly one live registry entry; tool arguments are not
+available to the binding. A missing, unknown, revoked, or gone-vault credential receives a 401 with no
+vault context. Unknown-token and gone-vault replies are byte-identical so they cannot be used to
+enumerate credentials.
+
+Both stdio and HTTP call the same `buildServer()` factory and serve both MCP eras. HTTP has no single
+startup vault, so `<vault>/_meta/mcp-plugins/` auto-discovery remains a stdio feature; shared HTTP plugins
+must be named explicitly in `SYNAPSE_MCP_PLUGINS`, giving every credential the same catalogue.
+
+Run **exactly one** shared server. Per-vault database handles and epochs make many vaults in one process
+safe; they do not make many processes on one SQLite vault safe. TLS/VPN termination and the four-container
+packaging are separate deployment work — this command does not publish or host an endpoint.
+
 ## The CLI is pluggable (`--cli`)
 
 OpenCode is the **default** sink, not the only one. The shell CLI (packaged `agents.sh`, wired by

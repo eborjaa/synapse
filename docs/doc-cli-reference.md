@@ -97,6 +97,9 @@ synapse journal "slug"
 synapse handover-task <ref> [--plain]        # print a note (a handover) as a task string
 synapse new <kind> <name> [--write]          # hub | agent | note | handover
 synapse mcp-config [--write]                 # MCP client config for this vault
+synapse-mcp                                  # stdio MCP, one env-pinned vault (default)
+synapse-mcp --http [--host H] [--port N] [--path /mcp] [--surface S]
+                                             # one bearer-bound server, many vaults
 ```
 
 ### `synapse skills` — your agents as `/synapse-<agent>`
@@ -184,6 +187,25 @@ The fix belongs in your global opencode config so every vault benefits.
 `register(server, ctx)` is auto-discovered and registered after the built-ins. Use it for tools
 specific to one vault, so nothing consumer-specific has to enter the package.
 
+### `synapse-mcp --http` — one local endpoint, many vaults
+
+```bash
+synapse vaults token <vault-id> --label "client name"
+synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
+# endpoint http://127.0.0.1:3000/mcp · Authorization: Bearer <the minted syn_... token>
+```
+
+stdio is unchanged and remains the no-flag default. HTTP binds each request from the bearer credential
+through the vault registry; no tool accepts a vault selector. The listener defaults to
+`127.0.0.1:3000/mcp`. `--host` may be loopback or an explicit VPN-interface address, but never
+`0.0.0.0` or `::` — both are rejected before listening. Run exactly one instance against a set of vault
+databases.
+
+The shared HTTP server has no one vault from which to auto-discover plugins. Set
+`SYNAPSE_MCP_PLUGINS=/absolute/shared-plugin.mjs[, …]` for plugins intended to appear for every
+credential; per-vault `_meta/mcp-plugins/` discovery remains on stdio. During package development, before
+the new package version is installed, run `node bin/synapse-mcp.mjs --http …`.
+
 ### `synapse new` — scaffolding
 
 Generates notes that satisfy the schema `synapse lint` enforces (both read `lib/schema.mjs`, so the
@@ -236,6 +258,11 @@ Engine subcommands resolve via the `synapse` CLI (`bin/synapse.mjs` in this repo
 | `SYNAPSE_MIN_SIM` | `0.45` | semantic similarity floor |
 | `SYNAPSE_VAULT` | _(cwd walk)_ | explicit vault root override — **you** set it; `install` never does |
 | `SYNAPSE_VAULT_FALLBACK` | _(unset)_ | written to your shell rc by `install --write`, **not exported**. Last-resort vault for shells whose `$PWD` is inside none. `$PWD` and an explicit `$SYNAPSE_VAULT` both outrank it |
+| `SYNAPSE_MCP_SURFACE` | `full` | `skeleton` \| `standard` \| `full` \| `orchestrator`, on stdio or HTTP |
+| `SYNAPSE_MCP_HOST` / `BIND_ADDR` | `127.0.0.1` | HTTP listen address; explicit loopback/VPN only, wildcard refused |
+| `SYNAPSE_MCP_PORT` | `3000` | HTTP listen port |
+| `SYNAPSE_MCP_PATH` | `/mcp` | HTTP endpoint path |
+| `SYNAPSE_MCP_PLUGINS` | _(none)_ | comma-separated plugin paths; on shared HTTP these are the only plugins and apply to every vault |
 | `VAULT_USER` | _(git email)_ | canary name |
 
 Full sink table and TUI notes: [[doc-runtime-wiring]].
