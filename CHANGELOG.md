@@ -26,6 +26,15 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   a default vault. An unregistered vault is reported distinctly from "no vault here", naming
   `synapse vaults add <root>` as the fix. See [[decision-0018-dsh-session-vault-router]].
 
+- **Epic 6 — four harnesses, isolation proven per harness.** `mcp/four-harness-e2e.mjs` (and the
+  matching test) drives Claude Code, Cursor, opencode, and the DeepSeek Harness against four vault
+  fixtures. Each harness must connect, list 26 orchestrator tools, see only its own vault's agent, and
+  still see only that vault when a tool argument names another. Offline: handshake + tool list, no
+  API key. Claude Code speaks the modern MCP era; the other three speak the legacy initialize
+  handshake. Claude / Cursor / opencode are driven through the generated config's exact spawn line
+  (`config-spawn`) because those CLIs are not headless without a key — labelled as such. DSH is the
+  plugin. One command: `node --experimental-sqlite mcp/four-harness-e2e.mjs`.
+
 - **One credential can now grant several vaults, and the URL path chooses which one answers.**
   `synapse vaults token work personal` mints a single secret for both, and the address selects:
 
