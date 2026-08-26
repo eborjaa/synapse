@@ -40,6 +40,9 @@ The design notes, in reading order:
 - [[doc-deployment-gate]] — the intended one-parent layout and the host-level privacy gate: an external
   coding agent maintains the framework while the vault stays sealed (local-only, data never leaves your
   hardware).
+- [[decision-0018-dsh-session-vault-router]] — DSH sessions bind their vault by the folder they were
+  opened in, through a Synapse-owned plugin; the other three harnesses already do this via config
+  written inside the vault.
 - [[decision-0017-path-addressed-vaults]] — one credential may grant several vaults; the URL path picks
   which one answers, and can only narrow what the credential already allows.
 - [[doc-four-containers]] — the packaged deployment: four disposable containers over five named volumes,

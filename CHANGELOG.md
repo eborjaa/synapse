@@ -5,6 +5,27 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## Unreleased
 
 ### Added
+- **In DSH, the vault now follows the folder you opened.** Synapse ships its own DSH plugin
+  (`@eborja/synapse/dsh-plugin`) replacing the generic MCP client row for synapse.
+
+  DSH resolved *skills* per session from the session's working directory but registered *MCP tools* once
+  per process, so switching workspace moved the agent list while the tools kept answering from whichever
+  vault the machine-wide config named — silently, which is worse than not switching at all. Nothing in
+  DSH reads config from the directory you are working in, so this could not be fixed with configuration.
+
+  The plugin routes on `session.header.cwd`: stamped by the host at session creation, validated
+  absolute, immutable for the session's life, inherited by subagents, and unwritable by the model. It is
+  the same field DSH's own `tool-lsp` uses to route to a per-workspace language-server pool.
+
+  Tools are registered **per session**, agent-scoped, because a vault may carry its own
+  `_meta/mcp-plugins/` and two vaults therefore do not publish the same list. One Synapse child is
+  pooled per vault, refcounted and idle-evicted (~85 MB each, for vaults actually opened).
+
+  Failure is closed everywhere: a session outside any registered vault, inside an unregistered one, or
+  whose child cannot be read gets **no** synapse tools and one line explaining why — never a fallback to
+  a default vault. An unregistered vault is reported distinctly from "no vault here", naming
+  `synapse vaults add <root>` as the fix. See [[decision-0018-dsh-session-vault-router]].
+
 - **One credential can now grant several vaults, and the URL path chooses which one answers.**
   `synapse vaults token work personal` mints a single secret for both, and the address selects:
 

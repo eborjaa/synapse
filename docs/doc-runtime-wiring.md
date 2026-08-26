@@ -40,6 +40,28 @@ synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
 # client header:   Authorization: Bearer syn_...
 ```
 
+### DSH: the vault follows the folder
+
+Claude Code, Cursor and opencode select a vault by which folder you open, because Synapse writes their
+config inside the vault. DSH has no per-folder config layer at all — its layers are all machine-wide —
+so it needs a plugin to close the gap ([[decision-0018-dsh-session-vault-router]]):
+
+```yaml
+- id: mcp-synapse
+  name: '@eborja/synapse/dsh-plugin'
+  config:
+    surface: orchestrator
+```
+
+Each session resolves its own vault from `session.header.cwd` — stamped by the host, immutable for the
+session, unwritable by the model — and registers **that vault's** tools, agent-scoped. A vault carrying
+its own `_meta/mcp-plugins/` keeps its extra tools without leaking them into other sessions. One Synapse
+child is pooled per vault (~85 MB each, idle-evicted).
+
+A session outside any registered vault gets **no** synapse tools and one line saying why, naming
+`synapse vaults add` when the folder is a vault that simply is not registered. There is no fallback to a
+default vault.
+
 ### One credential, several vaults, one address each
 
 A credential grants a **set** of vaults, and the request's URL path says which of them answers
