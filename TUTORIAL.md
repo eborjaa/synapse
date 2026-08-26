@@ -544,10 +544,11 @@ session call Synapse tools. Both transports register tools through the same `bui
 - **local HTTP (`synapse-mcp --http`):** one long-lived process, with each request's bearer credential
   binding exactly one registered vault before any tool runs.
 
-Vault identity is never a tool argument. The HTTP listener defaults to loopback, rejects
-`0.0.0.0`/`::`, and may bind off-host only to an explicitly selected VPN interface. Many vaults in one
-process are supported; many writer processes on one vault are not, so run exactly one shared server.
-See [[doc-runtime-wiring]] for the command and credential flow.
+Vault identity is never a tool argument. An **admin-scoped** bearer (`synapse vaults token <id> --admin`)
+is what exposes vault/credential tools; a normal session does not list them. The HTTP listener defaults
+to loopback, rejects `0.0.0.0`/`::`, and may bind off-host only to an explicitly selected VPN interface.
+Many vaults in one process are supported; many writer processes on one vault are not, so run exactly one
+shared server. See [[doc-runtime-wiring]] and [[decision-0015-admin-surface]].
 
 ### Where are the behavioral gates?
 

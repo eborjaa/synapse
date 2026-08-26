@@ -5,6 +5,15 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## Unreleased
 
 ### Added
+- **Privileged vault and credential operations are a separate MCP catalogue.** An everyday session —
+  any of skeleton/standard/full/orchestrator, including a normal bearer against a process started with
+  `--surface admin` — never lists `synapse_admin_list` / `_register` / `_mint` / `_revoke` / `_sync`.
+  Absence is the boundary, not a handler that refuses. An **admin-scoped** HTTP bearer (minted with
+  `synapse vaults token <id> --admin`) upgrades that request to the admin surface: orchestrator plus
+  those five tools, and every mutation is reported in the transcript. Generated client config still
+  writes only the four everyday surfaces; stdio refuses `SYNAPSE_MCP_SURFACE=admin` at startup because
+  it has no bearer. See [[decision-0015-admin-surface]].
+
 - **One Synapse MCP server can now serve many vaults over authenticated local HTTP.**
   `synapse-mcp --http` starts the second `ToolTransportPort` adapter on `127.0.0.1:3000/mcp` by default;
   `--host`, `--port`, `--path`, and `--surface` configure it. The listener accepts loopback or an

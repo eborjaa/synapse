@@ -191,15 +191,18 @@ specific to one vault, so nothing consumer-specific has to enter the package.
 
 ```bash
 synapse vaults token <vault-id> --label "client name"
+synapse vaults token <vault-id> --admin --label "owner laptop"   # first admin credential; shown once
 synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
 # endpoint http://127.0.0.1:3000/mcp · Authorization: Bearer <the minted syn_... token>
 ```
 
 stdio is unchanged and remains the no-flag default. HTTP binds each request from the bearer credential
-through the vault registry; no tool accepts a vault selector. The listener defaults to
-`127.0.0.1:3000/mcp`. `--host` may be loopback or an explicit VPN-interface address, but never
-`0.0.0.0` or `::` — both are rejected before listening. Run exactly one instance against a set of vault
-databases.
+through the vault registry; no tool accepts a vault selector. A normal credential sees the process
+`--surface` (or `orchestrator`, if the process was started as `admin`). An **admin-scoped** credential
+upgrades that request to the admin catalogue (`synapse_admin_*` — register, list, mint, revoke, sync).
+Everyday sessions do not list those tools at all. The listener defaults to `127.0.0.1:3000/mcp`.
+`--host` may be loopback or an explicit VPN-interface address, but never `0.0.0.0` or `::` — both are
+rejected before listening. Run exactly one instance against a set of vault databases.
 
 The shared HTTP server has no one vault from which to auto-discover plugins. Set
 `SYNAPSE_MCP_PLUGINS=/absolute/shared-plugin.mjs[, …]` for plugins intended to appear for every
@@ -258,7 +261,7 @@ Engine subcommands resolve via the `synapse` CLI (`bin/synapse.mjs` in this repo
 | `SYNAPSE_MIN_SIM` | `0.45` | semantic similarity floor |
 | `SYNAPSE_VAULT` | _(cwd walk)_ | explicit vault root override — **you** set it; `install` never does |
 | `SYNAPSE_VAULT_FALLBACK` | _(unset)_ | written to your shell rc by `install --write`, **not exported**. Last-resort vault for shells whose `$PWD` is inside none. `$PWD` and an explicit `$SYNAPSE_VAULT` both outrank it |
-| `SYNAPSE_MCP_SURFACE` | `full` | `skeleton` \| `standard` \| `full` \| `orchestrator`, on stdio or HTTP |
+| `SYNAPSE_MCP_SURFACE` | `full` | `skeleton` \| `standard` \| `full` \| `orchestrator` on stdio/generated config. `admin` is HTTP + admin-scoped bearer only; stdio refuses it |
 | `SYNAPSE_MCP_HOST` / `BIND_ADDR` | `127.0.0.1` | HTTP listen address; explicit loopback/VPN only, wildcard refused |
 | `SYNAPSE_MCP_PORT` | `3000` | HTTP listen port |
 | `SYNAPSE_MCP_PATH` | `/mcp` | HTTP endpoint path |

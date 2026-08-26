@@ -11,6 +11,7 @@
 //   standard     — + brief, augment, embeddings_*, lint       ← recommended for read-only agents
 //   full         — default: + handover + authoring tools
 //   orchestrator — + dedup-safe delegation (claim_and_brief, spawn_*)
+//   admin        — HTTP + admin-scoped bearer only. stdio refuses it at startup.
 //
 // Consumer-specific tools do NOT belong in this package. Drop an ESM module exporting
 // `register(server, ctx)` into <vault>/_meta/mcp-plugins/ and it is discovered automatically —
@@ -33,6 +34,12 @@ const vault = envPinnedContext();
 vault.assertVault();
 
 const surface = resolveSurface();
+if (surface === "admin") {
+  throw new Error(
+    "Admin surface requires an admin-scoped bearer credential; it is unavailable on stdio. "
+    + "Mint with `synapse vaults token <id> --admin` and connect over `synapse-mcp --http`.",
+  );
+}
 
 // Load plugin MODULES before serving: a plugin that cannot be imported must fail the process, not
 // leave a server running with a tool quietly missing ([[rule-synapse-fail-loudly]]).
