@@ -5,6 +5,66 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 ## Unreleased
 
 ### Added
+- **In DSH, the vault now follows the folder you opened.** Synapse ships its own DSH plugin
+  (`@eborja/synapse/dsh-plugin`) replacing the generic MCP client row for synapse.
+
+  DSH resolved *skills* per session from the session's working directory but registered *MCP tools* once
+  per process, so switching workspace moved the agent list while the tools kept answering from whichever
+  vault the machine-wide config named — silently, which is worse than not switching at all. Nothing in
+  DSH reads config from the directory you are working in, so this could not be fixed with configuration.
+
+  The plugin routes on `session.header.cwd`: stamped by the host at session creation, validated
+  absolute, immutable for the session's life, inherited by subagents, and unwritable by the model. It is
+  the same field DSH's own `tool-lsp` uses to route to a per-workspace language-server pool.
+
+  Tools are registered **per session**, agent-scoped, because a vault may carry its own
+  `_meta/mcp-plugins/` and two vaults therefore do not publish the same list. One Synapse child is
+  pooled per vault, refcounted and idle-evicted (~85 MB each, for vaults actually opened).
+
+  Failure is closed everywhere: a session outside any registered vault, inside an unregistered one, or
+  whose child cannot be read gets **no** synapse tools and one line explaining why — never a fallback to
+  a default vault. An unregistered vault is reported distinctly from "no vault here", naming
+  `synapse vaults add <root>` as the fix. See [[decision-0018-dsh-session-vault-router]].
+
+- **One credential can now grant several vaults, and the URL path chooses which one answers.**
+  `synapse vaults token work personal` mints a single secret for both, and the address selects:
+
+  ```
+  http://127.0.0.1:3000/mcp/work       → the work vault
+  http://127.0.0.1:3000/mcp/personal   → the personal vault
+  ```
+
+  Previously one token bound exactly one vault, which is what made per-vault client configuration
+  unavoidable — every client reaching two vaults needed two rows carrying two secrets, one written into
+  each vault's own repo.
+
+  **The credential grants; the path only ever narrows.** A path naming a vault the credential does not
+  grant is refused, byte-identically to an unknown token and to a vault that does not exist, so the
+  endpoint is not an oracle for which vaults exist on the machine. The id is a single path segment
+  compared for exact equality after decoding: `work` never matches `work-archive`, and a traversal
+  segment resolves nowhere.
+
+  **No defaults anywhere.** A request with no vault in its path binds only when the credential grants
+  exactly one — so every existing single-vault client is untouched. A multi-vault credential asked at the
+  bare `/mcp` is *refused* rather than resolved to the first entry, because a client that forgot its path
+  segment must not silently read the wrong vault. Tokens minted before this change store a single
+  `vaultId` and are read as a one-element grant; nothing is migrated, since rewriting a credential file to
+  change a field's shape is a risk with no upside.
+
+  This is a deliberate change to the security posture, reviewed as
+  [[decision-0017-path-addressed-vaults]]: **a leaked credential now exposes every vault it grants.**
+  What has not changed is the rule [[decision-0010-mcp-2026-07-28-dual-era]] was protecting — the vault
+  is something the caller *has*, never something the model *says*. A URL path is transport configuration,
+  fixed when a client is configured and unwritable by the model; it is not a tool argument, and no MCP
+  parameter is read on the binding path.
+
+  Generated client config still writes stdio rows, which bind by directory and need no running server.
+
+### Fixed
+- `synapse vaults token <id> --label "some label"` read the label's value as a second vault id. Bare
+  arguments were collected by "does not start with `--`", which the single-id version never noticed
+  because it only ever used the first one.
+
 - **Synapse ships as four disposable containers.** `deploy/compose.yml` runs `vpn-sidecar`, `dsh`,
   `synapse-core` and `ollama` over five named volumes, and the same file runs on a laptop and on a home
   server — **only `BIND_ADDR` differs**, and nothing in any image knows where it is running.

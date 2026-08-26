@@ -245,7 +245,9 @@ test("Epic 3 — admin is a credential-authorized HTTP catalogue", async (t) => 
       const revokeBody = toolJson(revoked);
       assert.equal(revokeBody.mutation, "credential.revoke");
       assert.equal(revokeBody.status, "revoked");
-      assert.equal(revokeBody.credential.vaultId, extra.id);
+      // The whole grant is reported, not one id: a credential may reach several vaults now
+      // ([[decision-0017-path-addressed-vaults]]), and naming one would understate what was revoked.
+      assert.deepEqual(revokeBody.credential.vaultIds, [extra.id]);
 
       const planned = await rpc(live.url, s.alpha.adminToken, "tools/call", {
         name: "synapse_admin_sync",

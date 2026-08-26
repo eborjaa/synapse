@@ -11,6 +11,7 @@ import {
 } from "../../lib/vaults.mjs";
 import {
   mintToken, readTokens, revokeToken, tokensPath, writeTokens,
+  grantedVaults,
 } from "../../lib/ports/vault-tokens.mjs";
 
 const asText = (value, isError = false) => ({
@@ -52,7 +53,9 @@ export function registerAdminTools(server) {
         })),
         credentials: store.tokens.map((token) => ({
           label: token.label || "",
-          vaultId: token.vaultId,
+          // The whole grant, not one id: a credential may now reach several vaults
+          // ([[decision-0017-path-addressed-vaults]]), and listing one of them would understate access.
+          vaultIds: grantedVaults(token),
           scopes: Array.isArray(token.scopes) ? token.scopes : [],
           hashPrefix: `${String(token.hash).slice(0, 12)}…`,
           createdAt: token.createdAt,
@@ -149,7 +152,7 @@ export function registerAdminTools(server) {
         status: "revoked",
         credential: {
           label: out.revoked.label || "",
-          vaultId: out.revoked.vaultId,
+          vaultIds: grantedVaults(out.revoked),
           scopes: Array.isArray(out.revoked.scopes) ? out.revoked.scopes : [],
           hashPrefix: `${String(out.revoked.hash).slice(0, 12)}…`,
         },

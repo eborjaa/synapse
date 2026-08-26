@@ -1,7 +1,7 @@
 {
   "name": "@eborja/synapse",
   "version": "1.1.1",
-  "description": "Synapse — the context-vault engine: a manifest-driven, role-based knowledge-graph renderer with semantic recall, SQL records tooling, linting, and a pluggable agent CLI. Package-agnostic; consumers keep their own vault + context.manifest.json.",
+  "description": "Synapse \u2014 the context-vault engine: a manifest-driven, role-based knowledge-graph renderer with semantic recall, SQL records tooling, linting, and a pluggable agent CLI. Package-agnostic; consumers keep their own vault + context.manifest.json.",
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -18,12 +18,14 @@
     "./schema": "./lib/schema.mjs",
     "./vault-root": "./lib/vault-root.mjs",
     "./agents.sh": "./agents.sh",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./dsh-plugin": "./dsh/plugin.mjs"
   },
   "files": [
     "bin/",
     "lib/",
     "mcp/",
+    "dsh/",
     "_meta/",
     "agents/",
     "rules/",
@@ -39,7 +41,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "test": "node --experimental-sqlite --test lib/*.test.mjs lib/ports/*.test.mjs lib/durable-spawn/*.test.mjs mcp/*.test.mjs mcp/tools/*.test.mjs deploy/*.test.mjs",
+    "test": "node --experimental-sqlite --test lib/*.test.mjs lib/ports/*.test.mjs lib/durable-spawn/*.test.mjs mcp/*.test.mjs mcp/tools/*.test.mjs dsh/*.test.mjs deploy/*.test.mjs",
     "smoke": "node --experimental-sqlite mcp/smoke.mjs",
     "vault:render": "synapse render",
     "vault:augment": "synapse augment",

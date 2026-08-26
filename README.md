@@ -216,6 +216,21 @@ synapse-mcp --http --host 127.0.0.1 --port 3000 --surface standard
 # http://127.0.0.1:3000/mcp · Authorization: Bearer syn_...
 ```
 
+**One credential can cover several vaults, with the address choosing between them:**
+
+```bash
+synapse vaults token work personal --label "laptop"   # one secret, two vaults
+# http://127.0.0.1:3000/mcp/work       → the work vault
+# http://127.0.0.1:3000/mcp/personal   → the personal vault
+```
+
+The credential says which vaults you may reach; the address says which one this request is. A path
+naming a vault the credential does not grant is refused — identically to an unknown token, so the
+endpoint never reveals which vaults exist. A credential granting exactly one vault needs no path at all,
+so existing setups are untouched; one granting several is refused at the bare `/mcp` rather than guessing.
+A leaked credential now exposes every vault it grants, which is the trade
+([`decision-0017`](_meta/decisions/decision-0017-path-addressed-vaults.md)).
+
 The credential, never a tool argument, chooses the vault. Missing/unknown/revoked credentials are
 refused before a vault is attached. Bind only to loopback or an explicit VPN-interface address;
 `0.0.0.0` and `::` are rejected. Run exactly one server — many vaults in one process are supported,
