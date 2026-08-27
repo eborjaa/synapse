@@ -12,6 +12,9 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   It never reports success when the logbook did not close. New `synapse_handoffs_open` lists unfinished
   handoffs with age and expiry. Orchestrator is 27 tools (was 26); admin is 32 (was 31). Old field
   names are accepted for one release (deprecated). See [[decision-0019-handoff-identity]].
+- **`dsh/e2e` — live open-folder browser suite.** Nine Playwright tests against the running
+  four-container stack. `orchestration.spec.mjs` drives claim → held → renew → release through
+  the handle, not `owner`/`token`. Root `npm test` does not pick this up (needs a live stack).
 
 ### Fixed
 - A one-character-off identifier can no longer silently drop the episode while releasing the lease.
