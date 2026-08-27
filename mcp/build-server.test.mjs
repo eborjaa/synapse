@@ -14,7 +14,7 @@ import { ADMIN_TOOL_NAMES } from "./tools/admin.mjs";
 
 // Tool counts per surface, captured from the wire before the factory refactor (mcp/conformance.mjs).
 // A change here means the surface moved — intended or not, it must be deliberate.
-const EXPECTED_COUNTS = { skeleton: 3, standard: 11, full: 20, orchestrator: 26, admin: 31 };
+const EXPECTED_COUNTS = { skeleton: 3, standard: 11, full: 20, orchestrator: 27, admin: 32 };
 
 /** The registered tool names, read off the server the factory returns. */
 function toolNames(server) {

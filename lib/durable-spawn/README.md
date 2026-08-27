@@ -14,6 +14,9 @@ rule `rules/rule-durable-spawn.md` and the RCA `inbox/notes/2026-07-31-qa-lead-o
 - **`liveness.mjs`** — pure classifier. Death only from a harness terminal signal or expired lease;
   a stale heartbeat on a live lease is `hang-suspected → escalate-human`, never death. No `.output`/mtime input.
 - **`heartbeat.mjs`** — doer emit (`HEARTBEAT`/`WAITING`/`DONE`/`FAILED`) + orchestrator parse that feeds `liveness.classify`.
+- **`handoff.mjs`** — sqlite adapter for `HandoffPort`: claim/renew/close/sweep/openHandoffs. Ticket
+  (lease + spawn) and logbook (episode) close together, keyed by one checksummed handle. See
+  [[decision-0019-handoff-identity]].
 - **`lint.mjs`** — `scanText` bans "judge liveness by the transcript's modified time" phrasing in briefings/rules.
 
 ## Preconditions (a wrong value silently defeats the guarantees)

@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]", "[[doc-agent-memory]]", "[[doc-cli-reference]]"]
-related: ["[[hub-synapse]]", "[[decision-0010-mcp-2026-07-28-dual-era]]", "[[decision-0015-admin-surface]]"]
+related: ["[[hub-synapse]]", "[[decision-0010-mcp-2026-07-28-dual-era]]", "[[decision-0015-admin-surface]]", "[[decision-0019-handoff-identity]]"]
 ---
 
 # MCP tools reference
@@ -58,10 +58,11 @@ path accepts vault identity as a tool argument (see [[doc-agent-memory]] §5).
 ## orchestrator — dedup-safe delegation (adds to full)
 | Tool | Does |
 |---|---|
-| `synapse_claim_and_brief` | THE default delegation path: atomically claim a `job` (a live or near-identical one is REFUSED) and return the doer's briefing + `{spawnId, owner, token}`. YOU launch with your own harness; opens an episode. Build `job` from stable ids (`agent:TICKET:suite:branch`), never prose |
-| `synapse_spawn` | specialist: synapse launches a DETACHED doer that outlives your session (poll `_status`) — only when work must survive the session or there is no harness |
-| `synapse_spawn_status` / `_list` | observe running spawns; classify liveness |
-| `synapse_spawn_renew` / `_release` | extend / release a lease. `_release` closes the episode with `summary` + `refs` |
+| `synapse_claim_and_brief` | THE default delegation path: atomically claim a `job` (a live or near-identical one is REFUSED) and return the doer's briefing + a checksummed `handle`. YOU launch with your own harness; opens an episode. Build `job` from stable ids (`agent:TICKET:suite:branch`), never prose. Close with `synapse_spawn_release({ handle, summary })` |
+| `synapse_spawn` | specialist: synapse launches a DETACHED doer that outlives your session (poll `_status`) — only when work must survive the session or there is no harness. Returns `handle` + `spawnId` |
+| `synapse_spawn_status` / `_list` | observe running spawns; classify liveness. Status accepts `handle`, `spawnId`, or `job` |
+| `synapse_spawn_renew` / `_release` | extend / close a handoff by `handle`. `_release` takes `{ handle, outcome?, summary?, refs? }` and returns `{ closed: true, outcome }` or `{ closed: false, reason }` — never a false success. `job`/`owner`/`token`/`spawnId`/`episodeId` accepted for one release (deprecated) |
+| `synapse_handoffs_open` | this vault's unfinished handoffs (age + expiry). Recover a dropped handle and re-close it |
 
 ## admin — machine administration (adds to orchestrator; HTTP + admin-scoped bearer only)
 | Tool | Does |

@@ -30,7 +30,7 @@ import { createVaultPool } from "../dsh/vault-pool.mjs";
 import { modernMeta } from "./conformance.mjs";
 
 const SURFACE = "orchestrator";
-const EXPECTED_TOOLS = 26;
+const EXPECTED_TOOLS = 27;
 const HARNESSES = [
   { id: "claude",   label: "Claude Code",         era: "modern" },
   { id: "cursor",   label: "Cursor CLI",          era: "legacy" },

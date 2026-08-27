@@ -174,7 +174,7 @@ test("Epic 3 — admin is a credential-authorized HTTP catalogue", async (t) => 
       const reply = await rpc(live.url, s.alpha.token, "tools/list");
       assert.equal(reply.status, 200, reply.text);
       const names = toolNames(reply);
-      assert.equal(names.length, 26, `normal catalogue moved — ${names.join(", ")}`);
+      assert.equal(names.length, 27, `normal catalogue moved — ${names.join(", ")}`);
       for (const name of ADMIN_TOOL_NAMES) {
         assert.equal(names.includes(name), false, `normal session listed ${name}`);
       }
@@ -199,7 +199,7 @@ test("Epic 3 — admin is a credential-authorized HTTP catalogue", async (t) => 
       const reply = await rpc(live.url, s.alpha.adminToken, "tools/list");
       assert.equal(reply.status, 200, reply.text);
       const names = toolNames(reply);
-      assert.equal(names.length, 31, `admin catalogue moved — ${names.join(", ")}`);
+      assert.equal(names.length, 32, `admin catalogue moved — ${names.join(", ")}`);
       for (const name of ADMIN_TOOL_NAMES) assert.ok(names.includes(name), `admin missing ${name}`);
       assert.ok(names.includes("synapse_claim_and_brief"));
     });
@@ -272,7 +272,7 @@ test("Epic 3 — admin is a credential-authorized HTTP catalogue", async (t) => 
       const reply = await rpc(live.url, s.alpha.token, "tools/list");
       assert.equal(reply.status, 200, reply.text);
       const names = toolNames(reply);
-      assert.equal(names.length, 26);
+      assert.equal(names.length, 27);
       for (const name of ADMIN_TOOL_NAMES) {
         assert.equal(names.includes(name), false, `downgraded session listed ${name}`);
       }

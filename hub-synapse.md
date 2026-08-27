@@ -40,6 +40,9 @@ The design notes, in reading order:
 - [[doc-deployment-gate]] — the intended one-parent layout and the host-level privacy gate: an external
   coding agent maintains the framework while the vault stays sealed (local-only, data never leaves your
   hardware).
+- [[decision-0019-handoff-identity]] — one checksummed handle per attempt; the job name stays for
+  dedup; ticket and logbook close together, and anything still open past expiry is swept to
+  `ended-unknown`.
 - [[decision-0018-dsh-session-vault-router]] — DSH sessions bind their vault by the folder they were
   opened in, through a Synapse-owned plugin; the other three harnesses already do this via config
   written inside the vault.

@@ -40,3 +40,6 @@ opencode.json
 
 # Runtime-generated agent briefings (agents.sh writes these per launch)
 .opencode/agents/
+
+# Local four-container secrets (bearer token). Never commit.
+deploy/.env

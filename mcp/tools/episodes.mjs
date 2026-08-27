@@ -48,8 +48,8 @@ export function registerEpisodeTools(server, vault = envPinnedContext()) {
         query: z.string().optional().describe("Keywords — ticket ids, branch names, spec paths, topic words"),
         agent: z.string().optional().describe("Only this agent's episodes, e.g. 'agent-spec-builder'"),
         hub: z.string().optional().describe("Only this domain, e.g. 'moc-sensors'"),
-        outcome: z.enum(["open", "done", "failed", "abandoned"]).optional()
-          .describe("'open' = still running or died mid-flight; 'failed' = what to avoid repeating blindly"),
+        outcome: z.enum(["open", "done", "failed", "abandoned", "ended-unknown"]).optional()
+          .describe("'open' = still running or died mid-flight; 'ended-unknown' = ticket lapsed with no close; 'failed' = what to avoid repeating blindly"),
         sinceDays: z.number().optional().describe("Only the last N days"),
         limit: z.number().optional().describe("Max results (default 10, cap 100)"),
       },

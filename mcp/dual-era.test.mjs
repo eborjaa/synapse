@@ -81,7 +81,7 @@ test("MODERN era: tools/list works with NO handshake", async () => {
   const r = got.get(1);
   assert.equal(r.error, undefined, `tools/list errored: ${JSON.stringify(r.error)}`);
   const names = r.result.tools.map((t) => t.name);
-  assert.equal(names.length, 26, `orchestrator should expose 26 tools, got ${names.length}`);
+  assert.equal(names.length, 27, `orchestrator should expose 27 tools, got ${names.length}`);
   assert.ok(names.includes("synapse_claim_and_brief"));
   assert.equal(typeof r.result.ttlMs, "number", "a modern list result must carry ttlMs");
 });

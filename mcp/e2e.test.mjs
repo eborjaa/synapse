@@ -72,9 +72,9 @@ test("[e2e] full delegation loop: claim → release → history → recall → r
   try {
     const job = "spec-builder:REL-100:sensors";
     const c = await call("synapse_claim_and_brief", { agent: "doer", task: "migrate the sensors grid spec", job, force: true });
-    assert.ok(c.episodeId && c.owner && typeof c.token === "number", "claim returns the handles");
+    assert.ok(c.handle, "claim returns the handoff handle");
 
-    await call("synapse_spawn_release", { job, owner: c.owner, token: c.token, spawnId: c.spawnId, episodeId: c.episodeId, summary: "migrated 12 specs, parked REL-38837", refs: ["PR#9"] });
+    await call("synapse_spawn_release", { handle: c.handle, summary: "migrated 12 specs, parked REL-38837", refs: ["PR#9"] });
 
     const hist = await call("synapse_history", { query: "sensors grid" });
     assert.match(JSON.stringify(hist), /migrated 12/, "history finds the released work");
@@ -106,7 +106,7 @@ test("[e2e] the lease is the hard gate: a second live claim on one job is refuse
     const c1 = await call("synapse_claim_and_brief", { agent: "doer", task: "flip report specs", job, force: true });
     const c2 = await call("synapse_claim_and_brief", { agent: "doer", task: "flip report specs", job, force: true });
     assert.ok(c2.refused === "held" || c2.ok === false, "the live lease refuses the second claim");
-    await call("synapse_spawn_release", { job, owner: c1.owner, token: c1.token, spawnId: c1.spawnId, episodeId: c1.episodeId, summary: "done" });
+    await call("synapse_spawn_release", { handle: c1.handle, summary: "done" });
   } finally { cleanup(); }
 });
 
@@ -114,7 +114,7 @@ test("[e2e] misuse is reported, never thrown: releasing a job that was never cla
   const { call, cleanup } = await harness();
   try {
     const r = await call("synapse_spawn_release", { job: "never", owner: "x", token: 1 });
-    assert.equal(r.released, false);
+    assert.equal(r.closed, false);
   } finally { cleanup(); }
 });
 

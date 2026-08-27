@@ -1,0 +1,17 @@
+{
+  "name": "@eborja/synapse-dsh-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Browser end-to-end suite: Synapse tools in the DeepSeek Harness follow the open folder.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report report",
+    "install-browser": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

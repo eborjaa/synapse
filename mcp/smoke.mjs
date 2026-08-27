@@ -49,7 +49,7 @@ EXPECTED.orchestrator = [
   ...EXPECTED.full,
   "synapse_claim_and_brief",
   "synapse_spawn", "synapse_spawn_status", "synapse_spawn_list",
-  "synapse_spawn_renew", "synapse_spawn_release",
+  "synapse_spawn_renew", "synapse_spawn_release", "synapse_handoffs_open",
 ];
 
 const pass = (m) => console.log(`  \x1b[32m✓\x1b[0m ${m}`);
