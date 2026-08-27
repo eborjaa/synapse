@@ -198,9 +198,9 @@ Regenerate any of them alone with `synapse mcp-config --write [--client claude\|
 
 **Four everyday surfaces**, each a superset of the last — a permission dial, not a feature flag:
 `skeleton` (3 tools) · `standard` (11, read-only) · `full` (20, adds authoring) · **`orchestrator`**
-(26, adds the delegation tools `synapse_claim_and_brief`, `synapse_spawn_*`, `synapse_spawn_release`)
+(27, adds the delegation tools `synapse_claim_and_brief`, `synapse_spawn_*`, `synapse_spawn_release`, `synapse_handoffs_open`)
 for agents that hand work to other agents. Pick with `--surface` or `SYNAPSE_MCP_SURFACE`; the default
-is `full`. A fifth surface, **`admin`** (31 tools), is not a generated-config option: mint
+is `full`. A fifth surface, **`admin`** (32 tools), is not a generated-config option: mint
 `synapse vaults token <id> --admin` and present that bearer over HTTP. Everyday sessions never list
 those tools.
 
@@ -327,7 +327,7 @@ publish in-thread. A `SKILL.md` you hand-author (no generated marker) is never o
 **Delegation is three calls, not one.** `synapse_claim_and_brief` takes the lease, opens the episode and
 returns the briefing — it launches **nothing**. You launch the doer with your own harness (its Task tool,
 `subagent`, an `@mention`), so your tool's task panel, streaming and notifications all keep working. Then
-`synapse_spawn_release` closes the lease with the doer's answer. Dedup is unskippable because the briefing
+`synapse_spawn_release` closes the handoff (`{ handle, summary }`) with the doer's answer. Dedup is unskippable because the briefing
 only arrives *through* the claim.
 
 → Full detail: [`doc-mcp-tools`](docs/doc-mcp-tools.md) ·

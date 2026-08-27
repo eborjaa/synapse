@@ -5,79 +5,54 @@
 // semantic "same task?" pre-check catches a differently-worded duplicate before the lease is taken;
 // the lease is the hard guarantee, the semantic check is a soft net that fails OPEN when Ollama is down.
 //
-// This is the ONE surface where a Synapse tool starts background work — every other tool returns text.
+// Identity at close time is one checksummed HANDLE the server minted at claim
+// ([[decision-0019-handoff-identity]]). This module calls HandoffPort; it contains no table access
+// and no cross-record coordination.
 
-import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
 
 import { normalizeAgentId } from "../vault.mjs";
 import { envPinnedContext } from "../vault-context.mjs";
-import * as lease from "../../lib/durable-spawn/lease.mjs";
-import * as registry from "../../lib/durable-spawn/registry.mjs";
-import * as episodes from "../../lib/durable-spawn/episodes.mjs";
-import { parseStatus } from "../../lib/durable-spawn/heartbeat.mjs";
-import { classify } from "../../lib/durable-spawn/liveness.mjs";
 import { vaultStore } from "../../lib/ports/vault-store.mjs";
+import { parseHandle } from "../../lib/ports/handoff.mjs";
+import { createSqliteHandoff, openSpawnDb, openEpisodeDb } from "../../lib/durable-spawn/handoff.mjs";
 import { renderBriefing, launchDetached } from "../../lib/spawn-runtime.mjs";
 import { resolveOllamaBase, resolveEmbedModel, embedText, cosine } from "../../lib/gen-embeddings.mjs";
 
-// EPOCH and both database handles are keyed BY VAULT, not memoized per module load. On stdio — one
-// connection, one process, one vault — this is byte-for-byte the old behavior. Off stdio it is what
-// stops the first vault to touch the DB from owning it for every other vault, and what stops
-// staleSpawns() reporting every other caller's spawns as stale (decision-0010).
-//
-// EPOCH IS PER (VAULT, PROCESS) AND MUST STAY THAT WAY. It is the reconciliation key staleSpawns()
-// compares against: spawns recorded under a DIFFERENT epoch are the ones a previous orchestrator boot
-// left behind. Mint it per request and every concurrent caller's spawns read as stale; share it across
-// vaults and vault A's boot invalidates vault B's live spawns. vaultStore.epoch(vaultDir) is exactly
-// "once per vault, for the life of the process", which is the only correct reading of both.
 const EPOCH = (vault) => vaultStore.epoch(vault.vaultDir);
-
-// The durable-spawn file's absolute path. Still needed as a PATH (not a handle) because it is handed to
-// the detached doer process, which opens the file itself — a handle cannot cross a process boundary.
 const dbPath = (vault) => join(vault.vaultDir, "db", "durable-spawn.db");
 const SIM_THRESHOLD = Number(process.env.SYNAPSE_SPAWN_SIM_THRESHOLD || 0.86);
 const DEFAULT_TTL_MS = Number(process.env.SYNAPSE_SPAWN_TTL_MS || 60 * 60 * 1000); // 1h > a long turn
 
-// The store owns keying and lifetime; this module owns MEANING — which opener a file needs and whether
-// it migrates on open. durable-spawn migrates; episodes does not.
-//
-// SINGLE-WRITER IS UNCHANGED BY THIS. Keying the handle per vault makes MANY VAULTS in one process
-// safe; it says nothing about many processes on one vault, and the lease/fence design still assumes
-// exactly one writer per vault database (see PLAN constraint 2 — exactly one synapse-core instance).
 const dbFor = (vault) => vaultStore.db(vault.vaultDir, {
   name: "durable-spawn",
-  open: (path) => { const d = lease.openDb(path); registry.migrate(d); return d; },
+  open: (path) => openSpawnDb(path),
 });
-
-// Episodes live in their OWN file: db/durable-spawn.db is disposable runtime state (a stuck lease is
-// cleared by deleting it), and permanent memory must not ride along with something people delete.
 const edbFor = (vault) =>
-  vaultStore.db(vault.vaultDir, { name: "episodes", open: (path) => episodes.openEpisodeDb(path) });
+  vaultStore.db(vault.vaultDir, { name: "episodes", open: (path) => openEpisodeDb(path) });
 
 const text = (obj) => ({
   content: [{ type: "text", text: typeof obj === "string" ? obj : JSON.stringify(obj, null, 2) }],
 });
 const fail = (obj) => ({ isError: true, ...text(obj) });
 
-function leaseRowFor(d, job) {
-  return d.prepare("SELECT owner, token, ttl_ms, renewed_at FROM lease WHERE job = ?").get(job) ?? null;
-}
+const DEPRECATION =
+  "[synapse] job/owner/token/spawnId/episodeId are deprecated on spawn_release/renew; pass handle\n";
 
-/** Running spawns whose lease is still live (the set a new task could collide with). */
-function liveSpawns(d) {
-  const now = lease.dbNow(d);
-  return registry
-    .listByState(d, "running")
-    .filter((s) => lease.isLive(leaseRowFor(d, s.job), now));
+function handoffFor(vault) {
+  return createSqliteHandoff({
+    db: dbFor(vault),
+    edb: edbFor(vault),
+    epoch: EPOCH(vault),
+  });
 }
 
 /** Soft net: is `task` semantically close to a live spawn's task? Fails OPEN (returns null) when
  *  Ollama is unreachable — the exact-key lease remains the hard dedup guarantee. */
-async function semanticDuplicate(d, task) {
-  const live = liveSpawns(d).filter((s) => s.task);
+async function semanticDuplicate(handoff, task) {
+  const live = handoff.liveSpawns().filter((s) => s.task);
   if (!live.length || !task) return null;
   try {
     const base = resolveOllamaBase();
@@ -94,28 +69,13 @@ async function semanticDuplicate(d, task) {
   }
 }
 
-function statusFacts(d, spawn) {
-  const leaseLive = lease.isLive(leaseRowFor(d, spawn.job), lease.dbNow(d));
-  const raw = spawn.status_file && existsSync(spawn.status_file)
-    ? readFileSync(spawn.status_file, "utf8")
-    : "";
-  const parsed = parseStatus(raw, Date.now());
-  const verdict = classify({ registryState: spawn.state, leaseLive, ...parsed });
-  // No status file = the caller's own harness launched it (synapse_claim_and_brief), so completion
-  // arrives through that harness, not heartbeats. `alive` here means "claimed and not yet released".
-  const via = spawn.status_file ? "detached (synapse)" : "harness-native (yours)";
-  return { via, leaseLive, ...verdict };
-}
-
 /**
- * The shared gate both delegation tools run: semantic pre-check → lease acquire → render the briefing.
- * This is where dedup is ENFORCED — and because it is what hands back the briefing (which a doer may
- * never start without), routing delegation through it makes the lease unskippable regardless of who
- * performs the launch. Returns {ok:true, owner, token, briefing} or {refusal} / {failure}.
+ * Shared gate: semantic pre-check → HandoffPort.claim → render. Render failure closes the handoff
+ * as failed (never strands a ticket). Returns {ok:true, handle, briefing, ...} or a refusal/failure.
  */
-async function claimAndRender(d, edb, { agent, task, job, target, profile, ttlMs, force }, render) {
+async function claimAndRender(handoff, { agent, task, job, target, profile, ttlMs, force, statusFile }, render) {
   if (!force) {
-    const dup = await semanticDuplicate(d, task);
+    const dup = await semanticDuplicate(handoff, task);
     if (dup) {
       return {
         ok: false,
@@ -128,65 +88,64 @@ async function claimAndRender(d, edb, { agent, task, job, target, profile, ttlMs
     }
   }
 
-  const owner = randomUUID();
-  const acq = lease.acquire(d, job, owner, ttlMs);
-  if (!acq.ok) {
-    return { ok: false, body: { refused: "held", reason: acq.reason, holder: acq.holder ?? null, job } };
+  const claimed = handoff.claim({ job, agent, task, hub: target ?? null, ttlMs, statusFile });
+  if (claimed.refused) {
+    return { ok: false, body: { refused: claimed.refused, reason: claimed.reason, holder: claimed.holder ?? null, job: claimed.job ?? job } };
   }
 
   const r = await render({ agent, target, task, profile });
   if (!r.ok) {
-    lease.release(d, job, owner, acq.token); // never strand a lease on a job that never started
+    handoff.close({ handle: claimed.handle, outcome: "failed", summary: `render-failed: ${r.error}` });
     return { ok: false, isError: true, body: { error: "render-failed", job, detail: r.error } };
   }
-  // Historical dedup — the counterpart to the lease. The lease refuses a job running NOW; this reports a
-  // job that ALREADY RAN, and what came of it. It WARNS rather than refuses on purpose: re-running a
-  // triage next week is legitimate work; re-running it UNKNOWINGLY is the waste worth naming.
-  let priorRun = null;
-  try {
-    const prev = episodes.lastForJob(edb, job);
-    if (prev && prev.outcome !== "open") {
-      priorRun = {
-        outcome: prev.outcome,
-        summary: prev.summary,
-        endedAt: prev.endedAt,
-        refs: prev.refs,
-        hint: "This job ran before. Read the summary before repeating it — if the work still needs doing, carry on.",
-      };
-    }
-  } catch { /* memory is additive — never block a claim on it */ }
 
-  return { ok: true, owner, token: acq.token, briefing: r.briefing, priorRun };
+  return {
+    ok: true,
+    handle: claimed.handle,
+    spawnId: claimed.spawnId,
+    owner: claimed.owner,
+    token: claimed.token,
+    briefing: r.briefing,
+    priorRun: claimed.priorRun,
+  };
 }
 
-// `launch`/`render` are injectable so tests can drive the tools without a real runtime or vault render.
+function resolveHandle(handoff, { handle, job, owner, token, spawnId, episodeId }) {
+  if (handle) {
+    const parsed = parseHandle(handle);
+    if (!parsed.ok) return { handle: null, reason: "invalid-handle", deprecated: false };
+    return { handle: parsed.handle, reason: null, deprecated: Boolean(job || owner || token || spawnId || episodeId) };
+  }
+  const mapped = handoff.handleFromLegacy({ job, owner, token, spawnId, episodeId });
+  if (mapped) return { handle: mapped, reason: null, deprecated: true };
+  return { handle: null, reason: "unknown-handle", deprecated: true };
+}
+
+const NEXT =
+  "Launch the doer yourself with prompt = briefing + '\\n\\n---\\n\\n' + task, then call synapse_spawn_release({ handle, summary }) when it finishes. The summary is what a future agent will read instead of redoing this.";
+
 export function registerSpawnTools(
   server,
   vault = envPinnedContext(),
   { launch = launchDetached, render = null } = {},
 ) {
-  // Every handle, path and epoch below is derived from the BOUND vault — nothing in this module reads
-  // an ambient vault any more, which is what makes a lease taken for vault A unreachable from B.
-  const db = () => dbFor(vault);
-  const edb = () => edbFor(vault);
-  const epoch = () => EPOCH(vault);
-  // Default render shells out to THIS vault's CLI. Injectable so tests drive the tools without a
-  // real runtime or vault render.
+  const handoff = () => handoffFor(vault);
   render = render || ((opts) => renderBriefing(vault.runSynapse.bind(vault), opts));
+
   server.registerTool(
     "synapse_claim_and_brief",
     {
       title: "Claim a job + get the doer's briefing (PRIMARY delegation path)",
       description:
         "THE DEFAULT WAY TO DELEGATE. Atomically claims `job` (SQLite lease — a live or near-identical "
-        + "job is REFUSED) and returns the doer's fully-rendered briefing. YOU then launch the doer with "
-        + "your own harness (Cursor/Claude Task tool, an @mention, a terminal) using "
+        + "job is REFUSED) and returns the doer's fully-rendered briefing plus a `handle`. YOU then launch "
+        + "the doer with your own harness (Cursor/Claude Task tool, an @mention, a terminal) using "
         + "prompt = <briefing>\\n\\n---\\n\\n<task> — so you keep every native feature (task panel, "
         + "streaming, completion notification) while dedup is still enforced. CRITICAL: `job` MUST be a "
         + "CANONICAL id from stable facts (e.g. 'spec-builder:REL-38837:report-suite:<branch>'), never "
-        + "named from your prose. When the doer finishes, call synapse_spawn_release with "
-        + "{job, owner, token, spawnId}. Use synapse_spawn instead ONLY when the work must outlive your "
-        + "session or there is no harness to launch it.",
+        + "named from your prose. When the doer finishes, call synapse_spawn_release({ handle, summary }). "
+        + "Use synapse_spawn instead ONLY when the work must outlive your session or there is no harness "
+        + "to launch it.",
       inputSchema: {
         agent: z.string().describe("Agent id, e.g. 'spec-builder' or 'agent-spec-builder'"),
         task: z.string().describe("What the doer should do (append it after the briefing when you launch)"),
@@ -199,43 +158,20 @@ export function registerSpawnTools(
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async ({ agent, task, job, target, profile, ttlMs, force }) => {
-      const d = db();
-      // Accept a short id ('oracle') as the schema promises: the render engine resolves only the
-      // full artifact id ('agent-oracle'), so normalize here — before claim, render, AND the episode.
       const agentId = normalizeAgentId(agent);
       const claim = await claimAndRender(
-        d,
-        edb(),
-        { agent: agentId, task, job, target, profile: profile || "standard", ttlMs: ttlMs || DEFAULT_TTL_MS, force },
+        handoff(),
+        { agent: agentId, task, job, target, profile: profile || "standard", ttlMs: ttlMs || DEFAULT_TTL_MS, force, statusFile: null },
         render,
       );
       if (!claim.ok) return claim.isError ? fail(claim.body) : text(claim.body);
-
-      // Registered with NO status file: a harness-launched doer reports completion through the harness
-      // (liveness.classify's registryState channel), so it never needs the heartbeat protocol.
-      const spawnId = randomUUID();
-      registry.record(
-        d,
-        { spawnId, job, owner: claim.owner, epoch: epoch(), token: claim.token, statusFile: null, task },
-        lease.dbNow(d),
-      );
-
-      // Episodic memory: the episode opens HERE, at claim time, not at completion — so work that dies
-      // mid-flight still leaves a record, which is exactly the case a later agent most needs.
-      const { episodeId } = episodes.open(
-        edb(), { agent: agentId, job, spawnId, task, hub: target ?? null }, lease.dbNow(d),
-      );
-
       return text({
         ok: true,
-        spawnId,
-        episodeId,
+        handle: claim.handle,
         job,
-        owner: claim.owner,
-        token: claim.token,
         launcher: "yours (harness-native)",
         ...(claim.priorRun ? { priorRun: claim.priorRun } : {}),
-        next: "Launch the doer yourself with prompt = briefing + '\\n\\n---\\n\\n' + task, then call synapse_spawn_release({job, owner, token, spawnId, episodeId, summary}) when it finishes. The summary is what a future agent will read instead of redoing this.",
+        next: NEXT,
         briefing: claim.briefing,
       });
     },
@@ -268,7 +204,7 @@ export function registerSpawnTools(
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     async ({ agent, task, job, target, cli, cwd, model, profile, ttlMs, force }) => {
-      const d = db();
+      const h = handoff();
       const agentId = normalizeAgentId(agent);
       cli = cli || process.env.SYNAPSE_CLI || "cursor";
       cwd = cwd || vault.vaultDir;
@@ -276,36 +212,40 @@ export function registerSpawnTools(
       profile = profile || "standard";
       ttlMs = ttlMs || DEFAULT_TTL_MS;
 
-      // 1-3. The same enforced gate the primary path uses: semantic net → lease → briefing.
-      const claim = await claimAndRender(d, edb(), { agent: agentId, task, job, target, profile, ttlMs, force }, render);
+      const claim = await claimAndRender(
+        h,
+        { agent: agentId, task, job, target, profile, ttlMs, force, statusFile: null },
+        render,
+      );
       if (!claim.ok) return claim.isError ? fail(claim.body) : text(claim.body);
-      const owner = claim.owner;
-      const acq = { token: claim.token };
-      const r = { briefing: claim.briefing };
 
-      // 4. Launch detached — the one thing this path does that claim_and_brief leaves to the caller.
-      const spawnId = randomUUID();
-      const runDir = join(vault.vaultDir, "db", "spawn", spawnId);
+      const runDir = join(vault.vaultDir, "db", "spawn", claim.spawnId);
       const statusFile = join(runDir, "status.log");
       const logFile = join(runDir, "runtime.log");
+      mkdirSync(runDir, { recursive: true });
+      h.attachStatusFile({ handle: claim.handle, statusFile });
       let pid;
       try {
         ({ pid } = launch({
-          cli, briefing: r.briefing, task, statusFile, logFile,
+          cli, briefing: claim.briefing, task, statusFile, logFile,
           vault: vault.vaultDir, model, permMode: "auto",
-          job, owner, token: acq.token, dbPath: dbPath(vault), cwd,
+          job, owner: claim.owner, token: claim.token, dbPath: dbPath(vault), cwd,
         }));
       } catch (e) {
-        lease.release(d, job, owner, acq.token);
+        h.close({ handle: claim.handle, outcome: "failed", summary: `launch-failed: ${e.message}` });
         return fail({ error: "launch-failed", job, cli, detail: e.message });
       }
 
-      // 5. Durable record (survives an orchestrator restart → staleSpawns reconciliation) + the episode.
-      registry.record(d, { spawnId, job, owner, epoch: epoch(), token: acq.token, statusFile, task }, lease.dbNow(d));
-      const { episodeId } = episodes.open(edb(), { agent: agentId, job, spawnId, task, hub: target ?? null }, lease.dbNow(d));
-
-      return text({ ok: true, spawnId, episodeId, job, token: acq.token, owner, pid, cli, statusFile,
-        note: "Poll synapse_spawn_status. The doer heartbeats to its status file; a stale heartbeat escalates to you, never auto-kills." });
+      return text({
+        ok: true,
+        handle: claim.handle,
+        spawnId: claim.spawnId,
+        job,
+        pid,
+        cli,
+        statusFile,
+        note: "Poll synapse_spawn_status. The doer heartbeats to its status file; a stale heartbeat escalates to you, never auto-kills. Release with synapse_spawn_release({ handle, summary }).",
+      });
     },
   );
 
@@ -315,33 +255,18 @@ export function registerSpawnTools(
       title: "Liveness + progress of a spawned doer",
       description:
         "Classify one spawn by lease + status-file heartbeats. state: alive|waiting|done|failed|orphaned"
-        + "|hang-suspected; action: none|reap-result|re-lease|escalate-human. Give spawnId, or job for its"
-        + " latest spawn.",
+        + "|hang-suspected; action: none|reap-result|re-lease|escalate-human. Give handle, spawnId, or job.",
       inputSchema: {
+        handle: z.string().optional().describe("Handoff handle from claim/spawn"),
         spawnId: z.string().optional(),
-        job: z.string().optional().describe("Latest spawn for this job (if spawnId omitted)"),
+        job: z.string().optional().describe("Latest spawn for this job (if handle/spawnId omitted)"),
       },
       annotations: { readOnlyHint: true },
     },
-    async ({ spawnId, job }) => {
-      const d = db();
-      const spawn = spawnId
-        ? registry.get(d, spawnId)
-        : job
-          ? d.prepare("SELECT * FROM spawn WHERE job = ? ORDER BY created_at DESC LIMIT 1").get(job) ?? null
-          : null;
-      if (!spawn) return fail({ error: "unknown-spawn", spawnId: spawnId ?? null, job: job ?? null });
-      const v = statusFacts(d, spawn);
-      // A live, progressing doer holds its claim as long as the orchestrator is watching: renewal lives
-      // here (flagged server) rather than in the doer's sqlite-free CLI. If the orchestrator dies and
-      // stops polling, the lease lapses → orphaned → safely re-leasable (fencing stops the zombie).
-      if ((v.state === "alive" || v.state === "waiting") && spawn.token != null) {
-        lease.renew(d, spawn.job, spawn.owner, spawn.token);
-      }
-      // Reflect a terminal/orphan verdict back into the registry so _list stays accurate.
-      if (v.state === "done" || v.state === "failed") registry.markState(d, spawn.spawn_id, v.state, lease.dbNow(d));
-      else if (v.state === "orphaned") registry.markState(d, spawn.spawn_id, "orphaned", lease.dbNow(d));
-      return text({ spawnId: spawn.spawn_id, job: spawn.job, ...v });
+    async ({ handle, spawnId, job }) => {
+      const r = handoff().observe({ handle, spawnId, job });
+      if (r.error) return fail(r);
+      return text(r);
     },
   );
 
@@ -355,35 +280,61 @@ export function registerSpawnTools(
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
-    async () => {
-      const d = db();
-      const running = registry.listByState(d, "running").map((s) => ({
-        spawnId: s.spawn_id, job: s.job, cli: undefined, ...statusFacts(d, s),
-      }));
-      const stale = registry.staleSpawns(d, epoch()).map((s) => ({ spawnId: s.spawn_id, job: s.job, ...statusFacts(d, s) }));
-      return text({ epoch: epoch(), running, staleFromPriorBoot: stale });
+    async () => text(handoff().listSpawns()),
+  );
+
+  server.registerTool(
+    "synapse_handoffs_open",
+    {
+      title: "List unfinished handoffs",
+      description:
+        "This vault's open handoffs (claimed, not yet closed) with age and expiry. The orchestrator's "
+        + "peek: recover a dropped handle and re-close with synapse_spawn_release({ handle, summary }).",
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
     },
+    async () => text({ open: handoff().openHandoffs() }),
   );
 
   server.registerTool(
     "synapse_spawn_renew",
     {
       title: "Renew a spawn's lease (keep the claim alive)",
-      description: "Extend the lease for a job you own. Usually the doer's heartbeat does this; call it to hold a claim across an orchestrator gap.",
-      inputSchema: { job: z.string(), owner: z.string(), token: z.number() },
+      description: "Extend the lease for a job you hold by presenting its handle. Usually the doer's heartbeat does this; call it to hold a claim across an orchestrator gap.",
+      inputSchema: {
+        handle: z.string().optional().describe("Handoff handle from claim/spawn"),
+        job: z.string().optional(),
+        owner: z.string().optional(),
+        token: z.number().optional(),
+      },
       annotations: { readOnlyHint: false },
     },
-    async ({ job, owner, token }) => text(lease.renew(db(), job, owner, token)),
+    async ({ handle, job, owner, token }) => {
+      const h = handoff();
+      const resolved = resolveHandle(h, { handle, job, owner, token });
+      if (resolved.deprecated) process.stderr.write(DEPRECATION);
+      if (!resolved.handle) return fail({ ok: false, refused: resolved.reason });
+      const r = h.renew({ handle: resolved.handle });
+      if (r.refused) return fail({ ok: false, refused: r.refused, ...(resolved.deprecated ? { deprecated: true } : {}) });
+      return text({ ok: true, ...(resolved.deprecated ? { deprecated: true } : {}) });
+    },
   );
 
   server.registerTool(
     "synapse_spawn_release",
     {
-      title: "Release a spawn's lease + mark it done",
-      description: "Release the lease (only the holder can) and mark the spawn done. Call after reaping a finished doer's result.",
+      title: "Close a handoff (ticket + logbook together)",
+      description:
+        "Close the handoff identified by `handle`: release the lease and close the episode with the "
+        + "summary a future agent will read. Never reports success when the logbook did not close. "
+        + "job/owner/token/spawnId/episodeId are accepted for one release (deprecated).",
       inputSchema: {
-        job: z.string(), owner: z.string(), token: z.number(), spawnId: z.string().optional(),
-        episodeId: z.string().optional().describe("From synapse_claim_and_brief — closes that episode"),
+        handle: z.string().optional().describe("Handoff handle from claim/spawn — the only field you need"),
+        job: z.string().optional(),
+        owner: z.string().optional(),
+        token: z.number().optional(),
+        spawnId: z.string().optional(),
+        episodeId: z.string().optional(),
         outcome: z.enum(["done", "failed", "abandoned"]).optional().describe("Default done"),
         summary: z.string().optional()
           .describe("WHAT HAPPENED, in a sentence or two. This is what a future agent reads instead of "
@@ -391,20 +342,30 @@ export function registerSpawnTools(
             + "something happened without recording what."),
         refs: z.array(z.string()).optional().describe("Ids/URLs/paths produced or touched (PRs, tickets, note ids, specs)"),
       },
-      annotations: { readOnlyHint: false },
+      annotations: { readOnlyHint: false, destructiveHint: false },
     },
-    async ({ job, owner, token, spawnId, episodeId, outcome, summary, refs }) => {
-      const d = db();
-      const rel = lease.release(d, job, owner, token);
-      const state = outcome === "failed" ? "failed" : "done";
-      if (spawnId) registry.markState(d, spawnId, state, lease.dbNow(d));
-      const ep = episodes.close(
-        edb(), { episodeId: episodeId ?? null, job, outcome: outcome || "done", summary: summary ?? null, refs: refs ?? null },
-        lease.dbNow(d),
-      );
+    async ({ handle, job, owner, token, spawnId, episodeId, outcome, summary, refs }) => {
+      const h = handoff();
+      const resolved = resolveHandle(h, { handle, job, owner, token, spawnId, episodeId });
+      if (resolved.deprecated) process.stderr.write(DEPRECATION);
+      if (!resolved.handle) {
+        return fail({ closed: false, reason: resolved.reason, ...(resolved.deprecated ? { deprecated: true } : {}) });
+      }
+      const r = h.close({
+        handle: resolved.handle,
+        outcome: outcome || "done",
+        summary: summary ?? null,
+        refs: refs ?? null,
+      });
+      if (r.refused) {
+        const body = { closed: false, reason: r.refused, ...(resolved.deprecated ? { deprecated: true } : {}) };
+        if (r.refused === "already-closed") return text(body);
+        return fail(body);
+      }
       return text({
-        released: rel.ok, job, spawnId: spawnId ?? null,
-        episodeClosed: ep.ok ? ep.episodeId : null,
+        closed: true,
+        outcome: r.outcome,
+        ...(resolved.deprecated ? { deprecated: true } : {}),
         ...(summary ? {} : { note: "No summary recorded — this run is now a fact with no content. Prefer passing one." }),
       });
     },

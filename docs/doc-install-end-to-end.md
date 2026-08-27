@@ -178,8 +178,8 @@ Each should report a `synapse` server that connects. In Claude Code a project-sc
 **approval on first use** — if it shows `⏸ Pending approval`, approve it and re-check.
 
 > **Four everyday surfaces**, each a superset of the last: `skeleton` (3 tools) · `standard` (11, read-only) ·
-> `full` (20, adds authoring — the default) · **`orchestrator`** (26, adds `synapse_claim_and_brief`,
-> `synapse_spawn_*`, `synapse_spawn_release`). It is a permission dial: a tool off the surface is never
+> `full` (20, adds authoring — the default) · **`orchestrator`** (27, adds `synapse_claim_and_brief`,
+> `synapse_spawn_*`, `synapse_spawn_release`, `synapse_handoffs_open`). It is a permission dial: a tool off the surface is never
 > registered, so it cannot be called. A fifth surface, `admin`, is not a `--surface` you write into
 > generated config — mint `synapse vaults token <id> --admin` and present that bearer over HTTP.
 >

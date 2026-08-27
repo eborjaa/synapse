@@ -6,7 +6,7 @@
 // Ollama is reachable and otherwise asserts its fail-open contract.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -100,8 +100,11 @@ test("synapse_claim_and_brief returns the briefing and launches NOTHING", async 
   });
   assert.equal(r.ok, true);
   assert.match(r.briefing, /stub briefing/);
-  assert.ok(r.owner && r.token, "must return the lease handle so the caller can release it");
+  assert.ok(r.handle, "must return the handoff handle so the caller can release it");
+  assert.match(r.handle, /^[0-9a-hjkmnp-tv-z]{10}-[0-9a-hjkmnp-tv-z]{2}$/);
   assert.equal(launched.length, 0, "the caller launches — synapse must not");
+  assert.match(r.next, /synapse_spawn_release\(\{ handle, summary \}\)/);
+  assert.doesNotMatch(r.next, /owner|token|spawnId|episodeId/);
 });
 
 test("claim_and_brief enforces dedup without launching (second claim refused)", async () => {
@@ -127,8 +130,8 @@ test("release frees a claim_and_brief job for re-claiming", async () => {
   const { call } = harness();
   const job = "spec-builder:CB-4:release";
   const a = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job, force: true });
-  const rel = await call("synapse_spawn_release", { job, owner: a.owner, token: a.token, spawnId: a.spawnId });
-  assert.equal(rel.released, true);
+  const rel = await call("synapse_spawn_release", { handle: a.handle, summary: "released" });
+  assert.equal(rel.closed, true);
   const b = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job, force: true });
   assert.equal(b.ok, true, "after release the job is claimable again");
 });
@@ -136,7 +139,7 @@ test("release frees a claim_and_brief job for re-claiming", async () => {
 test("status reports a harness-native claim as such (no heartbeat channel)", async () => {
   const { call } = harness();
   const a = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job: "spec-builder:CB-5:via", force: true });
-  const st = await call("synapse_spawn_status", { spawnId: a.spawnId });
+  const st = await call("synapse_spawn_status", { handle: a.handle });
   assert.match(st.via, /harness-native/);
   assert.ok(["alive", "waiting"].includes(st.state));
 });
@@ -165,21 +168,21 @@ test("claiming opens an episode and releasing closes it with the summary", async
   const { call } = harness();
   const job = "spec-builder:REL-77:report";
   const claim = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "migrate the report suite", job, force: true });
-  assert.ok(claim.episodeId, "an episode id comes back with the claim");
+  assert.ok(claim.handle, "a handle comes back with the claim");
 
   const rel = await call("synapse_spawn_release", {
-    job, owner: claim.owner, token: claim.token, spawnId: claim.spawnId, episodeId: claim.episodeId,
+    handle: claim.handle,
     summary: "migrated 12 specs; parked 2 on REL-38837", refs: ["PR#41"],
   });
-  assert.equal(rel.released, true);
-  assert.equal(rel.episodeClosed, claim.episodeId);
+  assert.equal(rel.closed, true);
+  assert.equal(rel.outcome, "done");
 });
 
 test("releasing WITHOUT a summary says so — a run with no account of itself is near-useless", async () => {
   const { call } = harness();
   const job = "spec-builder:REL-78:report";
   const c = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job, force: true });
-  const rel = await call("synapse_spawn_release", { job, owner: c.owner, token: c.token, spawnId: c.spawnId, episodeId: c.episodeId });
+  const rel = await call("synapse_spawn_release", { handle: c.handle });
   assert.match(rel.note, /No summary recorded/);
 });
 
@@ -188,7 +191,7 @@ test("re-claiming a job that already RAN surfaces the prior run instead of silen
   const job = "debug-triager:REL-79:sensors";
   const first = await call("synapse_claim_and_brief", { agent: "debug-triager", task: "triage sensors flake", job, force: true });
   await call("synapse_spawn_release", {
-    job, owner: first.owner, token: first.token, spawnId: first.spawnId, episodeId: first.episodeId,
+    handle: first.handle,
     summary: "not a flake — a real app bug, filed REL-40001", refs: ["REL-40001"],
   });
 
@@ -237,4 +240,40 @@ test("synapse_spawn also normalizes the agent id before render", async () => {
   const { call, rendered } = spyHarness();
   await call("synapse_spawn", { agent: "spec-builder", task: "y", job: "spec-builder:REL-90:z", cli: "cursor", force: true });
   assert.equal(rendered[0].agent, "agent-spec-builder");
+});
+
+test("a one-character-off handle on release is refused and does not close the episode", async () => {
+  const { call } = harness();
+  const job = "spec-builder:HANDLE:typo";
+  const c = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job, force: true });
+  const alph = "0123456789abcdefghjkmnpqrstvwxyz";
+  const last = c.handle[c.handle.length - 1];
+  const bad = c.handle.slice(0, -1) + alph[(alph.indexOf(last) + 1) % alph.length];
+  const rel = await call("synapse_spawn_release", { handle: bad, summary: "must not land" });
+  assert.equal(rel.closed, false);
+  assert.equal(rel.reason, "invalid-handle");
+  const open = await call("synapse_handoffs_open", {});
+  assert.ok(open.open.some((h) => h.handle === c.handle && h.job === job));
+});
+
+test("legacy job/owner/token still close a handoff (deprecated, one release)", async () => {
+  const { call } = harness();
+  const job = "spec-builder:HANDLE:legacy";
+  const c = await call("synapse_claim_and_brief", { agent: "spec-builder", task: "t", job, force: true });
+  // claim no longer returns owner/token; recover via open list is the new path.
+  // This test exercises handleFromLegacy through job (the spawn row still has job).
+  const rel = await call("synapse_spawn_release", { job, summary: "closed via deprecated job field" });
+  assert.equal(rel.closed, true);
+  assert.equal(rel.deprecated, true);
+});
+
+test("7. mcp/tools/spawn.mjs contains no direct table access", () => {
+  const src = readFileSync(new URL("./spawn.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /\.prepare\s*\(/, "no db.prepare");
+  assert.doesNotMatch(src, /\b(SELECT|INSERT INTO|UPDATE\s+\w+\s+SET|DELETE FROM)\b/i, "no SQL");
+  assert.doesNotMatch(
+    src,
+    /from\s+["'][^"']*durable-spawn\/(lease|registry|episodes)\.mjs["']/,
+    "table modules stay behind the port",
+  );
 });

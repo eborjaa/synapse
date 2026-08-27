@@ -7,7 +7,7 @@ tags:
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]", "[[doc-semantic-recall]]", "[[doc-cli-reference]]", "[[decision-0009-agent-memory-from-waku]]"]
-related: ["[[hub-synapse]]"]
+related: ["[[hub-synapse]]", "[[decision-0019-handoff-identity]]"]
 ---
 
 # Agent memory & live context
@@ -51,7 +51,11 @@ Ollama, `SYNAPSE_NO_REFRESH`, a rebuild already running) says so **in the briefi
   fact, authors no vault content).
 - **Delegated work records itself**: an episode opens inside `synapse_claim_and_brief` and closes inside
   `synapse_spawn_release` — the two calls a delegation cannot skip, so memory can't be forgotten. It
-  opens at CLAIM time, so work that dies mid-flight still leaves a record.
+  opens at CLAIM time, so work that dies mid-flight still leaves a record. Close with the `handle`
+  the claim returned (`{ handle, summary }`); a mistyped handle is `invalid-handle` and does **not**
+  close the episode. Handoffs still `open` past their ticket expiry are swept to `ended-unknown`.
+  `synapse_handoffs_open` lists unfinished handoffs so a dropped handle can be recovered. See
+  [[decision-0019-handoff-identity]].
 - **Historical dedup**: re-claiming a job that already ran returns `priorRun` (its outcome + summary). It
   WARNS, never blocks — a deliberate re-run is legitimate; an unknowing one is the waste worth naming.
 - Stored in `db/episodes.db` — its OWN file, never `db/synapse.db` (a rebuildable embeddings cache any
