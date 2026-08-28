@@ -21,6 +21,10 @@ import("/app/lib/core-lock.mjs").then(({ reapForeignHostLock }) => {
 });
 '
 
+# Optional, both off unless the environment turns them on. Order is forced: a credential cannot grant
+# a vault that is not registered yet, so this runs BEFORE boot-sync and long before the listener.
+node --experimental-sqlite /app/lib/bootstrap.mjs
+
 # Same commands as a laptop `synapse vaults roster --write` + `synapse skills --write`, so a fresh
 # stack (or a recreate) already has /synapse-<agent> on the shared vault volume. Never fails the
 # listener: a missing vault logs and continues.
