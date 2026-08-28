@@ -16,7 +16,7 @@ uses_tools: ["[[tool-lint]]", "[[tool-render]]", "[[tool-git]]", "[[tool-gh]]", 
 applies_rules: ["[[rule-synapse-fail-loudly]]", "[[rule-synapse-single-source-of-truth]]", "[[rule-synapse-frontmatter-schema]]", "[[rule-synapse-edges-by-role]]", "[[rule-synapse-incremental-reconcile]]", "[[rule-synapse-human-gated-push]]", "[[rule-derived-views-are-generated]]", "[[rule-framework-docs-current]]", "[[rule-no-unprompted-actions]]", "[[rule-context-handover]]", "[[rule-canary]]", "[[rule-semantic-suggests-links-decide]]", "[[rule-agent-memory-vs-vault]]", "[[rule-agent-orchestration]]", "[[rule-buzz-reply-contract]]", "[[rule-one-writer-per-worktree]]"]
 delegates_to: ["[[agent-reconciler]]", "[[agent-ingester]]"]
 references_docs: ["[[conventions]]", "[[context-engine-guide]]", "[[doc-maintainer-loop]]", "[[doc-governance-model]]"]
-related: ["[[decision-0003-human-gated-mutation]]", "[[decision-0006-self-healing-vault]]", "[[decision-0004-opencode-local-ollama-runtime]]"]
+related: ["[[decision-0003-human-gated-mutation]]", "[[decision-0006-self-healing-vault]]", "[[decision-0004-opencode-local-ollama-runtime]]", "[[2026-08-28-handoff-identity-and-dsh-e2e]]"]
 invokes_skills: ["[[skill-maintain-synapse]]"]
 ---
 

@@ -43,3 +43,7 @@ opencode.json
 
 # Local four-container secrets (bearer token). Never commit.
 deploy/.env
+
+# Browser-automation scratch output (playwright-mcp session dirs, UI screenshots)
+.playwright-mcp/
+*.png
