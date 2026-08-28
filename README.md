@@ -257,6 +257,19 @@ registry, credentials and rosters.
 Use `deploy/up.sh`, not raw `docker compose`: it refuses a wildcard `BIND_ADDR` **before** compose runs,
 because Docker publishes the port before Node ever starts.
 
+**Not changing Synapse? You do not need this checkout.** The images are published, and the whole
+stack is one compose file:
+
+```bash
+curl -O https://raw.githubusercontent.com/eborjaa/synapse/main/deploy/standalone/compose.yml
+curl -o .env https://raw.githubusercontent.com/eborjaa/synapse/main/deploy/standalone/.env.example
+$EDITOR .env      # SYNAPSE_VAULTS_DIR, SYNAPSE_BOOTSTRAP_TOKEN
+docker compose up -d
+```
+
+Vaults under that directory register themselves and the token grants all of them — nothing to
+`docker exec`. Both switches default to off, so an existing stack is unchanged.
+
 Set `DSH_IMAGE` and `dsh` becomes a real DeepSeek Harness rather than the stub — the browser UI, with
 the vault following the folder you open. **Running this on a machine that has never seen Synapse:**
 [`doc-stack-on-a-new-machine`](docs/doc-stack-on-a-new-machine.md) — both image builds, vaults onto the
