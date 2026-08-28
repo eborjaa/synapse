@@ -50,20 +50,73 @@ the internet at any point ([[doc-deployment-gate]]).
 
 ## 1. Get the two source trees
 
+Two repositories, and **the harness must come from the fork branch that carries the Docker files.**
+Upstream `deepseek-ai/deepseek-harness` has no Dockerfile in it.
+
 ```bash
 mkdir -p ~/synapse && cd ~/synapse
 git clone https://github.com/eborjaa/synapse.git synapse-framework
-git clone https://github.com/deepseek-ai/deepseek-harness.git
+git clone -b synapse/docker-image https://github.com/eborjaa/deepseek-harness.git
 ```
 
 The harness clone is only needed for the real UI (step 6). Skip it and the stack still comes up on the
 stub, which proves every wire except the browser.
 
-**Check:**
+**Check — both, and the second is the one people skip:**
 
 ```bash
 ls ~/synapse/synapse-framework/deploy/compose.yml    # must exist
+ls ~/synapse/deepseek-harness/Dockerfile             # must exist — wrong repo or wrong branch if not
 ```
+
+> **These are two source trees, not two images.** Nothing is pulled from a registry. The Synapse repo
+> is *source*: it builds `synapse-core`, and it is also injected into the DSH image at build time. See
+> [What depends on what](#what-depends-on-what) before you build anything, because the one
+> cross-dependency is easy to hit and its error message does not name it.
+
+<a id="what-depends-on-what"></a>
+
+### What depends on what
+
+**At build time — one dependency, and it runs in one direction:**
+
+```
+synapse-framework (source) ──┬──▶ synapse-core image
+                             │
+deepseek-harness (source) ───┴──▶ synapse-dsh image
+```
+
+The DSH image needs **both** trees. The harness is its build context; the Synapse repo is passed
+alongside as a **named build context** so the image can carry the plugin. Neither image is a base
+layer for the other, and neither is pulled from a registry.
+
+Build the harness alone and it fails like this — the message names `synapse` but not what is missing:
+
+```
+ERROR: failed to solve: synapse: failed to resolve source metadata for
+docker.io/library/synapse:latest: pull access denied, repository does not exist
+```
+
+`COPY --from=synapse` went looking for an *image* called `synapse` because no build context by that
+name was supplied. `deploy/build-dsh.sh` supplies it; a bare `docker build` does not.
+
+**At run time**, compose already orders things: `dsh` starts first because it owns the network
+namespace, and `synapse-core` and `vpn-sidecar` join it with `network_mode: service:dsh`. The DSH
+entrypoint then waits up to 60s for core before starting the UI. Nothing here needs your attention.
+
+**In wiring order**, which is what actually trips people, the sequence below is not rearrangeable:
+
+| | Step | Why it cannot move earlier |
+|---|---|---|
+| 2 | build `synapse-core` | — |
+| 3 | bring the stack up on the **stub** | you need core running to do anything in 4 |
+| 4 | register vaults, mint the credential | the credential does not exist until core is running |
+| 6 | build `synapse-dsh` | needs both source trees, nothing else |
+| 6 | put the credential in `deploy/.env`, set `DSH_IMAGE` | it did not exist before step 4 |
+| 6 | recreate the stack | — |
+
+Trying to start a real DSH before step 4 gets you `SYNAPSE_MCP_TOKEN is empty — cannot reach
+synapse-core`. That is the plugin refusing to run un-credentialed, not a bug.
 
 ---
 
@@ -211,6 +264,10 @@ cd ~/synapse/synapse-framework
 DSH_SRC=~/synapse/deepseek-harness ./deploy/build-dsh.sh     # ~10–20 min the first time
 ```
 
+If this exits immediately with `no Dockerfile at …`, `DSH_SRC` points at a checkout that does not
+carry the Docker files — upstream `deepseek-ai/deepseek-harness`, or the fork on the wrong branch.
+Re-clone as in [step 1](#1-get-the-two-source-trees).
+
 The script passes this repo as a **named build context** so the image carries `@eborja/synapse` at
 `/opt/synapse`. A plain `docker build` of the harness checkout produces an image that starts, serves,
 and has no Synapse tools in it — which looks like a wiring bug and is not one.
@@ -350,9 +407,11 @@ BIND_ADDR=<the VPN interface address>      # never 0.0.0.0, and up.sh will refus
 |---|---|---|
 | `up.sh` exits before Docker runs | `BIND_ADDR` is `0.0.0.0`, `::`, or empty | Set a loopback or VPN-interface address. This guard is the point. |
 | Core exits **3** at boot | Another core holds `synapse-core.lock` | One core per volume set. If the holder is genuinely gone, the entrypoint clears a *foreign-container* record on its own; a same-container record is the recycled-pid case and resolves itself. |
+| `no Dockerfile at <path>` | `DSH_SRC` is upstream, or the fork on the wrong branch | Clone `-b synapse/docker-image` from the fork. Upstream has no Dockerfile. |
+| `failed to resolve source metadata for docker.io/library/synapse` | Built the harness with a bare `docker build` | `COPY --from=synapse` wants a **build context**, not an image. Use `deploy/build-dsh.sh`, or pass `--build-context synapse=/path/to/synapse-framework`. |
+| `SYNAPSE_MCP_TOKEN is empty` | No credential exists yet (step 4 not done), or it never reached the container | Mint it in step 4; put it in `deploy/.env`; recreate `dsh` after editing that file. The plugin refuses to run un-credentialed rather than reaching core anonymously. |
 | UI is up, no synapse tools | The image has no plugin | Rebuilt with plain `docker build`. Use `deploy/build-dsh.sh` — the named `synapse` context is not optional. |
 | Tools present, every session answers from one vault | `SYNAPSE_MCP_HTTP_URL` was pinned to a `/<vault-id>` | Set it to the **base** `http://127.0.0.1:3000/mcp`. |
-| `SYNAPSE_MCP_TOKEN is empty` | The bearer never reached the container | It comes from `deploy/.env` through compose. Recreate `dsh` after editing that file. |
 | Session in a vault folder sees no tools | That vault is not registered, or `index.json` is stale | `vaults.mjs add`, then restart `synapse-core` so `boot-sync` rewrites the index. |
 | `dsh` reachable, core unreachable from it | `dsh` was recreated alone | Recreate both — core lives in dsh's namespace. |
 | Your beautiful DSH image became the stub again | `up.sh up --build` with `DSH_IMAGE` set | `--no-build`, then `build-dsh.sh` again. |
