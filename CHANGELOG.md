@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 2.1.0 — 2026-08-28
+
 ### Added
 - **`HandoffPort` — one checksummed handle per handoff.** `synapse_claim_and_brief` returns `handle`
   instead of `owner` + `token` + `spawnId` + `episodeId`. `synapse_spawn_release` takes
@@ -34,6 +36,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 - A one-character-off identifier can no longer silently drop the episode while releasing the lease.
   Ticket and logbook close together; anything still open past its ticket expiry is swept to
   `ended-unknown`.
+
+Install: `npm install @eborja/synapse@^2.1.0`
 
 ## 2.0.0 — 2026-08-26
 
@@ -1301,8 +1305,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^2.0.0"
-// or: "github:eborjaa/synapse#v2.0.0"
+"@eborja/synapse": "^2.1.0"
+// or: "github:eborjaa/synapse#v2.1.0"
 ```
 
 ```sh
