@@ -255,7 +255,12 @@ Every durable path is a named volume, so destroying and recreating every contain
 registry, credentials and rosters.
 
 Use `deploy/up.sh`, not raw `docker compose`: it refuses a wildcard `BIND_ADDR` **before** compose runs,
-because Docker publishes the port before Node ever starts. Details:
+because Docker publishes the port before Node ever starts.
+
+Set `DSH_IMAGE` and `dsh` becomes a real DeepSeek Harness rather than the stub — the browser UI, with
+the vault following the folder you open. **Running this on a machine that has never seen Synapse:**
+[`doc-stack-on-a-new-machine`](docs/doc-stack-on-a-new-machine.md) — both image builds, vaults onto the
+volume, the credential, and a check after every step. Reference:
 [`doc-four-containers`](docs/doc-four-containers.md).
 
 ### DeepSeek Harness

@@ -48,9 +48,12 @@ The design notes, in reading order:
   written inside the vault.
 - [[decision-0017-path-addressed-vaults]] — one credential may grant several vaults; the URL path picks
   which one answers, and can only narrow what the credential already allows.
-- [[doc-four-containers]] — the packaged deployment: four disposable containers over five named volumes,
+- [[doc-four-containers]] — the packaged deployment: four disposable containers over six named volumes,
   one compose file for laptop and server, `BIND_ADDR` the only switch
   ([[decision-0016-four-container-deployment]]).
+- [[doc-stack-on-a-new-machine]] — the runbook for that stack on a machine that has never seen Synapse:
+  build both images, register vaults on the volume, mint the credential, and the checks that catch each
+  step failing quietly.
 - [[plan-one-server-many-vaults]] — in flight: one MCP server across many vaults, split into a tools
   plane (over the wire) and a roster plane (on disk), behind harness-agnostic ports.
 - [[doc-repo-layout]] — where everything lives. · [[doc-roadmap]] — what's next.

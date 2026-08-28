@@ -6,7 +6,7 @@ tags:
   - type/doc
   - area/runtime
   - status/active
-references_docs: ["[[conventions]]", "[[doc-runtime-wiring]]", "[[doc-deployment-gate]]"]
+references_docs: ["[[conventions]]", "[[doc-runtime-wiring]]", "[[doc-deployment-gate]]", "[[doc-stack-on-a-new-machine]]"]
 related: ["[[hub-synapse]]", "[[decision-0016-four-container-deployment]]", "[[decision-0018-dsh-session-vault-router]]", "[[plan-four-containers]]"]
 ---
 
@@ -21,6 +21,10 @@ cp deploy/.env.example deploy/.env      # BIND_ADDR=127.0.0.1 on a laptop
 # Optional: real DSH UI (see below). Leave DSH_IMAGE unset to keep the stub.
 BIND_ADDR=127.0.0.1 ./deploy/up.sh up -d --build
 ```
+
+That is the shape. **The step-by-step sequence for a machine that has never run this — both image
+builds, getting vaults onto the volume, minting the credential, and a check after every step — is
+[[doc-stack-on-a-new-machine]].** What follows here is the reference: what each piece is, and why.
 
 Use `deploy/up.sh`, not raw `docker compose`: it refuses a wildcard `BIND_ADDR` **before** compose runs,
 because Docker publishes the port before Node ever starts and the MCP listener's own guard would be too
@@ -104,14 +108,19 @@ Build from your harness checkout (rebase onto `deepseek-ai/deepseek-harness` fir
 # or: docker build --build-context synapse=. -t synapse-dsh:local /path/to/deepseek-harness
 ```
 
-Then in `deploy/.env` (never commit this file — it holds the bearer):
+Then in `deploy/.env` (gitignored — it holds the bearer):
 
 ```
 BIND_ADDR=127.0.0.1
 DSH_IMAGE=synapse-dsh:local
 SYNAPSE_MCP_HTTP_URL=http://127.0.0.1:3000/mcp
-SYNAPSE_MCP_TOKEN=syn_…   # mint for EVERY vault you open: docker exec synapse-core node --experimental-sqlite /app/lib/vaults.mjs token synapse-vault arch-vault synapse-framework univa --label dsh
+SYNAPSE_MCP_TOKEN=…
 ```
+
+The credential must grant **every** vault you intend to open — name them all as bare arguments to
+`vaults token` ([[decision-0017-path-addressed-vaults]]). `SYNAPSE_MCP_HTTP_URL` is a base, not an
+endpoint: the plugin appends `/<vault-id>` for the folder the session opened, so pinning a vault id
+here makes every session answer from that one vault while still looking correct.
 
 Bring the stack up **with `--no-build`** on `dsh` (`--build` would rebuild the stub and retag it as
 `DSH_IMAGE`):
@@ -125,12 +134,13 @@ Recreate **dsh and synapse-core together**. Core joins dsh's network namespace; 
 dsh leaves core listening in the old namespace, so `127.0.0.1:3000` inside the new dsh never
 answers.
 
-Open http://127.0.0.1:8080. Open `/synapse/vaults/synapse-vault` — tools are that vault's. Open
-`/synapse/vaults/arch-vault` — tools are architect/planner, not oracle. Slash skills (`/synapse-oracle`)
-are a separate path (`synapse skills --write`); they are not the plugin.
+Open two different vault folders under `/synapse/vaults/` as workspaces: each session lists its own
+vault's agents, and its tools answer from that vault. Slash skills (`/synapse-<agent>`) are the roster
+plane, not the plugin — `boot-sync` writes them when core starts.
 
-Pick a model in DSH's own settings. `OPENCODE_GO_API_KEY` in `deploy/.env` is passed through if you
-use that provider. Local Ollama on this Mac is reachable as `host.docker.internal:11434`.
+Pick a model in DSH's own settings; the stack deliberately does not choose one for you.
+`OPENCODE_GO_API_KEY` in `deploy/.env` is passed through if you use that provider, and an Ollama on
+the Docker host resolves from the UI container as `host.docker.internal:11434`.
 
 ## Four harnesses, isolation proven
 
@@ -143,4 +153,4 @@ result is labelled `config-spawn`). DSH is the plugin (`plugin`). Run it with
 `npm run epic6` or `node --experimental-sqlite mcp/four-harness-e2e.mjs`.
 
 ## Related
-[[decision-0016-four-container-deployment]] · [[doc-runtime-wiring]] · [[doc-deployment-gate]] · [[doc-repo-layout]] · [[decision-0014-multi-vault-amendment]] · [[hub-synapse]]
+[[doc-stack-on-a-new-machine]] · [[decision-0016-four-container-deployment]] · [[doc-runtime-wiring]] · [[doc-deployment-gate]] · [[doc-repo-layout]] · [[decision-0014-multi-vault-amendment]] · [[hub-synapse]]

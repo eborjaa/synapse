@@ -6,7 +6,7 @@ tags:
   - type/doc
   - area/runtime
   - status/active
-references_docs: ["[[doc-runtime-wiring]]", "[[doc-mcp-tools]]", "[[doc-cli-reference]]"]
+references_docs: ["[[doc-runtime-wiring]]", "[[doc-mcp-tools]]", "[[doc-cli-reference]]", "[[doc-stack-on-a-new-machine]]"]
 related: ["[[hub-synapse]]"]
 ---
 
@@ -21,6 +21,7 @@ the check that catches it is included.
 |---|---|---|
 | **New vault** — this machine has never had one | [Quick start A](#new-vault-quick-start) | [Path A](#path-a--new-vault) (~15 min, most of it downloads) |
 | **Already have a vault** — older engine, bump it | [Quick start B](#upgrade-quick-start) | [Path B](#path-b--upgrade-an-existing-vault) (~2 min) |
+| **Want the container stack instead** — one HTTP core, a browser UI, no per-editor config | — | [[doc-stack-on-a-new-machine]] (~40 min, mostly image builds) |
 
 Steps 1–3 of Path A give you a working vault in Claude Code, Cursor and opencode. Steps 4–6 add the
 DeepSeek Harness and the delegation governance. Stop after 3 if you do not use DSH.
@@ -468,4 +469,4 @@ with `synapse_spawn_release` using the owner and token from the `lease` table.
 ---
 
 ## Related
-[[doc-runtime-wiring]] · [[doc-mcp-tools]] · [[doc-cli-reference]] · [[doc-fork-and-extend]] · [[hub-synapse]]
+[[doc-runtime-wiring]] · [[doc-mcp-tools]] · [[doc-cli-reference]] · [[doc-fork-and-extend]] · [[doc-stack-on-a-new-machine]] · [[hub-synapse]]
