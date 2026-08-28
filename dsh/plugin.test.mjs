@@ -23,6 +23,17 @@ test("an empty config still supplies the documented defaults", () => {
   assert.equal(result.issues, undefined);
   assert.equal(result.value.surface, "orchestrator");
   assert.equal(result.value.idleMs, 300_000);
+  assert.equal(result.value.transport, "stdio");
+});
+
+test("Config accepts the container HTTP transport", () => {
+  const result = Config["~standard"].validate({
+    transport: "http",
+    httpUrl: "http://127.0.0.1:3000/mcp",
+  });
+  assert.equal(result.issues, undefined);
+  assert.equal(result.value.transport, "http");
+  assert.equal(result.value.httpUrl, "http://127.0.0.1:3000/mcp");
 });
 
 test("the plugin exports the Cordis wiring shape", () => {

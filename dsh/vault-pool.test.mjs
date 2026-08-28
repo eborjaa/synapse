@@ -177,6 +177,60 @@ test("release is idempotent and disposeAll closes everything", async () => {
   }
 });
 
+test("http transport refuses an unregistered folder before opening a socket", async () => {
+  const home = mkdtempSync(join(tmpdir(), "syn-http-home-"));
+  const v = mkdtempSync(join(tmpdir(), "syn-http-unknown-"));
+  const prevHome = process.env.SYNAPSE_HOME;
+  const prevSkills = process.env.SYNAPSE_SKILLS_ROOT;
+  process.env.SYNAPSE_HOME = home;
+  delete process.env.SYNAPSE_SKILLS_ROOT;
+  const pool = createVaultPool({
+    httpUrl: "http://127.0.0.1:9/mcp",
+    token: "syn_test",
+    idleMs: 0,
+  });
+  try {
+    await assert.rejects(pool.acquire(v), /no registered vault id/);
+  } finally {
+    await pool.disposeAll();
+    if (prevHome === undefined) delete process.env.SYNAPSE_HOME; else process.env.SYNAPSE_HOME = prevHome;
+    if (prevSkills === undefined) delete process.env.SYNAPSE_SKILLS_ROOT;
+    else process.env.SYNAPSE_SKILLS_ROOT = prevSkills;
+    rmSync(home, { recursive: true, force: true });
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
+test("http transport refuses to talk to core without a bearer", async () => {
+  const home = mkdtempSync(join(tmpdir(), "syn-http-tok-home-"));
+  const skills = mkdtempSync(join(tmpdir(), "syn-http-tok-skills-"));
+  const v = mkdtempSync(join(tmpdir(), "syn-http-tok-v-"));
+  const prevHome = process.env.SYNAPSE_HOME;
+  const prevSkills = process.env.SYNAPSE_SKILLS_ROOT;
+  process.env.SYNAPSE_HOME = home;
+  process.env.SYNAPSE_SKILLS_ROOT = skills;
+  writeFileSync(join(skills, "index.json"), `${JSON.stringify({
+    version: 1,
+    vaults: [{ id: "tok-v", root: v, vaultDir: v }],
+  })}\n`);
+  const pool = createVaultPool({
+    httpUrl: "http://127.0.0.1:9/mcp",
+    token: "",
+    idleMs: 0,
+  });
+  try {
+    await assert.rejects(pool.acquire(v), /SYNAPSE_MCP_TOKEN is empty/);
+  } finally {
+    await pool.disposeAll();
+    if (prevHome === undefined) delete process.env.SYNAPSE_HOME; else process.env.SYNAPSE_HOME = prevHome;
+    if (prevSkills === undefined) delete process.env.SYNAPSE_SKILLS_ROOT;
+    else process.env.SYNAPSE_SKILLS_ROOT = prevSkills;
+    rmSync(home, { recursive: true, force: true });
+    rmSync(skills, { recursive: true, force: true });
+    rmSync(v, { recursive: true, force: true });
+  }
+});
+
 test("LIVE: the real spawner starts a Synapse child bound to one vault", async () => {
   // Everything above uses a fake child, so this is the only test that exercises defaultSpawnChild:
   // the argv, the cwd/env binding, the handshake, and that the child is reachable afterwards.
