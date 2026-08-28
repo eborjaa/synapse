@@ -55,8 +55,21 @@ so it needs a plugin to close the gap ([[decision-0018-dsh-session-vault-router]
 
 Each session resolves its own vault from `session.header.cwd` — stamped by the host, immutable for the
 session, unwritable by the model — and registers **that vault's** tools, agent-scoped. A vault carrying
-its own `_meta/mcp-plugins/` keeps its extra tools without leaking them into other sessions. One Synapse
-child is pooled per vault (~85 MB each, idle-evicted).
+its own `_meta/mcp-plugins/` keeps its extra tools without leaking them into other sessions.
+
+On a Mac the plugin pools one stdio `synapse-mcp` child per vault (~85 MB each, idle-evicted). In the
+four-container stack the same plugin uses `transport: http` and talks to the already-running
+`synapse-core` at `http://127.0.0.1:3000/mcp/<vault-id>` — a second stdio child would be a second
+writer against the vault databases ([[doc-four-containers]]):
+
+```yaml
+- id: mcp-synapse
+  name: '@eborja/synapse/dsh-plugin'
+  config:
+    transport: http
+    httpUrl: http://127.0.0.1:3000/mcp
+    surface: orchestrator
+```
 
 A session outside any registered vault gets **no** synapse tools and one line saying why, naming
 `synapse vaults add` when the folder is a vault that simply is not registered. There is no fallback to a

@@ -266,6 +266,9 @@ Engine subcommands resolve via the `synapse` CLI (`bin/synapse.mjs` in this repo
 | `SYNAPSE_MCP_PORT` | `3000` | HTTP listen port |
 | `SYNAPSE_MCP_PATH` | `/mcp` | HTTP endpoint path |
 | `SYNAPSE_MCP_PLUGINS` | _(none)_ | comma-separated plugin paths; on shared HTTP these are the only plugins and apply to every vault |
+| `SYNAPSE_MCP_HTTP_URL` | _(unset)_ | DSH plugin HTTP base (`http://127.0.0.1:3000/mcp`); the plugin appends `/<vault-id>` from the open folder |
+| `SYNAPSE_MCP_TOKEN` | _(unset)_ | bearer the DSH plugin (and any HTTP client) sends to `synapse-core` |
+| `SYNAPSE_SKILLS_ROOT` | `$SYNAPSE_HOME/skills` | roster + public vault index; in compose this is the shared `skills` volume |
 | `VAULT_USER` | _(git email)_ | canary name |
 
 Full sink table and TUI notes: [[doc-runtime-wiring]].

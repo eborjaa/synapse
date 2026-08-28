@@ -260,32 +260,20 @@ because Docker publishes the port before Node ever starts. Details:
 
 ### DeepSeek Harness
 
-Any MCP-capable harness works, including ones without a generated config —
-[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) is wired by adding an
-`@deepseek-ai/dsh-mcp-client` row to a profile's `cordis.patch.yml`:
+DSH has no per-folder MCP config, so Synapse ships `@eborja/synapse/dsh-plugin`. Each session's
+tools follow the folder you opened (`session.header.cwd`). On a Mac that is one stdio child per
+vault; in Docker it is HTTP to `synapse-core` ([`doc-four-containers`](docs/doc-four-containers.md)).
 
 ```yaml
 - insert:
     - id: mcp-synapse
-      name: '@deepseek-ai/dsh-mcp-client'
+      name: '@eborja/synapse/dsh-plugin'
       config:
-        serverName: synapse
-        transport: stdio
-        command: /absolute/path/to/node      # dsh scrubs the child env; bare `node` may not resolve
-        args: ['<vault>/node_modules/@eborja/synapse/bin/synapse-mcp.mjs']
-        cwd: <vault>
-        env:
-          SYNAPSE_VAULT: <vault>
-          SYNAPSE_MCP_SURFACE: orchestrator
+        surface: orchestrator
 ```
 
-Or let **[`@eborja/dsh-synapse`](https://github.com/eborjaa/dsh-synapse)** write all of it for you — the
-MCP row, the lease-governance hooks, and the skill symlinks — resolving your vault and node paths:
-
-```bash
-npx @eborja/dsh-synapse install          # dry-run
-npx @eborja/dsh-synapse install --write
-```
+`npx @eborja/dsh-synapse install --write` still writes the old `@deepseek-ai/dsh-mcp-client` stdio
+pin and would overwrite this row — do not run it against a profile that already has the plugin.
 
 #### Your agents as `/synapse-<agent>`
 

@@ -12,12 +12,13 @@ related: ["[[hub-synapse]]", "[[decision-0016-four-container-deployment]]", "[[d
 
 # The four-container stack
 
-`deploy/compose.yml` runs Synapse as four disposable containers over five named volumes. The same file
+`deploy/compose.yml` runs Synapse as four disposable containers over six named volumes. The same file
 runs on a laptop and on a home server; **only `BIND_ADDR` differs**, and nothing in any image knows where
 it is running ([[decision-0016-four-container-deployment]]).
 
 ```bash
 cp deploy/.env.example deploy/.env      # BIND_ADDR=127.0.0.1 on a laptop
+# Optional: real DSH UI (see below). Leave DSH_IMAGE unset to keep the stub.
 BIND_ADDR=127.0.0.1 ./deploy/up.sh up -d --build
 ```
 
@@ -30,7 +31,7 @@ late.
 | # | Container | Role | Notes |
 |---|---|---|---|
 | 1 | `vpn-sidecar` | terminates the tunnel | swappable — `VPN_IMAGE=tailscale/tailscale:…`; idle busybox by default |
-| 2 | `dsh` | the web UI you log into | stateless; mounts `skills/` read-only; owns the network namespace |
+| 2 | `dsh` | the web UI you log into | stub by default; set `DSH_IMAGE` for a real DeepSeek Harness. Owns the network namespace |
 | 3 | `synapse-core` | engine + MCP, one vault per request | **exactly one instance** |
 | 4 | `ollama` | embeddings only | `profiles: [embeddings]` — the deterministic core works without it |
 
@@ -44,9 +45,10 @@ address.
 
 | Volume | Mounted by | Holds |
 |---|---|---|
-| `vaults` | core (rw) | your vaults |
+| `vaults` | core (rw), **dsh (rw)** | your vaults — the UI opens a folder from here |
 | `config` | core (rw) | `vaults.json`, `tokens.json` (0600), the core lock |
 | `skills` | core (rw), **dsh (ro)** | generated rosters |
+| `dsh-home` | dsh (rw) | DSH settings, sessions, profile patches |
 | `vpn-state` | vpn-sidecar | tunnel identity |
 | `ollama` | ollama | pulled models |
 
@@ -54,6 +56,11 @@ address.
 the roster would land under `$SYNAPSE_HOME`, and handing dsh the rosters would mean mounting the
 credential store beside them. The roster plane is files only — **no MCP call is involved** in roster
 delivery, which is exactly why it still works where MCP cannot go.
+
+On every start, `synapse-core` runs that generation itself (`lib/boot-sync.mjs`: `vaults roster` plus
+`skills` for each registered vault) **before** the HTTP listener opens. It also writes
+`$SYNAPSE_SKILLS_ROOT/index.json` — id + root only, never tokens — so DSH can resolve the open
+folder to a vault id without mounting `config/`. A missing vault is logged; it never blocks the server.
 
 ## Exactly one core
 
@@ -74,11 +81,56 @@ because compose has already settled the question a layer above.
 
 ## What is not here yet
 
-The `dsh` image is a **stub** (`deploy/dsh-stub`) that proves the roster mount and the port; a real
-DSH image is `DSH_IMAGE`. Vault switching in DSH is not a generated preset — opening a folder is the
-whole act ([[decision-0018-dsh-session-vault-router]]). The VPN sidecar idles until `VPN_IMAGE` names
-a real tunnel. The privacy posture is unchanged: nothing is published on a public interface
-([[doc-deployment-gate]]).
+The VPN sidecar idles until `VPN_IMAGE` names a real tunnel. The privacy posture is unchanged: nothing
+is published on a public interface ([[doc-deployment-gate]]). Vault switching in DSH is not a generated
+preset — opening a folder is the whole act ([[decision-0018-dsh-session-vault-router]]).
+
+## A real DSH UI (`DSH_IMAGE`)
+
+The default `dsh` image is still a stub that only proves the port. A real UI is a build of the
+DeepSeek Harness. DSH **refuses** `--host 0.0.0.0` (it would expose remote code execution on the
+network). Docker can only publish a port the process listens on on the container's external
+interface, so the image runs DSH on `127.0.0.1:3080` and a tiny TCP proxy on `0.0.0.0:8080` *inside*
+the container. The **host** publish stays `${BIND_ADDR}:8080:8080` — `127.0.0.1` on a laptop.
+
+The image also carries `@eborja/synapse` at `/opt/synapse`. The entrypoint writes
+`@eborja/synapse/dsh-plugin` with `transport: http` so tools follow the open folder and talk to
+`synapse-core` — never a stdio `synapse-mcp` in the DSH container.
+
+Build from your harness checkout (rebase onto `deepseek-ai/deepseek-harness` first):
+
+```bash
+./deploy/build-dsh.sh
+# or: docker build --build-context synapse=. -t synapse-dsh:local /path/to/deepseek-harness
+```
+
+Then in `deploy/.env` (never commit this file — it holds the bearer):
+
+```
+BIND_ADDR=127.0.0.1
+DSH_IMAGE=synapse-dsh:local
+SYNAPSE_MCP_HTTP_URL=http://127.0.0.1:3000/mcp
+SYNAPSE_MCP_TOKEN=syn_…   # mint for EVERY vault you open: docker exec synapse-core node --experimental-sqlite /app/lib/vaults.mjs token synapse-vault arch-vault synapse-framework univa --label dsh
+```
+
+Bring the stack up **with `--no-build`** on `dsh` (`--build` would rebuild the stub and retag it as
+`DSH_IMAGE`):
+
+```bash
+BIND_ADDR=127.0.0.1 ./deploy/up.sh build synapse-core
+BIND_ADDR=127.0.0.1 ./deploy/up.sh up -d --force-recreate --no-build
+```
+
+Recreate **dsh and synapse-core together**. Core joins dsh's network namespace; recreating only
+dsh leaves core listening in the old namespace, so `127.0.0.1:3000` inside the new dsh never
+answers.
+
+Open http://127.0.0.1:8080. Open `/synapse/vaults/synapse-vault` — tools are that vault's. Open
+`/synapse/vaults/arch-vault` — tools are architect/planner, not oracle. Slash skills (`/synapse-oracle`)
+are a separate path (`synapse skills --write`); they are not the plugin.
+
+Pick a model in DSH's own settings. `OPENCODE_GO_API_KEY` in `deploy/.env` is passed through if you
+use that provider. Local Ollama on this Mac is reachable as `host.docker.internal:11434`.
 
 ## Four harnesses, isolation proven
 
