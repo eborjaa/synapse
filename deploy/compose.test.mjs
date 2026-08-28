@@ -193,7 +193,9 @@ test("US-4.5: core owns the roster plane, dsh reads it, and the credential store
   );
   assert.ok(core.volumes.includes("skills:/synapse/skills"), "core mounts the roster volume READ-WRITE");
 
-  assert.deepEqual(svc("dsh").volumes, ["skills:/skills:ro"], "dsh gets the rosters, read-only, and nothing else");
+  assert.ok(svc("dsh").volumes.includes("skills:/skills:ro"), "dsh gets the rosters, read-only");
+  assert.ok(svc("dsh").volumes.includes("vaults:/synapse/vaults"), "the UI opens a vault folder from the same volume core serves");
+  assert.ok(svc("dsh").volumes.includes("dsh-home:/dsh-home"), "DSH settings/sessions live on a named volume, not in the image");
   assert.equal(
     JSON.stringify(svc("dsh").volumes).includes("config"),
     false,
@@ -203,7 +205,7 @@ test("US-4.5: core owns the roster plane, dsh reads it, and the credential store
 
 test("US-4.2: every durable path is a NAMED volume, so destroy-and-recreate loses nothing", () => {
   const declared = Object.keys(compose.volumes).sort();
-  assert.deepEqual(declared, ["config", "ollama", "skills", "vaults", "vpn-state"]);
+  assert.deepEqual(declared, ["config", "dsh-home", "ollama", "skills", "vaults", "vpn-state"]);
 
   for (const [name, service] of Object.entries(compose.services)) {
     for (const mount of service.volumes || []) {
@@ -227,7 +229,17 @@ test("US-4.1 + US-2: core binds loopback inside the shared namespace and never l
     false,
     "BIND_ADDR is a host-publish concern; passing it in would make core listen on the public address",
   );
-  assert.equal(svc("dsh").environment.SYNAPSE_MCP_URL, "http://127.0.0.1:3000/mcp");
+  assert.equal(
+    svc("dsh").environment.SYNAPSE_MCP_HTTP_URL,
+    "${SYNAPSE_MCP_HTTP_URL:-http://127.0.0.1:3000/mcp}",
+    "the plugin appends /<vault-id> from the open folder; a pinned /mcp/synapse-vault ignores the folder",
+  );
+  assert.equal(svc("dsh").environment.SYNAPSE_SKILLS_ROOT, "/skills");
+  assert.equal(
+    svc("dsh").environment.SYNAPSE_MCP_URL,
+    "${SYNAPSE_MCP_URL:-http://127.0.0.1:3000/mcp/synapse-vault}",
+    "the stub image still uses a pinned URL; the real DSH image ignores it in favour of the plugin",
+  );
   assert.equal(svc("vpn-sidecar").network_mode, "service:dsh", "swapping the VPN must not move the UI");
 });
 
@@ -265,6 +277,11 @@ test("the VPN and the UI are swappable images, not edits to this file", () => {
   assert.ok(svc("vpn-sidecar").cap_add.includes("NET_ADMIN"), "a real tunnel needs to create a device");
 });
 
+test("build-dsh.sh injects the synapse package as a named build context", () => {
+  const sh = read("deploy/build-dsh.sh");
+  assert.match(sh, /--build-context synapse=/);
+});
+
 test("US-4.2 + US-4.4: the entrypoint clears a lock from a container that is gone, before serving", () => {
   // The reachable deadlock this prevents: a hard kill (release() never runs), then a recreate, which
   // hands the new container a new id. core-lock refuses that record on principle — it cannot tell a
@@ -272,9 +289,12 @@ test("US-4.2 + US-4.4: the entrypoint clears a lock from a container that is gon
   // a record naming another container is a container that is gone. Verified against the real stack.
   const entrypoint = read("deploy/core-entrypoint.sh");
   const reapAt = entrypoint.indexOf("reapForeignHostLock");
+  const syncAt = entrypoint.indexOf("boot-sync.mjs");
   const execAt = entrypoint.indexOf("exec node");
   assert.ok(reapAt > -1, "the entrypoint must reap a lock left by a container that no longer exists");
+  assert.ok(syncAt > -1, "the entrypoint must regenerate rosters and /synapse-<agent> skills on start");
   assert.ok(execAt > -1 && reapAt < execAt, "it must happen BEFORE the server starts, or it is pointless");
+  assert.ok(syncAt < execAt, "skill sync must run before the listener, or a first session has no /synapse-*");
 });
 
 test("the entrypoint and the launcher are executable, and deploy/ actually ships", () => {
