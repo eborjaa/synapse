@@ -62,7 +62,9 @@ old `$SYNAPSE_HOME/skills` and nothing moves.
   Restarting dsh restarts the namespace its tenants share.
 - (Δ) A foreign-host lock is a refusal, not a silent steal. Outside compose, a genuinely dead holder from
   another machine needs a human to delete the file — the safe direction for a single-writer DB.
-- (−) `dsh` is a stub until Epic 5, so the stack proves the wiring, not the UI.
+- (Δ) The default `dsh` image is still the stub. Set `DSH_IMAGE` to a DeepSeek Harness build. DSH
+  refuses `--host 0.0.0.0`; the image proxies `0.0.0.0:8080` → `127.0.0.1:3080` *inside* the
+  container so the HOST publish can stay `${BIND_ADDR}:8080:8080`.
 
 ## Related
 [[doc-four-containers]] · [[decision-0014-multi-vault-amendment]] · [[decision-0015-admin-surface]] · [[doc-deployment-gate]] · [[doc-runtime-wiring]]

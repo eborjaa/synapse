@@ -19,6 +19,33 @@ import { vaultForCwd, explainNoVault } from "../lib/vault-for-cwd.mjs";
 /** Model-facing names keep the shape dsh's own MCP bridge produces, so nothing downstream changes. */
 export const toolName = (raw) => `mcp__synapse__${raw}`;
 
+/** DSH tools.register() requires output.{ schema, render }. MCP results are { content: [...] }. */
+export function mcpToolOutput(rawName) {
+  return {
+    schema: {
+      type: "object",
+      properties: {
+        content: { type: "array", items: {} },
+      },
+      required: ["content"],
+      additionalProperties: true,
+    },
+    render(_args, value) {
+      const content = value && typeof value === "object" ? value.content : null;
+      if (!Array.isArray(content)) {
+        return [{ type: "text", text: value == null ? "" : String(value) }];
+      }
+      const texts = [];
+      for (const block of content) {
+        if (block && typeof block === "object" && block.type === "text" && typeof block.text === "string") {
+          texts.push(block.text);
+        }
+      }
+      return [{ type: "text", text: texts.join("\n") || JSON.stringify(value) }];
+    },
+  };
+}
+
 /**
  * Resolve `cwd` to a vault, take that vault's Synapse process from the pool, and register its tools.
  *
@@ -65,13 +92,24 @@ export async function bindSessionTools({ cwd, pool, register, reg = null, log = 
       name,
       description: tool.description || "",
       parameters: tool.inputSchema,
+      output: mcpToolOutput(tool.name),
+      // synapse_brief / claim_and_brief can exceed DSH's 60s default.
+      timeoutMs: 180_000,
       // The vault is closed over, not passed in. There is no argument a caller could set to reach
       // another vault, which is the same structural guarantee the bearer-bound HTTP path gives.
       async execute(args, exec) {
-        return lease.client.callTool(
+        const result = await lease.client.callTool(
           { name: tool.name, arguments: args ?? {} },
           { signal: exec?.signal },
         );
+        if (result?.isError) {
+          const text = (Array.isArray(result.content) ? result.content : [])
+            .filter((b) => b && b.type === "text" && typeof b.text === "string")
+            .map((b) => b.text)
+            .join("\n");
+          throw new Error(text || `${tool.name} failed`);
+        }
+        return result;
       },
     }));
     tools.push(name);

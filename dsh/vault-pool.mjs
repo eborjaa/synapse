@@ -13,11 +13,10 @@
 // The cost is real and bounded: ~85 MB resident per live child, for vaults actually opened, not vaults
 // registered. Idle eviction returns it.
 
-import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-import { canonical } from "../lib/vault-for-cwd.mjs";
+import { canonical, readVaultDirectory } from "../lib/vault-for-cwd.mjs";
 
 const PKG_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const DEFAULT_IDLE_MS = 5 * 60 * 1000;
@@ -25,6 +24,10 @@ const DEFAULT_IDLE_MS = 5 * 60 * 1000;
 /**
  * @param {object} [options]
  * @param {number} [options.idleMs]  how long an unused child lives before eviction; 0 disables.
+ * @param {string} [options.httpUrl]  base MCP HTTP URL (`http://127.0.0.1:3000/mcp`). When set,
+ *   children are HTTP clients to `${httpUrl}/<vault-id>` instead of stdio spawns — the container
+ *   case, where synapse-core is already the only writer.
+ * @param {string} [options.token]    bearer for that HTTP path.
  * @param {string} [options.surface] the everyday tool ceiling handed to each child.
  * @param {(line: string) => void} [options.log]
  */
@@ -32,7 +35,9 @@ export function createVaultPool({
   idleMs = DEFAULT_IDLE_MS,
   surface = "orchestrator",
   log = () => {},
-  spawnChild = defaultSpawnChild,
+  httpUrl = "",
+  token = "",
+  spawnChild = httpUrl ? makeHttpSpawner({ httpUrl, token, log }) : defaultSpawnChild,
 } = {}) {
   /** canonical vault root → entry */
   const live = new Map();
@@ -157,5 +162,50 @@ async function defaultSpawnChild({ vaultRoot, surface, log }) {
       exitHandlers.clear();
       try { await client.close(); } catch { /* transport already gone */ }
     },
+  };
+}
+
+function vaultIdForRoot(vaultRoot) {
+  const key = canonical(vaultRoot);
+  const hit = (readVaultDirectory().vaults || []).find((v) => canonical(v.root) === key);
+  return hit?.id || null;
+}
+
+async function loadHttpClient() {
+  const mod = await import("@modelcontextprotocol/client");
+  if (mod.StreamableHTTPClientTransport) {
+    return { Client: mod.Client, StreamableHTTPClientTransport: mod.StreamableHTTPClientTransport };
+  }
+  const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+  return { Client: mod.Client, StreamableHTTPClientTransport };
+}
+
+/** HTTP to synapse-core: same pool shape, no extra MCP process. */
+function makeHttpSpawner({ httpUrl, token, log }) {
+  const base = String(httpUrl || "").replace(/\/+$/, "");
+  return async ({ vaultRoot }) => {
+    const id = vaultIdForRoot(vaultRoot);
+    if (!id) throw new Error(`no registered vault id for ${vaultRoot}`);
+    if (!token) throw new Error("SYNAPSE_MCP_TOKEN is empty — cannot reach synapse-core");
+    const url = `${base}/${encodeURIComponent(id)}`;
+    const { Client, StreamableHTTPClientTransport } = await loadHttpClient();
+    const transport = new StreamableHTTPClientTransport(new URL(url), {
+      authProvider: { token: async () => token },
+      requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const client = new Client({ name: "synapse-vault-router", version: "1" }, { capabilities: {} });
+    const exitHandlers = new Set();
+    transport.onclose = () => { for (const fn of exitHandlers) fn(); };
+    transport.onerror = (error) => log(`[synapse-vault-pool] ${id}: ${error?.message || error}`);
+    await client.connect(transport);
+    log(`[synapse-vault-pool] http ${id} → ${url}`);
+    return {
+      client,
+      onExit(fn) { exitHandlers.add(fn); },
+      async close() {
+        exitHandlers.clear();
+        try { await client.close(); } catch { /* already gone */ }
+      },
+    };
   };
 }

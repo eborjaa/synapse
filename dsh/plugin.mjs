@@ -35,14 +35,22 @@ export const inject = ["tools"];
 export const Config = z.object({
   surface: z.string().default("orchestrator"),
   idleMs: z.number().default(300_000),
+  // "http" = talk to an already-running synapse-core. Default stdio keeps the Mac host path.
+  transport: z.enum(["stdio", "http"]).default("stdio"),
+  httpUrl: z.string().optional(),
+  token: z.string().optional(),
 });
 
 export function apply(ctx, config = {}) {
   const log = (line) => ctx.logger?.info?.(line) ?? process.stderr.write(`${line}\n`);
+  const httpUrl = config.httpUrl || process.env.SYNAPSE_MCP_HTTP_URL || "";
+  const token = config.token || process.env.SYNAPSE_MCP_TOKEN || "";
+  const transport = config.transport || (httpUrl ? "http" : "stdio");
   const pool = createVaultPool({
     surface: config.surface || "orchestrator",
     idleMs: typeof config.idleMs === "number" ? config.idleMs : 300000,
     log,
+    ...(transport === "http" ? { httpUrl, token } : {}),
   });
 
   // One binding per live agent, so a session's tools unwind exactly when that session does.

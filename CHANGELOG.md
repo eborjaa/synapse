@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 2.1.0 — 2026-08-28
+
 ### Added
 - **`HandoffPort` — one checksummed handle per handoff.** `synapse_claim_and_brief` returns `handle`
   instead of `owner` + `token` + `spawnId` + `episodeId`. `synapse_spawn_release` takes
@@ -15,11 +17,27 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 - **`dsh/e2e` — live open-folder browser suite.** Nine Playwright tests against the running
   four-container stack. `orchestration.spec.mjs` drives claim → held → renew → release through
   the handle, not `owner`/`token`. Root `npm test` does not pick this up (needs a live stack).
+- **`@eborja/synapse/dsh-plugin` talks HTTP to `synapse-core` in the four-container stack.** The
+  plugin still defaults to stdio on a Mac. In Docker it uses `transport: http` and
+  `SYNAPSE_MCP_HTTP_URL` so opening a folder selects `/mcp/<vault-id>` against the already-running
+  core — no second `synapse-mcp` writer. Tool definitions include the `output.render` DSH now
+  requires. A public `index.json` on the skills volume lists id+root (never tokens) so DSH can
+  resolve folders without mounting `config/`. See [[doc-four-containers]].
+- **`synapse-core` regenerates DSH rosters and `/synapse-<agent>` skills on every start.** The same
+  work as `synapse vaults roster --write` and `synapse skills --write`, so a new stack does not need
+  a manual wiring step. A missing vault logs and the HTTP server still starts. See [[doc-four-containers]].
+- **The four-container stack can run a real DeepSeek Harness UI.** Set `DSH_IMAGE` to an image built
+  from a DeepSeek Harness checkout. DSH refuses `--host 0.0.0.0`, so that image listens on
+  `127.0.0.1:3080` and proxies `0.0.0.0:8080` inside the container; the host publish is still
+  `${BIND_ADDR}:8080:8080`. Named volume `dsh-home` holds its settings.
+  See [[doc-four-containers]].
 
 ### Fixed
 - A one-character-off identifier can no longer silently drop the episode while releasing the lease.
   Ticket and logbook close together; anything still open past its ticket expiry is swept to
   `ended-unknown`.
+
+Install: `npm install @eborja/synapse@^2.1.0`
 
 ## 2.0.0 — 2026-08-26
 
@@ -1287,8 +1305,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^2.0.0"
-// or: "github:eborjaa/synapse#v2.0.0"
+"@eborja/synapse": "^2.1.0"
+// or: "github:eborjaa/synapse#v2.1.0"
 ```
 
 ```sh

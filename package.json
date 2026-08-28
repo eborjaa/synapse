@@ -1,6 +1,6 @@
 {
   "name": "@eborja/synapse",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Synapse — the context-vault engine: a manifest-driven, role-based knowledge-graph renderer with semantic recall, SQL records tooling, linting, and a pluggable agent CLI. Package-agnostic; consumers keep their own vault + context.manifest.json.",
   "type": "module",
   "engines": {
@@ -72,11 +72,11 @@
   "license": "MIT",
   "author": "Emmanuel Borja",
   "dependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.0.0",
     "@modelcontextprotocol/sdk": "^1.30.0"
   }
 }

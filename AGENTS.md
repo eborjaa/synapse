@@ -40,8 +40,9 @@ MCP is stdio by default (one env-pinned vault). `synapse-mcp --http` is the shar
 separate clients/containers: bind only to `127.0.0.1`, `::1`, or an explicit VPN-interface address
 (`0.0.0.0`/`::` are refused), and run exactly one instance. The credential in `ctx.authInfo` decides the
 vault; a tool argument never does. An **admin-scoped** bearer (CLI: `synapse vaults token <id> --admin`)
-is what exposes `synapse_admin_*`; a normal session does not list those tools. See
-`docs/doc-runtime-wiring.md`.
+is what exposes `synapse_admin_*`; a normal session does not list those tools. In the four-container
+stack, DSH loads `@eborja/synapse/dsh-plugin` with `transport: http` against that listener — it must
+not spawn a second `synapse-mcp`. See `docs/doc-runtime-wiring.md` and `docs/doc-four-containers.md`.
 
 ## Guardrails
 

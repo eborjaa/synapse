@@ -98,6 +98,9 @@ test("a session in a vault gets THAT vault's tools", async () => {
     assert.equal(bound.vaultId, id);
     assert.deepEqual(bound.tools.sort(), [toolName("synapse_brief"), toolName("synapse_render")].sort());
     assert.equal(c.registered.size, 2);
+    const sample = c.registered.get(toolName("synapse_brief"));
+    assert.equal(typeof sample.output?.render, "function", "DSH tools.register requires output.render");
+    assert.equal(sample.timeoutMs, 180_000);
 
     await bound.dispose();
     assert.equal(c.registered.size, 0, "disposal unregisters this session's tools");

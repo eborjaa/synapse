@@ -37,10 +37,19 @@ services:
     restart: unless-stopped
     ports:
       - "${BIND_ADDR}:8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - skills:/skills:ro
+      - vaults:/synapse/vaults
+      - dsh-home:/dsh-home
     environment:
-      SYNAPSE_MCP_URL: http://127.0.0.1:3000/mcp
+      DSH_HOME: /dsh-home
+      SYNAPSE_SKILLS_ROOT: /skills
+      SYNAPSE_MCP_HTTP_URL: ${SYNAPSE_MCP_HTTP_URL:-http://127.0.0.1:3000/mcp}
+      SYNAPSE_MCP_URL: ${SYNAPSE_MCP_URL:-http://127.0.0.1:3000/mcp/synapse-vault}
+      SYNAPSE_MCP_TOKEN: ${SYNAPSE_MCP_TOKEN:-}
+      OPENCODE_GO_API_KEY: ${OPENCODE_GO_API_KEY:-}
     networks:
       - synapse
 
@@ -91,6 +100,7 @@ volumes:
   vaults:
   config:
   skills:
+  dsh-home:
   vpn-state:
   ollama:
 
