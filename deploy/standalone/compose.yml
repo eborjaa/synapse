@@ -1,0 +1,112 @@
+# Synapse — the whole stack, from published images. No source checkout, no build step.
+#
+#   curl -O https://raw.githubusercontent.com/eborjaa/synapse/main/deploy/standalone/compose.yml
+#   curl -o .env https://raw.githubusercontent.com/eborjaa/synapse/main/deploy/standalone/.env.example
+#   $EDITOR .env          # set SYNAPSE_VAULTS_DIR and SYNAPSE_BOOTSTRAP_TOKEN
+#   docker compose up -d
+#
+# This file is a sibling of ../compose.yml, not a replacement. That one BUILDS from a checkout and is
+# what you want when you are changing Synapse. This one PULLS, and is what you want when you are
+# running it.
+#
+# BIND_ADDR is the only laptop-vs-server switch, and it defaults to loopback so that forgetting it is
+# safe rather than exposing. Docker publishes a port before any container starts, so nothing inside
+# the stack can catch a wildcard here — that is why the default matters more than a guard would.
+# Never set it to 0.0.0.0 or ::.
+
+name: synapse
+
+services:
+  vpn-sidecar:
+    image: ${VPN_IMAGE:-busybox:1.36}
+    container_name: synapse-vpn
+    init: true
+    restart: unless-stopped
+    network_mode: service:dsh
+    depends_on:
+      - dsh
+    cap_add:
+      - NET_ADMIN
+    command: ["sh", "-c", "echo 'synapse vpn-sidecar idle — set VPN_IMAGE to terminate a real tunnel'; sleep infinity"]
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+    volumes:
+      - vpn-state:/var/lib/tailscale
+
+  dsh:
+    image: ${DSH_IMAGE:-ghcr.io/eborjaa/synapse-dsh:latest}
+    container_name: synapse-dsh
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:${HOST_PORT:-8080}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - skills:/skills:ro
+      # Your vaults, from the host. A bind mount rather than a named volume so you can point at the
+      # directory your vaults already live in instead of copying them into Docker's storage.
+      - ${SYNAPSE_VAULTS_DIR:-./vaults}:/synapse/vaults
+      - dsh-home:/dsh-home
+    environment:
+      DSH_HOME: /dsh-home
+      SYNAPSE_SKILLS_ROOT: /skills
+      SYNAPSE_MCP_HTTP_URL: ${SYNAPSE_MCP_HTTP_URL:-http://127.0.0.1:3000/mcp}
+      # The SAME value core registers as a credential. One variable, read by both containers, so no
+      # secret has to be carried out of one and into the other by hand.
+      SYNAPSE_MCP_TOKEN: ${SYNAPSE_BOOTSTRAP_TOKEN:-}
+      OPENCODE_GO_API_KEY: ${OPENCODE_GO_API_KEY:-}
+
+  synapse-core:
+    image: ${CORE_IMAGE:-ghcr.io/eborjaa/synapse-core:latest}
+    container_name: synapse-core
+    init: true
+    restart: unless-stopped
+    network_mode: service:dsh
+    depends_on:
+      - dsh
+    # WHY replicas 1 + a fixed name: `--scale synapse-core=2` then collides on the name, and the
+    # process lock in lib/core-lock.mjs enforces the same rule a layer down. The lease design assumes
+    # one writer per vault database.
+    deploy:
+      mode: replicated
+      replicas: 1
+    volumes:
+      - ${SYNAPSE_VAULTS_DIR:-./vaults}:/synapse/vaults
+      - config:/synapse/config
+      - skills:/synapse/skills
+    environment:
+      SYNAPSE_HOME: /synapse/config
+      SYNAPSE_SKILLS_ROOT: /synapse/skills
+      SYNAPSE_VAULTS_DIR: /synapse/vaults
+      SYNAPSE_MCP_HOST: "127.0.0.1"
+      SYNAPSE_MCP_PORT: "3000"
+      SYNAPSE_MCP_PATH: /mcp
+      SYNAPSE_MCP_SURFACE: orchestrator
+      SYNAPSE_OLLAMA_URL: ${SYNAPSE_OLLAMA_URL:-http://ollama:11434}
+      # The two bootstrap switches. Unset both and this behaves exactly as it always has: you register
+      # vaults and mint credentials yourself with `docker exec`.
+      SYNAPSE_AUTO_REGISTER: ${SYNAPSE_AUTO_REGISTER:-}
+      SYNAPSE_BOOTSTRAP_TOKEN: ${SYNAPSE_BOOTSTRAP_TOKEN:-}
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: synapse-ollama
+    profiles:
+      - embeddings
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - synapse
+
+volumes:
+  config:
+  skills:
+  dsh-home:
+  vpn-state:
+  ollama:
+
+networks:
+  synapse:
+    driver: bridge

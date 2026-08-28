@@ -1,0 +1,145 @@
+name: images
+
+# Publishes the two images the standalone stack pulls:
+#   ghcr.io/eborjaa/synapse-core   — engine + MCP over HTTP
+#   ghcr.io/eborjaa/synapse-dsh    — the DeepSeek Harness UI, with the Synapse plugin inside it
+#
+# WHY the DSH job is gated on a secret. Its build context is a SEPARATE repository (the harness fork
+# carrying the Docker files), which this workflow has no right to read by default. Without a token
+# that can clone it, the job would fail on every run in a way that says nothing useful, so it is
+# skipped instead and says so.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to publish (default: the run's short SHA)"
+        required: false
+        type: string
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  core:
+    name: synapse-core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Work out the tags
+        id: tags
+        run: |
+          set -euo pipefail
+          IMAGE=ghcr.io/${{ github.repository_owner }}/synapse-core
+          if [ -n "${{ inputs.tag }}" ]; then
+            VERSION="${{ inputs.tag }}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(git rev-parse --short HEAD)"
+          fi
+          # :latest moves only for a real version tag. A dispatch build must not silently become
+          # what every standalone stack pulls.
+          TAGS="${IMAGE}:${VERSION}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then TAGS="${TAGS},${IMAGE}:latest"; fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check the version in the tag matches package.json
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$PKG" != "${{ steps.tags.outputs.version }}" ]; then
+            echo "tag says ${{ steps.tags.outputs.version }}, package.json says ${PKG}" >&2
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  dsh:
+    name: synapse-dsh
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip with a reason if the harness repo is unreachable
+        id: gate
+        run: |
+          if [ -z "${{ secrets.HARNESS_REPO_TOKEN }}" ]; then
+            echo "HARNESS_REPO_TOKEN is not set — cannot clone the harness fork. Skipping." >&2
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          path: synapse
+
+      # The harness carries the Dockerfile; Synapse is injected as a named build context so the
+      # image ships the plugin. Both trees, or the image has no Synapse tools in it.
+      - uses: actions/checkout@v5
+        if: steps.gate.outputs.run == 'true'
+        with:
+          repository: ${{ github.repository_owner }}/deepseek-harness
+          ref: ${{ vars.HARNESS_REF || 'synapse/docker-image' }}
+          token: ${{ secrets.HARNESS_REPO_TOKEN }}
+          path: harness
+
+      - name: Work out the tags
+        if: steps.gate.outputs.run == 'true'
+        id: tags
+        run: |
+          set -euo pipefail
+          IMAGE=ghcr.io/${{ github.repository_owner }}/synapse-dsh
+          if [ -n "${{ inputs.tag }}" ]; then
+            VERSION="${{ inputs.tag }}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(git -C synapse rev-parse --short HEAD)"
+          fi
+          TAGS="${IMAGE}:${VERSION}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then TAGS="${TAGS},${IMAGE}:latest"; fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.gate.outputs.run == 'true'
+      - uses: docker/login-action@v3
+        if: steps.gate.outputs.run == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        if: steps.gate.outputs.run == 'true'
+        with:
+          context: harness
+          build-contexts: synapse=synapse
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
