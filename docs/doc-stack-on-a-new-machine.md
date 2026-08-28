@@ -18,6 +18,12 @@ quietly is worse than one that fails loudly, and most of the failures here are q
 
 [[doc-four-containers]] explains *why* the stack is shaped this way. This document is the sequence.
 
+Every check below was run against a live stack, and two of them are here **because** that run showed
+them looking like failures when they were not: `boot-sync` reporting `0 roster file(s)`, and the
+readiness probe reporting `answered HTTP 401`. Both are noted where they appear. The build steps
+themselves have not been walked on a genuinely bare machine — if one of them is wrong, it is a
+prerequisite this document assumed you already had.
+
 > **Two different installs, do not confuse them.** [[doc-install-end-to-end]] puts Synapse **on** a
 > machine — a vault, `npm install @eborja/synapse`, MCP configs for your editors. This document runs
 > Synapse **as a stack** — containers, an HTTP core, a browser UI. You can do either, or both. Nothing
@@ -154,6 +160,10 @@ docker logs synapse-core 2>&1 | grep boot-sync
 # → boot-sync: 1 vault(s) · N roster file(s) · M skill file(s)
 ```
 
+The vault count is what matters. On a **re-run** the file counts are `0 roster file(s) · 0 skill
+file(s)` — nothing changed, so nothing was rewritten. That is success, not a failure, and it looks
+identical to one.
+
 `boot-sync` runs `vaults roster` and `skills` for every registered vault *before* the listener opens,
 and writes `/synapse/skills/index.json` — id and root only, never credentials — which is how the UI
 container resolves an open folder to a vault without ever mounting `config/`.
@@ -235,8 +245,17 @@ BIND_ADDR=127.0.0.1 ./deploy/up.sh up -d --force-recreate --no-build
 docker logs synapse-dsh 2>&1 | grep -E 'synapse-core answered|dsh-proxy|dsh web:'
 ```
 
-Three lines you want: core answered HTTP, the proxy bound `0.0.0.0:8080 → 127.0.0.1:3080`, and DSH's own
-`dsh web:` URL carrying a process token.
+Three lines you want:
+
+```
+[dsh] synapse-core answered HTTP 401
+[dsh-proxy] 0.0.0.0:8080 → 127.0.0.1:3080
+dsh web: http://127.0.0.1:3080/?token=…
+```
+
+**`answered HTTP 401` is the good outcome.** The readiness probe is unauthenticated on purpose — it
+asks only "is something listening", and a core that refuses an anonymous request is a core that is
+working. A `0` there, or `did not answer in 60s`, is the failure.
 
 > **Why the in-container proxy exists.** DSH refuses `--host 0.0.0.0` — that would put remote code
 > execution on the network. But Docker can only publish a port the process listens on on the
