@@ -21,4 +21,9 @@ import("/app/lib/core-lock.mjs").then(({ reapForeignHostLock }) => {
 });
 '
 
+# Same commands as a laptop `synapse vaults roster --write` + `synapse skills --write`, so a fresh
+# stack (or a recreate) already has /synapse-<agent> on the shared vault volume. Never fails the
+# listener: a missing vault logs and continues.
+node --experimental-sqlite /app/lib/boot-sync.mjs
+
 exec node --experimental-sqlite /app/bin/synapse-mcp.mjs --http
