@@ -55,11 +55,11 @@ Nothing here scaffolds. It bumps the engine and re-runs the generators. **Do not
 
 ```bash
 cd /path/to/your-vault
-npm install @eborja/synapse@^2.2.0
+npm install @eborja/synapse@^2.2.1
 npx synapse install --write     # MCP configs + shell CLI + harness skills; keeps your MCP surface
 exec $SHELL                     # only if the shell CLI moved
 npx synapse lint                # should end: clean (errors=0)
-npx synapse --version           # expect 2.2.0
+npx synapse --version           # expect 2.2.1
 ```
 
 Want the `orchestrator` MCP surface (delegation tools)? Pass it once — omit `--surface` after that and
@@ -300,7 +300,7 @@ dsh web --no-open        # then open http://127.0.0.1:3080
 The MCP child announces itself on stderr — this proves the server started:
 
 ```
-[synapse-mcp] ready · v2.2.0 · surface=orchestrator · vault=/path/to/my-vault
+[synapse-mcp] ready · v2.2.1 · surface=orchestrator · vault=/path/to/my-vault
 ```
 
 **A tool call**, scriptable:
@@ -343,7 +343,7 @@ You already have a vault on an older engine. Nothing here scaffolds.
 
 ```bash
 cd /path/to/your-vault
-npm install @eborja/synapse@^2.2.0
+npm install @eborja/synapse@^2.2.1
 npx synapse install --write     # re-wire: MCP configs + shell CLI + harness skills
                                 # (keeps your MCP surface; --surface orchestrator to change it)
 exec $SHELL                     # only if the shell CLI moved
