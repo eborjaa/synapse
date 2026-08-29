@@ -4,10 +4,25 @@ name: images
 #   ghcr.io/eborjaa/synapse-core   — engine + MCP over HTTP
 #   ghcr.io/eborjaa/synapse-dsh    — the DeepSeek Harness UI, with the Synapse plugin inside it
 #
-# WHY the DSH job is gated on a secret. Its build context is a SEPARATE repository (the harness fork
-# carrying the Docker files), which this workflow has no right to read by default. Without a token
-# that can clone it, the job would fail on every run in a way that says nothing useful, so it is
-# skipped instead and says so.
+# BOTH ARE MULTI-ARCH, and that is not a nicety. Built on an Apple Silicon laptop these come out
+# linux/arm64 only, and an x86_64 machine pulling one fails with
+#
+#   no matching manifest for linux/amd64/v3 in the manifest list entries
+#
+# which reads like a permissions problem and is not one.
+#
+# WHY NATIVE RUNNERS PER ARCH, rather than one job with QEMU. The harness is a ~200k-line TypeScript
+# monorepo; `pnpm build` under emulation takes hours and can exhaust the runner. This repo is public,
+# so `ubuntu-24.04-arm` is available at no cost — each architecture builds on its own hardware, and
+# a final job stitches the two digests into one manifest list. Core is small enough that emulation
+# would be tolerable; it uses the same shape anyway so the two jobs do not drift.
+#
+# WHY NO CREDENTIAL. The DSH build context is a SEPARATE repository — the harness mirror carrying the
+# Docker files. That mirror is PUBLIC, so the built-in GITHUB_TOKEN clones it and no personal access
+# token is stored anywhere. This started as a gated job holding a classic PAT with `repo` scope; that
+# grants read AND WRITE to every repository the owner has, to clone one public repo. Publishing the
+# mirror removed the credential rather than narrowing it, which is the better fix: a secret that does
+# not exist cannot leak from a workflow log or a compromised action.
 
 on:
   push:
@@ -18,6 +33,12 @@ on:
         description: "Image tag to publish (default: the run's short SHA)"
         required: false
         type: string
+      images:
+        description: "Which images to build"
+        required: false
+        default: both
+        type: choice
+        options: [both, core, dsh]
 
 concurrency:
   group: images-${{ github.ref }}
@@ -28,17 +49,17 @@ permissions:
   packages: write
 
 jobs:
-  core:
-    name: synapse-core
+  # ── one place decides the version, so core and dsh cannot disagree ──────────
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
     steps:
       - uses: actions/checkout@v5
-
-      - name: Work out the tags
-        id: tags
+      - id: v
         run: |
           set -euo pipefail
-          IMAGE=ghcr.io/${{ github.repository_owner }}/synapse-core
           if [ -n "${{ inputs.tag }}" ]; then
             VERSION="${{ inputs.tag }}"
           elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
@@ -46,23 +67,40 @@ jobs:
           else
             VERSION="$(git rev-parse --short HEAD)"
           fi
-          # :latest moves only for a real version tag. A dispatch build must not silently become
+          # :latest moves only for a real version tag. A dispatch build must never silently become
           # what every standalone stack pulls.
-          TAGS="${IMAGE}:${VERSION}"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then TAGS="${TAGS},${IMAGE}:latest"; fi
-          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          RELEASE=false
+          [ "${GITHUB_REF_TYPE}" = "tag" ] && RELEASE=true
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release=${RELEASE}" >> "$GITHUB_OUTPUT"
 
-      - name: Check the version in the tag matches package.json
+      - name: Refuse a tag whose version disagrees with package.json
         if: github.ref_type == 'tag'
         run: |
           set -euo pipefail
           PKG="$(node -p "require('./package.json').version")"
-          if [ "$PKG" != "${{ steps.tags.outputs.version }}" ]; then
-            echo "tag says ${{ steps.tags.outputs.version }}, package.json says ${PKG}" >&2
+          if [ "$PKG" != "${{ steps.v.outputs.version }}" ]; then
+            echo "tag says ${{ steps.v.outputs.version }}, package.json says ${PKG}" >&2
             exit 1
           fi
 
+  # ── core: one job per architecture, each pushing an untagged digest ─────────
+  core-build:
+    needs: version
+    if: inputs.images != 'dsh'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+            slug: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            slug: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -70,76 +108,130 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: deploy/Dockerfile
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          # by-digest: no tag here. The merge job names the result.
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/synapse-core,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=core-${{ matrix.slug }}
+          cache-to: type=gha,mode=max,scope=core-${{ matrix.slug }}
 
-  dsh:
-    name: synapse-dsh
+      - name: Save the digest for the merge job
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${{ steps.build.outputs.digest }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-core-${{ matrix.slug }}
+          path: /tmp/digests/*
+          retention-days: 1
+
+  core-manifest:
+    needs: [version, core-build]
+    if: inputs.images != 'dsh'
     runs-on: ubuntu-latest
     steps:
-      - name: Skip with a reason if the harness repo is unreachable
-        id: gate
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digests-core-*
+          merge-multiple: true
+          path: /tmp/digests
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stitch the per-arch digests into one manifest list
+        working-directory: /tmp/digests
         run: |
-          if [ -z "${{ secrets.HARNESS_REPO_TOKEN }}" ]; then
-            echo "HARNESS_REPO_TOKEN is not set — cannot clone the harness fork. Skipping." >&2
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
+          set -euo pipefail
+          IMAGE=ghcr.io/${{ github.repository_owner }}/synapse-core
+          TAGS="-t ${IMAGE}:${{ needs.version.outputs.version }}"
+          if [ "${{ needs.version.outputs.release }}" = "true" ]; then TAGS="${TAGS} -t ${IMAGE}:latest"; fi
+          docker buildx imagetools create ${TAGS} $(printf "${IMAGE}@sha256:%s " *)
+          docker buildx imagetools inspect "${IMAGE}:${{ needs.version.outputs.version }}"
 
+  # ── dsh: same shape, plus the second checkout and the secret gate ───────────
+  dsh-build:
+    needs: version
+    if: inputs.images != 'core'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+            slug: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            slug: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
       - uses: actions/checkout@v5
-        if: steps.gate.outputs.run == 'true'
         with:
           path: synapse
 
-      # The harness carries the Dockerfile; Synapse is injected as a named build context so the
-      # image ships the plugin. Both trees, or the image has no Synapse tools in it.
+      # The harness carries the Dockerfile; Synapse is injected as a NAMED BUILD CONTEXT so the image
+      # ships the plugin. Both trees, or the image has no Synapse tools in it.
       - uses: actions/checkout@v5
-        if: steps.gate.outputs.run == 'true'
         with:
           repository: ${{ github.repository_owner }}/deepseek-harness
           ref: ${{ vars.HARNESS_REF || 'synapse/docker-image' }}
-          token: ${{ secrets.HARNESS_REPO_TOKEN }}
           path: harness
 
-      - name: Work out the tags
-        if: steps.gate.outputs.run == 'true'
-        id: tags
-        run: |
-          set -euo pipefail
-          IMAGE=ghcr.io/${{ github.repository_owner }}/synapse-dsh
-          if [ -n "${{ inputs.tag }}" ]; then
-            VERSION="${{ inputs.tag }}"
-          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="$(git -C synapse rev-parse --short HEAD)"
-          fi
-          TAGS="${IMAGE}:${VERSION}"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then TAGS="${TAGS},${IMAGE}:latest"; fi
-          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
-
       - uses: docker/setup-buildx-action@v3
-        if: steps.gate.outputs.run == 'true'
       - uses: docker/login-action@v3
-        if: steps.gate.outputs.run == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
-        if: steps.gate.outputs.run == 'true'
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: harness
           build-contexts: synapse=synapse
-          push: true
-          tags: ${{ steps.tags.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/synapse-dsh,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=dsh-${{ matrix.slug }}
+          cache-to: type=gha,mode=max,scope=dsh-${{ matrix.slug }}
+
+      - name: Save the digest for the merge job
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${{ steps.build.outputs.digest }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-dsh-${{ matrix.slug }}
+          path: /tmp/digests/*
+          retention-days: 1
+
+  dsh-manifest:
+    needs: [version, dsh-build]
+    if: inputs.images != 'core'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digests-dsh-*
+          merge-multiple: true
+          path: /tmp/digests
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stitch the per-arch digests into one manifest list
+        working-directory: /tmp/digests
+        run: |
+          set -euo pipefail
+          IMAGE=ghcr.io/${{ github.repository_owner }}/synapse-dsh
+          TAGS="-t ${IMAGE}:${{ needs.version.outputs.version }}"
+          if [ "${{ needs.version.outputs.release }}" = "true" ]; then TAGS="${TAGS} -t ${IMAGE}:latest"; fi
+          docker buildx imagetools create ${TAGS} $(printf "${IMAGE}@sha256:%s " *)
+          docker buildx imagetools inspect "${IMAGE}:${{ needs.version.outputs.version }}"
