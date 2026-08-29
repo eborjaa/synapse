@@ -1,5 +1,8 @@
 # Synapse — the whole stack, from published images. No source checkout, no build step.
 #
+# Two containers: the UI you log into, and the engine it talks to. A VPN belongs on the HOST
+# (point BIND_ADDR at its interface); an embedding host is a URL, not a container here.
+#
 #   curl -O https://raw.githubusercontent.com/eborjaa/synapse/main/deploy/standalone/compose.yml
 #   curl -o .env https://raw.githubusercontent.com/eborjaa/synapse/main/deploy/standalone/.env.example
 #   $EDITOR .env          # set SYNAPSE_VAULTS_DIR and SYNAPSE_BOOTSTRAP_TOKEN
@@ -17,22 +20,6 @@
 name: synapse
 
 services:
-  vpn-sidecar:
-    image: ${VPN_IMAGE:-busybox:1.36}
-    container_name: synapse-vpn
-    init: true
-    restart: unless-stopped
-    network_mode: service:dsh
-    depends_on:
-      - dsh
-    cap_add:
-      - NET_ADMIN
-    command: ["sh", "-c", "echo 'synapse vpn-sidecar idle — set VPN_IMAGE to terminate a real tunnel'; sleep infinity"]
-    environment:
-      TS_AUTHKEY: ${TS_AUTHKEY:-}
-    volumes:
-      - vpn-state:/var/lib/tailscale
-
   dsh:
     image: ${DSH_IMAGE:-ghcr.io/eborjaa/synapse-dsh:latest}
     container_name: synapse-dsh
@@ -83,29 +70,22 @@ services:
       SYNAPSE_MCP_PORT: "3000"
       SYNAPSE_MCP_PATH: /mcp
       SYNAPSE_MCP_SURFACE: orchestrator
-      SYNAPSE_OLLAMA_URL: ${SYNAPSE_OLLAMA_URL:-http://ollama:11434}
+      # An embedding host, not a container in this file. Defaults to one on the Docker host.
+      #
+      # No extra_hosts here: a container sharing another's network namespace cannot have its own
+      # host-to-IP mappings (Docker refuses outright — "conflicting options: custom host-to-IP
+      # mapping and the network mode"). /etc/hosts belongs to the namespace, so core resolves
+      # host.docker.internal through the entry dsh declares.
+      SYNAPSE_OLLAMA_URL: ${SYNAPSE_OLLAMA_URL:-http://host.docker.internal:11434}
       # The two bootstrap switches. Unset both and this behaves exactly as it always has: you register
       # vaults and mint credentials yourself with `docker exec`.
       SYNAPSE_AUTO_REGISTER: ${SYNAPSE_AUTO_REGISTER:-}
       SYNAPSE_BOOTSTRAP_TOKEN: ${SYNAPSE_BOOTSTRAP_TOKEN:-}
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: synapse-ollama
-    profiles:
-      - embeddings
-    restart: unless-stopped
-    volumes:
-      - ollama:/root/.ollama
-    networks:
-      - synapse
-
 volumes:
   config:
   skills:
   dsh-home:
-  vpn-state:
-  ollama:
 
 networks:
   synapse:
