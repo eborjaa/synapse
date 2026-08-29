@@ -24,9 +24,30 @@ name: images
 # mirror removed the credential rather than narrowing it, which is the better fix: a secret that does
 # not exist cannot leak from a workflow log or a compromised action.
 
+# WHEN THIS RUNS
+#
+#   push to main  → publishes :main and :sha-<short>. Automatic, so a merge that changes what the
+#                   images contain cannot leave the registry stale. Path-filtered: a docs-only commit
+#                   does not spend ~8 minutes of runner time rebuilding two images to no effect.
+#   push of v*    → publishes :X.Y.Z and moves :latest. A RELEASE promotes; a merge does not, because
+#                   :latest is what every standalone compose file pulls and it should not track
+#                   whatever landed on main an hour ago.
+#   manual        → whatever tag you name, :latest untouched.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
+    paths:
+      # Everything that ends up inside an image, plus this file. Anything not listed here cannot
+      # change what is published, so a run would be pure cost.
+      - "bin/**"
+      - "lib/**"
+      - "mcp/**"
+      - "dsh/**"
+      - "deploy/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/images.yml"
   workflow_dispatch:
     inputs:
       tag:
@@ -54,24 +75,31 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      extra: ${{ steps.v.outputs.extra }}
       release: ${{ steps.v.outputs.release }}
     steps:
       - uses: actions/checkout@v5
       - id: v
         run: |
           set -euo pipefail
+          SHORT="$(git rev-parse --short HEAD)"
+          EXTRA=""
           if [ -n "${{ inputs.tag }}" ]; then
             VERSION="${{ inputs.tag }}"
           elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            VERSION="$(git rev-parse --short HEAD)"
+            # A merge to main. Two names for one image: a moving one to follow, and an immutable one
+            # to pin a bug report to.
+            VERSION="main"
+            EXTRA="sha-${SHORT}"
           fi
-          # :latest moves only for a real version tag. A dispatch build must never silently become
-          # what every standalone stack pulls.
+          # :latest moves only for a real version tag. Neither a merge nor a dispatch may silently
+          # become what every standalone compose file pulls.
           RELEASE=false
           [ "${GITHUB_REF_TYPE}" = "tag" ] && RELEASE=true
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "extra=${EXTRA}" >> "$GITHUB_OUTPUT"
           echo "release=${RELEASE}" >> "$GITHUB_OUTPUT"
 
       - name: Refuse a tag whose version disagrees with package.json
@@ -156,6 +184,7 @@ jobs:
           set -euo pipefail
           IMAGE=ghcr.io/${{ github.repository_owner }}/synapse-core
           TAGS="-t ${IMAGE}:${{ needs.version.outputs.version }}"
+          if [ -n "${{ needs.version.outputs.extra }}" ]; then TAGS="${TAGS} -t ${IMAGE}:${{ needs.version.outputs.extra }}"; fi
           if [ "${{ needs.version.outputs.release }}" = "true" ]; then TAGS="${TAGS} -t ${IMAGE}:latest"; fi
           docker buildx imagetools create ${TAGS} $(printf "${IMAGE}@sha256:%s " *)
           docker buildx imagetools inspect "${IMAGE}:${{ needs.version.outputs.version }}"
@@ -242,6 +271,7 @@ jobs:
           set -euo pipefail
           IMAGE=ghcr.io/${{ github.repository_owner }}/synapse-dsh
           TAGS="-t ${IMAGE}:${{ needs.version.outputs.version }}"
+          if [ -n "${{ needs.version.outputs.extra }}" ]; then TAGS="${TAGS} -t ${IMAGE}:${{ needs.version.outputs.extra }}"; fi
           if [ "${{ needs.version.outputs.release }}" = "true" ]; then TAGS="${TAGS} -t ${IMAGE}:latest"; fi
           docker buildx imagetools create ${TAGS} $(printf "${IMAGE}@sha256:%s " *)
           docker buildx imagetools inspect "${IMAGE}:${{ needs.version.outputs.version }}"
