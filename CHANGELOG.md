@@ -4,6 +4,22 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Added
+- **The stack runs from published images, with no source checkout.**
+  `deploy/standalone/compose.yml` pulls `ghcr.io/eborjaa/synapse-core` and
+  `ghcr.io/eborjaa/synapse-dsh` instead of building, bind-mounts your vault directory from the host,
+  and defaults `BIND_ADDR` to loopback so forgetting it is safe rather than exposing. Two `curl`s and
+  `docker compose up`. `deploy/compose.yml` is unchanged and remains the build-from-source path.
+- **Two switches let a stack wire itself, and both default to off.** `SYNAPSE_AUTO_REGISTER=1`
+  registers every vault directory under `SYNAPSE_VAULTS_DIR`; `SYNAPSE_BOOTSTRAP_TOKEN` becomes a
+  credential granting all of them, read by both containers from one variable so no secret is copied
+  between steps by hand. Together with leaving both unset, that is three modes: manual,
+  auto-register, full auto. The secret is stored hashed like any other, grants an explicit vault set,
+  and is never admin; a secret under 24 characters, or one with no registered vault, is refused
+  rather than quietly accepted. See [[decision-0020-declarative-stack-bootstrap]].
+- **`.github/workflows/images.yml`** builds and pushes both images on a version tag, and refuses a
+  tag whose version disagrees with `package.json`.
+
 ## 2.1.0 — 2026-08-28
 
 ### Added

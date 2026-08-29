@@ -51,6 +51,9 @@ The design notes, in reading order:
 - [[doc-four-containers]] — the packaged deployment: four disposable containers over six named volumes,
   one compose file for laptop and server, `BIND_ADDR` the only switch
   ([[decision-0016-four-container-deployment]]).
+- [[decision-0020-declarative-stack-bootstrap]] — a stack may register its own vaults and take one
+  credential from its environment; both switches are off by default, so an existing deployment is
+  unchanged.
 - [[doc-stack-on-a-new-machine]] — the runbook for that stack on a machine that has never seen Synapse:
   build both images, register vaults on the volume, mint the credential, and the checks that catch each
   step failing quietly.

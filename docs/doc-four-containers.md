@@ -22,6 +22,10 @@ cp deploy/.env.example deploy/.env      # BIND_ADDR=127.0.0.1 on a laptop
 BIND_ADDR=127.0.0.1 ./deploy/up.sh up -d --build
 ```
 
+**Running it rather than changing it?** `deploy/standalone/compose.yml` pulls published images
+instead of building, so no checkout is needed at all — two `curl`s and `docker compose up`. See
+[[doc-stack-on-a-new-machine]]. The file below is the build-from-source sibling.
+
 That is the shape. **The step-by-step sequence for a machine that has never run this — both image
 builds, getting vaults onto the volume, minting the credential, and a check after every step — is
 [[doc-stack-on-a-new-machine]].** What follows here is the reference: what each piece is, and why.
@@ -65,6 +69,29 @@ On every start, `synapse-core` runs that generation itself (`lib/boot-sync.mjs`:
 `skills` for each registered vault) **before** the HTTP listener opens. It also writes
 `$SYNAPSE_SKILLS_ROOT/index.json` — id + root only, never tokens — so DSH can resolve the open
 folder to a vault id without mounting `config/`. A missing vault is logged; it never blocks the server.
+
+## Bootstrapping — three modes
+
+Registering a vault and minting a credential are `docker exec` steps, and both fail quietly: the
+symptom is "the session has no tools", which names neither cause. Two environment variables on
+`synapse-core` give them a declarative form. **Both default to off**, so an existing stack is
+unchanged ([[decision-0020-declarative-stack-bootstrap]]).
+
+| `SYNAPSE_AUTO_REGISTER` | `SYNAPSE_BOOTSTRAP_TOKEN` | Behaviour |
+|---|---|---|
+| unset | unset | register and mint by hand — the long-standing path |
+| `1` | unset | vault directories under `SYNAPSE_VAULTS_DIR` register themselves |
+| `1` | a secret | ...and that secret grants all of them |
+
+`lib/bootstrap.mjs` runs both **before** `boot-sync` and long before the listener, in that order
+because a credential cannot grant a vault that is not registered yet. It never throws: a stack that
+serves nothing because an optional convenience failed is worse than one that serves what it can.
+
+The bootstrap secret is an ordinary credential row — hashed, granting an explicit vault set, never
+admin. Four refusals keep it from being weaker than minting: a secret under 24 characters is refused;
+a secret with no registered vault is refused rather than stored granting nothing; re-running is
+idempotent by hash so a restart loop adds one row rather than one per boot; and auto-register never
+*removes*, because a mount that has not come up yet looks exactly like a vault that is gone.
 
 ## Exactly one core
 

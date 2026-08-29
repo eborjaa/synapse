@@ -5,11 +5,7 @@
 // the UI on every interface, or running two cores against one DB, looks exactly like a healthy one.
 // `docker compose config` would catch a syntax error; none of these are syntax errors.
 //
-// WHY a hand-rolled parser. The repo ships two runtime dependencies on purpose, and a YAML library
-// for one test file is not worth a third. The subset below (2-space block maps, scalar lists,
-// quote-aware comment stripping) covers this file completely, and parseStrict() throws on anything it
-// does not understand rather than silently returning a partial tree — a parser that quietly dropped
-// `ports:` would turn the most important test here into a vacuous pass.
+// The YAML parser lives in ./compose-yaml.mjs, shared with standalone.test.mjs.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -18,74 +14,11 @@ import { readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
+import { parseStrict } from "./compose-yaml.mjs";
+
 const DEPLOY = dirname(fileURLToPath(import.meta.url));
 const ROOT = dirname(DEPLOY);
 const read = (rel) => readFileSync(join(ROOT, rel), "utf8");
-
-// ── the smallest YAML that reads this file ────────────────────────────────────
-
-/** Strip a trailing `# comment`, but never one inside quotes (`"${BIND_ADDR}:8080:8080"`). */
-function stripComment(line) {
-  let quote = null;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (quote) {
-      if (ch === quote) quote = null;
-      continue;
-    }
-    if (ch === '"' || ch === "'") { quote = ch; continue; }
-    if (ch === "#" && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
-  }
-  return line;
-}
-
-function scalar(raw) {
-  const t = raw.trim();
-  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
-    return t.slice(1, -1);
-  }
-  if (t === "true") return true;
-  if (t === "false") return false;
-  if (/^-?\d+$/.test(t)) return Number(t);
-  return t;
-}
-
-function parseStrict(text) {
-  const lines = [];
-  for (const raw of text.split("\n")) {
-    const line = stripComment(raw).replace(/\s+$/, "");
-    if (!line.trim()) continue;
-    lines.push({ indent: line.match(/^ */)[0].length, body: line.trim() });
-  }
-
-  let i = 0;
-  function block(indent) {
-    if (lines[i].body.startsWith("- ")) {
-      const arr = [];
-      while (i < lines.length && lines[i].indent === indent && lines[i].body.startsWith("- ")) {
-        arr.push(scalar(lines[i++].body.slice(2)));
-      }
-      return arr;
-    }
-    const map = {};
-    while (i < lines.length && lines[i].indent === indent) {
-      const { body } = lines[i];
-      const colon = body.indexOf(":");
-      if (colon === -1) throw new Error(`compose.test: cannot parse line "${body}"`);
-      const key = body.slice(0, colon).trim();
-      const rest = body.slice(colon + 1).trim();
-      i++;
-      if (rest !== "") map[key] = scalar(rest);
-      else if (i < lines.length && lines[i].indent > indent) map[key] = block(lines[i].indent);
-      else map[key] = null;
-    }
-    return map;
-  }
-
-  const out = block(0);
-  if (i !== lines.length) throw new Error(`compose.test: stopped at "${lines[i].body}"`);
-  return out;
-}
 
 const COMPOSE_TEXT = read("deploy/compose.yml");
 const compose = parseStrict(COMPOSE_TEXT);

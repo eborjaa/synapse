@@ -31,6 +31,61 @@ prerequisite this document assumed you already had.
 
 ---
 
+## The short path — two files, no checkout
+
+If you are not changing Synapse, you do not need either source tree. The images are published and
+the whole stack is one compose file:
+
+```bash
+mkdir synapse-stack && cd synapse-stack
+curl -O https://raw.githubusercontent.com/eborjaa/synapse/main/deploy/standalone/compose.yml
+curl -o .env https://raw.githubusercontent.com/eborjaa/synapse/main/deploy/standalone/.env.example
+
+$EDITOR .env      # two lines: SYNAPSE_VAULTS_DIR, SYNAPSE_BOOTSTRAP_TOKEN
+docker compose up -d
+```
+
+`.env` needs exactly two answers:
+
+```
+SYNAPSE_VAULTS_DIR=/path/to/where/your/vaults/live
+SYNAPSE_BOOTSTRAP_TOKEN=<openssl rand -base64 32>
+```
+
+Every vault directory under that path registers itself, the token becomes a credential granting all
+of them, and both containers read it from that one variable. Nothing to `docker exec`, no secret to
+copy between steps. Then open the UI ([step 7](#7-open-it)).
+
+**Requirements for this path:** Docker, and a directory containing at least one vault. That is all —
+no Node on the host, no git, no build.
+
+### Three bootstrap modes
+
+Two switches, and both are **off by default** so that upgrading an existing stack changes nothing.
+
+| `SYNAPSE_AUTO_REGISTER` | `SYNAPSE_BOOTSTRAP_TOKEN` | What happens |
+|---|---|---|
+| unset | unset | **Manual.** You register vaults and mint credentials yourself — [step 4](#4-put-vaults-on-the-volume-and-register-them). The long-standing behaviour. |
+| `1` | unset | **Auto-register.** Vaults on the mounted path register themselves; you still mint the credential. |
+| `1` | a secret | **Full auto.** Both. Nothing to exec. |
+
+The bootstrap secret becomes an **ordinary credential row**: hashed, never stored in the clear,
+granting exactly your registered vaults, and never admin. Core refuses one shorter than 24
+characters rather than accepting a guessable bearer, and refuses to store one when no vault is
+registered — an empty grant is indistinguishable from a revoked credential at the listener, so it
+would send you hunting a credential bug that is a registration bug.
+
+Re-running is safe: a restart adds no second credential row, and registering a new vault later
+widens the existing one rather than leaving it answering for the old set.
+
+---
+
+## The long path — building from source
+
+Everything below builds the images yourself. Take it if you are **changing** Synapse or the harness,
+if you cannot pull from `ghcr.io`, or if you want to read what the images contain before running
+them.
+
 ## 0. What the machine needs
 
 | | | Check |
