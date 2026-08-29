@@ -154,8 +154,11 @@ jobs:
 
       - name: Save the digest for the merge job
         run: |
+          # The filename is the digest WITHOUT its "sha256:" prefix. upload-artifact rejects a colon
+          # in a path outright, and the merge job re-adds the prefix when it rebuilds the reference.
           mkdir -p /tmp/digests
-          touch "/tmp/digests/${{ steps.build.outputs.digest }}"
+          digest='${{ steps.build.outputs.digest }}'
+          touch "/tmp/digests/${digest#sha256:}"
       - uses: actions/upload-artifact@v4
         with:
           name: digests-core-${{ matrix.slug }}
@@ -241,8 +244,11 @@ jobs:
 
       - name: Save the digest for the merge job
         run: |
+          # The filename is the digest WITHOUT its "sha256:" prefix. upload-artifact rejects a colon
+          # in a path outright, and the merge job re-adds the prefix when it rebuilds the reference.
           mkdir -p /tmp/digests
-          touch "/tmp/digests/${{ steps.build.outputs.digest }}"
+          digest='${{ steps.build.outputs.digest }}'
+          touch "/tmp/digests/${digest#sha256:}"
       - uses: actions/upload-artifact@v4
         with:
           name: digests-dsh-${{ matrix.slug }}
