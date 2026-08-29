@@ -1,33 +1,27 @@
-# Four disposable containers. All durable state is in the named volumes below.
+# Two disposable containers. All durable state is in the named volumes below.
 #
-# Laptop vs server: set BIND_ADDR (127.0.0.1 vs the VPN interface). Never 0.0.0.0.
-# Swapping the VPN is swapping VPN_IMAGE on vpn-sidecar, not a second compose file.
+# Laptop vs server: set BIND_ADDR (127.0.0.1 vs a VPN interface). Never 0.0.0.0.
 #
 #   BIND_ADDR=127.0.0.1 ./deploy/up.sh up --build
 #
 # synapse-core shares dsh's network namespace so MCP can bind 127.0.0.1 (the existing
 # local-only guard) while dsh still reaches it. Rosters travel as files on `skills`.
+#
+# WHAT IS NOT HERE ANY MORE, and how to get it back:
+#
+#   vpn-sidecar — was an idle busybox until someone set VPN_IMAGE, which nobody did. A tunnel is
+#     not this file's job: run Tailscale/WireGuard on the HOST and point BIND_ADDR at its interface
+#     address. That is fewer moving parts and the same privacy posture, because the guarantee was
+#     never "a VPN container exists" — it is "BIND_ADDR is not a wildcard" ([[doc-deployment-gate]]).
+#
+#   ollama — was behind `profiles: [embeddings]`, so it never started unless asked for. The
+#     CAPABILITY is unchanged: SYNAPSE_OLLAMA_URL still points core at an embedding host, and it now
+#     defaults to one on the Docker host. Semantic recall works; the container managing it does not
+#     have to live here. The deterministic core never needed it either way.
 
 name: synapse
 
 services:
-  vpn-sidecar:
-    image: ${VPN_IMAGE:-synapse-vpn-idle}
-    build:
-      context: ./vpn-idle
-    container_name: synapse-vpn
-    init: true
-    restart: unless-stopped
-    network_mode: service:dsh
-    depends_on:
-      - dsh
-    cap_add:
-      - NET_ADMIN
-    environment:
-      TS_AUTHKEY: ${TS_AUTHKEY:-}
-    volumes:
-      - vpn-state:/var/lib/tailscale
-
   dsh:
     image: ${DSH_IMAGE:-synapse-dsh-stub}
     build:
@@ -83,26 +77,19 @@ services:
       SYNAPSE_MCP_PORT: "3000"
       SYNAPSE_MCP_PATH: /mcp
       SYNAPSE_MCP_SURFACE: orchestrator
-      SYNAPSE_OLLAMA_URL: http://ollama:11434
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: synapse-ollama
-    profiles:
-      - embeddings
-    restart: unless-stopped
-    volumes:
-      - ollama:/root/.ollama
-    networks:
-      - synapse
+      # An embedding host, not a container in this file. Defaults to one on the Docker host.
+      #
+      # No extra_hosts here: a container sharing another's network namespace cannot have its own
+      # host-to-IP mappings (Docker refuses outright — "conflicting options: custom host-to-IP
+      # mapping and the network mode"). /etc/hosts belongs to the namespace, so core resolves
+      # host.docker.internal through the entry dsh declares.
+      SYNAPSE_OLLAMA_URL: ${SYNAPSE_OLLAMA_URL:-http://host.docker.internal:11434}
 
 volumes:
   vaults:
   config:
   skills:
   dsh-home:
-  vpn-state:
-  ollama:
 
 networks:
   synapse:

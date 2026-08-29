@@ -51,7 +51,7 @@ test("forgetting BIND_ADDR is SAFE — it defaults to loopback, never a wildcard
 test("only dsh publishes to the host; core is reachable only inside the namespace", () => {
   assert.equal(svc("synapse-core").ports, undefined, "core must never publish a host port");
   assert.equal(svc("synapse-core").network_mode, "service:dsh");
-  assert.equal(svc("vpn-sidecar").network_mode, "service:dsh", "swapping the VPN must not move the UI");
+  assert.equal(Object.keys(compose.services).sort().join(","), "dsh,synapse-core", "two services, no placeholders");
   assert.equal(svc("synapse-core").environment.SYNAPSE_MCP_HOST, "127.0.0.1");
   assert.equal(
     JSON.stringify(svc("synapse-core").environment).includes("BIND_ADDR"),
@@ -112,7 +112,7 @@ test("both bootstrap switches default to EMPTY — an existing stack is unchange
 
 test("every durable path is a named volume, except the vaults you deliberately bind", () => {
   const declared = Object.keys(compose.volumes).sort();
-  assert.deepEqual(declared, ["config", "dsh-home", "ollama", "skills", "vpn-state"]);
+  assert.deepEqual(declared, ["config", "dsh-home", "skills"]);
   for (const [name, service] of Object.entries(compose.services)) {
     for (const mount of service.volumes || []) {
       const source = String(mount).split(":")[0];
@@ -122,8 +122,24 @@ test("every durable path is a named volume, except the vaults you deliberately b
   }
 });
 
-test("ollama stays behind a profile — the deterministic core works without it", () => {
-  assert.deepEqual(svc("ollama").profiles, ["embeddings"]);
+test("an embedding host is a URL, not a container in this file", () => {
+  // Removing the container must not remove the capability: semantic recall needs something that
+  // answers on a URL, and never needed compose to manage its lifecycle.
+  assert.equal(compose.services.ollama, undefined, "no ollama service");
+  assert.match(svc("synapse-core").environment.SYNAPSE_OLLAMA_URL, /^\$\{SYNAPSE_OLLAMA_URL:-/);
+  // dsh declares the mapping; core shares dsh's network namespace and therefore its /etc/hosts.
+  // Declaring it on core too is not redundant, it is REFUSED: "conflicting options: custom
+  // host-to-IP mapping and the network mode". Caught by running the stack, not by reading it.
+  assert.ok(svc("dsh").extra_hosts.includes("host.docker.internal:host-gateway"),
+    "dsh owns the namespace, so dsh carries the host mapping core needs");
+  assert.equal(svc("synapse-core").extra_hosts, undefined,
+    "core shares dsh's netns; its own extra_hosts would make the stack refuse to start");
+});
+
+test("no VPN container — the guarantee is the bind address, not a sidecar", () => {
+  assert.equal(compose.services["vpn-sidecar"], undefined);
+  const declarations = TEXT.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
+  assert.equal(declarations.includes("VPN_IMAGE"), false, "a removed service must not leave its variable behind");
 });
 
 test(".env.example documents all three bootstrap modes, and ships no secret", () => {

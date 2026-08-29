@@ -1,18 +1,22 @@
 ---
 id: doc-four-containers
 type: doc
-title: The four-container stack — one compose file, laptop or server
+title: The container stack — one compose file, laptop or server
 tags:
   - type/doc
   - area/runtime
   - status/active
 references_docs: ["[[conventions]]", "[[doc-runtime-wiring]]", "[[doc-deployment-gate]]", "[[doc-stack-on-a-new-machine]]"]
-related: ["[[hub-synapse]]", "[[decision-0016-four-container-deployment]]", "[[decision-0018-dsh-session-vault-router]]", "[[plan-four-containers]]"]
+related: ["[[hub-synapse]]", "[[decision-0016-four-container-deployment]]", "[[decision-0021-two-container-stack]]", "[[decision-0018-dsh-session-vault-router]]", "[[plan-four-containers]]"]
 ---
 
-# The four-container stack
+# The container stack
 
-`deploy/compose.yml` runs Synapse as four disposable containers over six named volumes. The same file
+> **This note keeps the id `doc-four-containers` although the stack is now two.** The id is what two
+> dozen notes link to, and a decision note is a dated record rather than something to rewrite. What
+> changed and why: [[decision-0021-two-container-stack]].
+
+`deploy/compose.yml` runs Synapse as two disposable containers over four named volumes. The same file
 runs on a laptop and on a home server; **only `BIND_ADDR` differs**, and nothing in any image knows where
 it is running ([[decision-0016-four-container-deployment]]).
 
@@ -38,12 +42,19 @@ late.
 
 | # | Container | Role | Notes |
 |---|---|---|---|
-| 1 | `vpn-sidecar` | terminates the tunnel | swappable — `VPN_IMAGE=tailscale/tailscale:…`; idle busybox by default |
-| 2 | `dsh` | the web UI you log into | stub by default; set `DSH_IMAGE` for a real DeepSeek Harness. Owns the network namespace |
-| 3 | `synapse-core` | engine + MCP, one vault per request | **exactly one instance** |
-| 4 | `ollama` | embeddings only | `profiles: [embeddings]` — the deterministic core works without it |
+| 1 | `dsh` | the web UI you log into | stub by default; set `DSH_IMAGE` for a real DeepSeek Harness. Owns the network namespace |
+| 2 | `synapse-core` | engine + MCP, one vault per request | **exactly one instance** |
 
-**`dsh` owns the network namespace.** `synapse-core` and `vpn-sidecar` join it with
+Two more used to be here and are not:
+
+- **`vpn-sidecar`** was an idle busybox waiting for a `VPN_IMAGE` nobody set. Run the tunnel on the
+  **host** and point `BIND_ADDR` at its interface address. The privacy guarantee was never "a VPN
+  container exists" — it is that `BIND_ADDR` is not a wildcard ([[doc-deployment-gate]]).
+- **`ollama`** sat behind `profiles: [embeddings]` and never started unless asked for. The capability
+  is unchanged: `SYNAPSE_OLLAMA_URL` points core at any embedding host and defaults to one on the
+  Docker host. Compose does not have to own that process.
+
+**`dsh` owns the network namespace.** `synapse-core` joins it with
 `network_mode: service:dsh`, so MCP binds `127.0.0.1:3000` — the existing local-only guard, unweakened —
 and dsh still reaches it. Only dsh publishes to the host, as `${BIND_ADDR}:8080:8080`. Core is never given
 `BIND_ADDR`: that is a host-publish concern, and passing it in would make core listen on the public
@@ -57,8 +68,11 @@ address.
 | `config` | core (rw) | `vaults.json`, `tokens.json` (0600), the core lock |
 | `skills` | core (rw), **dsh (ro)** | generated rosters |
 | `dsh-home` | dsh (rw) | DSH settings, sessions, profile patches |
-| `vpn-state` | vpn-sidecar | tunnel identity |
-| `ollama` | ollama | pulled models |
+
+**`extra_hosts` lives on `dsh` alone.** A container sharing another's network namespace cannot carry
+its own host-to-IP mappings — Docker refuses with *"conflicting options: custom host-to-IP mapping and
+the network mode"*. `/etc/hosts` belongs to the namespace, so core resolves `host.docker.internal`
+through the entry `dsh` declares, which is how it reaches an embedding server on the host.
 
 `SYNAPSE_SKILLS_ROOT` is what lets `skills` be a *shared* volume while `config` stays private. Without it
 the roster would land under `$SYNAPSE_HOME`, and handing dsh the rosters would mean mounting the
@@ -112,9 +126,9 @@ because compose has already settled the question a layer above.
 
 ## What is not here yet
 
-The VPN sidecar idles until `VPN_IMAGE` names a real tunnel. The privacy posture is unchanged: nothing
-is published on a public interface ([[doc-deployment-gate]]). Vault switching in DSH is not a generated
-preset — opening a folder is the whole act ([[decision-0018-dsh-session-vault-router]]).
+The privacy posture is unchanged: nothing is published on a public interface
+([[doc-deployment-gate]]). Vault switching in DSH is not a generated preset — opening a folder is the
+whole act ([[decision-0018-dsh-session-vault-router]]).
 
 ## A real DSH UI (`DSH_IMAGE`)
 

@@ -36,8 +36,8 @@ test("the parser actually read the file — nothing below is a vacuous pass", ()
   assert.equal(compose.name, "synapse");
   assert.deepEqual(
     Object.keys(compose.services).sort(),
-    ["dsh", "ollama", "synapse-core", "vpn-sidecar"],
-    "four containers, exactly the four the plan names",
+    ["dsh", "synapse-core"],
+    "two containers: the UI you log into, and the engine it talks to",
   );
   assert.deepEqual(svc("dsh").ports, ["${BIND_ADDR}:8080:8080"], "the parser sees quoted list items");
   assert.equal(svc("synapse-core").deploy.replicas, 1, "the parser descends two levels");
@@ -138,7 +138,7 @@ test("US-4.5: core owns the roster plane, dsh reads it, and the credential store
 
 test("US-4.2: every durable path is a NAMED volume, so destroy-and-recreate loses nothing", () => {
   const declared = Object.keys(compose.volumes).sort();
-  assert.deepEqual(declared, ["config", "dsh-home", "ollama", "skills", "vaults", "vpn-state"]);
+  assert.deepEqual(declared, ["config", "dsh-home", "skills", "vaults"]);
 
   for (const [name, service] of Object.entries(compose.services)) {
     for (const mount of service.volumes || []) {
@@ -173,14 +173,21 @@ test("US-4.1 + US-2: core binds loopback inside the shared namespace and never l
     "${SYNAPSE_MCP_URL:-http://127.0.0.1:3000/mcp/synapse-vault}",
     "the stub image still uses a pinned URL; the real DSH image ignores it in favour of the plugin",
   );
-  assert.equal(svc("vpn-sidecar").network_mode, "service:dsh", "swapping the VPN must not move the UI");
+  assert.equal(Object.keys(compose.services).sort().join(","), "dsh,synapse-core", "two services, no placeholders");
 });
 
-test("US-4.6: ollama is optional, and reachable from core when it is running", () => {
-  const ollama = svc("ollama");
-  assert.deepEqual(ollama.profiles, ["embeddings"], "the deterministic core must come up without it");
-  assert.equal(svc("synapse-core").environment.SYNAPSE_OLLAMA_URL, "http://ollama:11434");
-  assert.deepEqual(ollama.networks, ["synapse"], "core reaches it by DNS through dsh's netns");
+test("US-4.6: semantic recall still has somewhere to go, without a container here", () => {
+  // The container is gone; the CAPABILITY is not. Core takes a URL, so an Ollama on the host — or
+  // anywhere else reachable — serves embeddings, and the deterministic core still works with none.
+  assert.equal(compose.services.ollama, undefined, "no ollama service");
+  assert.match(svc("synapse-core").environment.SYNAPSE_OLLAMA_URL, /^\$\{SYNAPSE_OLLAMA_URL:-/);
+  // dsh declares the mapping; core shares dsh's network namespace and therefore its /etc/hosts.
+  // Declaring it on core too is not redundant, it is REFUSED: "conflicting options: custom
+  // host-to-IP mapping and the network mode". Caught by running the stack, not by reading it.
+  assert.ok(svc("dsh").extra_hosts.includes("host.docker.internal:host-gateway"),
+    "dsh owns the namespace, so dsh carries the host mapping core needs");
+  assert.equal(svc("synapse-core").extra_hosts, undefined,
+    "core shares dsh's netns; its own extra_hosts would make the stack refuse to start");
   assert.deepEqual(svc("dsh").networks, ["synapse"], "dsh owns the namespace, so dsh owns the network");
 });
 
@@ -204,10 +211,18 @@ test("every build context resolves from deploy/, because that is where compose r
   );
 });
 
-test("the VPN and the UI are swappable images, not edits to this file", () => {
-  assert.match(svc("vpn-sidecar").image, /^\$\{VPN_IMAGE:-/, "VPN_IMAGE overrides the idle default");
-  assert.match(svc("dsh").image, /^\$\{DSH_IMAGE:-/, "DSH_IMAGE swaps the stub for the real harness (Epic 5)");
-  assert.ok(svc("vpn-sidecar").cap_add.includes("NET_ADMIN"), "a real tunnel needs to create a device");
+test("the UI is a swappable image, not an edit to this file", () => {
+  assert.match(svc("dsh").image, /^\$\{DSH_IMAGE:-/, "DSH_IMAGE swaps the stub for the real harness");
+});
+
+const DECLARATIONS = COMPOSE_TEXT.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
+
+test("no VPN container, and no leftover variable for one", () => {
+  // It was an idle busybox nobody ever set VPN_IMAGE on. A tunnel belongs on the host, and the
+  // privacy guarantee was never "a sidecar exists" — it is that BIND_ADDR is not a wildcard.
+  assert.equal(compose.services["vpn-sidecar"], undefined);
+  // Prose may still explain what was removed and why; a DECLARATION may not reference it.
+  assert.equal(DECLARATIONS.includes("VPN_IMAGE"), false, "a removed service must not leave its variable behind");
 });
 
 test("build-dsh.sh injects the synapse package as a named build context", () => {
