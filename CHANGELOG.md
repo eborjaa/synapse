@@ -4,6 +4,21 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 2.2.1 — 2026-08-29
+
+### Fixed
+- **The published container images can be pulled on x86_64 again, and publishing is automatic.** The
+  images workflow could never push: `synapse-core` and `synapse-dsh` were first pushed by hand and so
+  were owned by a user and linked to no repository, which no `packages: write` grant can fix. Recreating
+  them from Actions links them, and a second bug behind it is fixed too — the by-digest build named its
+  artifact after the digest, and `upload-artifact` refuses a path containing a colon.
+- **DSH behind a proxy on a real domain can list its providers.** DSH checks the `Host` header of every
+  `/api` request against a trusted list; the image trusted only loopback, so a proxied request failed
+  with `llm/listProviders … HTTP 403` and the WebSocket at `/api/remote.mux` failed identically.
+  `DSH_TRUSTED_HOSTS` names the domains to accept. Empty by default; loopback is always trusted.
+
+Install: `npm install @eborja/synapse@^2.2.1`
+
 ## 2.2.0 — 2026-08-29
 
 ### Changed
@@ -1333,8 +1348,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^2.2.0"
-// or: "github:eborjaa/synapse#v2.2.0"
+"@eborja/synapse": "^2.2.1"
+// or: "github:eborjaa/synapse#v2.2.1"
 ```
 
 ```sh
