@@ -114,6 +114,11 @@ jobs:
           context: .
           file: deploy/Dockerfile
           platforms: ${{ matrix.platform }}
+          # GHCR links a package to a repository by this label, and that linkage is what gives the
+          # repo's GITHUB_TOKEN write access to it. Without it, a package first pushed by hand stays
+          # user-owned and every CI push fails "denied: permission_denied: write_package" — which
+          # reads like a token scope problem and is not one.
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           # by-digest: no tag here. The merge job names the result.
           outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/synapse-core,push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=core-${{ matrix.slug }}
@@ -196,6 +201,11 @@ jobs:
           context: harness
           build-contexts: synapse=synapse
           platforms: ${{ matrix.platform }}
+          # GHCR links a package to a repository by this label, and that linkage is what gives the
+          # repo's GITHUB_TOKEN write access to it. Without it, a package first pushed by hand stays
+          # user-owned and every CI push fails "denied: permission_denied: write_package" — which
+          # reads like a token scope problem and is not one.
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/synapse-dsh,push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=dsh-${{ matrix.slug }}
           cache-to: type=gha,mode=max,scope=dsh-${{ matrix.slug }}
