@@ -4,6 +4,14 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+### Changed
+- **The stack is two containers, not four.** `vpn-sidecar` was an idle busybox waiting for a
+  `VPN_IMAGE` nobody ever set; `ollama` sat behind a profile that never started. Run the tunnel on
+  the **host** and point `BIND_ADDR` at its interface — the privacy guarantee was never "a VPN
+  container exists", it is that `BIND_ADDR` is not a wildcard. `SYNAPSE_OLLAMA_URL` still points core
+  at any embedding host and now defaults to one on the Docker host, so semantic recall is unchanged.
+  See [[decision-0021-two-container-stack]].
+
 ### Added
 - **The stack runs from published images, with no source checkout.**
   `deploy/standalone/compose.yml` pulls `ghcr.io/eborjaa/synapse-core` and

@@ -436,19 +436,19 @@ npm --prefix dsh/e2e test        # 9 specs; ~4 min. See dsh/e2e/README.md
 
 ## 9. Optional pieces
 
-**Semantic recall.** `augment` and `embeddings` want an embedding model; the deterministic core does not.
+**Semantic recall.** `augment` and `embeddings` want an embedding model; the deterministic core does
+not. There is no ollama container in the stack — point core at one anywhere it can reach. On the
+Docker host:
 
 ```bash
-BIND_ADDR=127.0.0.1 ./deploy/up.sh --profile embeddings up -d ollama
-docker exec synapse-ollama ollama pull mxbai-embed-large
+ollama pull mxbai-embed-large                          # on the host
+echo 'SYNAPSE_OLLAMA_URL=http://host.docker.internal:11434' >> deploy/.env
 ```
 
-**A VPN, to reach it from a phone.** `vpn-sidecar` idles until you name a real tunnel. Swapping the VPN
-is swapping one image, not editing the compose file:
+**A VPN, to reach it from a phone.** Run the tunnel on the **host** (Tailscale, WireGuard) and point
+the stack at its interface:
 
 ```
-VPN_IMAGE=tailscale/tailscale:v1.84.0
-TS_AUTHKEY=<key>
 BIND_ADDR=<the VPN interface address>      # never 0.0.0.0, and up.sh will refuse it
 ```
 

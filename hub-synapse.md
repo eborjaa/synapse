@@ -48,9 +48,11 @@ The design notes, in reading order:
   written inside the vault.
 - [[decision-0017-path-addressed-vaults]] — one credential may grant several vaults; the URL path picks
   which one answers, and can only narrow what the credential already allows.
-- [[doc-four-containers]] — the packaged deployment: four disposable containers over six named volumes,
+- [[doc-four-containers]] — the packaged deployment: two disposable containers over four named volumes,
   one compose file for laptop and server, `BIND_ADDR` the only switch
   ([[decision-0016-four-container-deployment]]).
+- [[decision-0021-two-container-stack]] — the VPN sidecar and the ollama container are gone: a tunnel
+  belongs on the host and an embedding server is a URL. Neither capability was lost.
 - [[decision-0020-declarative-stack-bootstrap]] — a stack may register its own vaults and take one
   credential from its environment; both switches are off by default, so an existing deployment is
   unchanged.
