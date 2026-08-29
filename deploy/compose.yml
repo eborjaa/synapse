@@ -43,6 +43,10 @@ services:
       SYNAPSE_MCP_HTTP_URL: ${SYNAPSE_MCP_HTTP_URL:-http://127.0.0.1:3000/mcp}
       SYNAPSE_MCP_URL: ${SYNAPSE_MCP_URL:-http://127.0.0.1:3000/mcp/synapse-vault}
       SYNAPSE_MCP_TOKEN: ${SYNAPSE_MCP_TOKEN:-}
+      # Extra authorities DSH's /api trust fence accepts, beyond loopback. Needed ONLY when the UI
+      # is reached through a proxy on a real domain: requests then carry that domain in Host, the
+      # fence answers 403, and the UI loads but cannot list providers.
+      DSH_TRUSTED_HOSTS: ${DSH_TRUSTED_HOSTS:-}
       OPENCODE_GO_API_KEY: ${OPENCODE_GO_API_KEY:-}
     networks:
       - synapse
