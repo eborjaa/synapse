@@ -1,5 +1,28 @@
 name: images
 
+# PUSHING TO GHCR NEEDS A TOKEN THAT OWNS THE PACKAGE.
+#
+# GITHUB_TOKEN can write packages OWNED BY THIS REPOSITORY. `synapse-core` and `synapse-dsh` were
+# first pushed by hand from a laptop, which makes them user-owned and linked to no repository, so
+# every CI push failed:
+#
+#   denied: permission_denied: write_package
+#
+# That reads like a missing scope and is not one — `packages: write` was always granted.
+#
+# Two things that do NOT fix it, both tried:
+#   · the org.opencontainers.image.source label. It is on the published image and the package is
+#     still unlinked; the label attaches on a successful push, and the push is what is refused.
+#   · the package settings UI. An unlinked user-scoped package has no "Manage Actions access"
+#     section at all — only member roles and a danger zone.
+#
+# So: set a repository secret GHCR_TOKEN to a classic PAT with `write:packages` and `read:packages`
+# and NOTHING else. That is narrow on purpose — such a token can push and pull packages and cannot
+# read or write a single repository.
+#
+# Once a push from Actions succeeds the package links itself, after which GITHUB_TOKEN suffices and
+# the secret can be deleted. The fallback below means removing it is a no-op rather than a breakage.
+#
 # Publishes the two images the standalone stack pulls:
 #   ghcr.io/eborjaa/synapse-core   — engine + MCP over HTTP
 #   ghcr.io/eborjaa/synapse-dsh    — the DeepSeek Harness UI, with the Synapse plugin inside it
@@ -134,7 +157,10 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # GHCR_TOKEN when set, GITHUB_TOKEN otherwise. See the note at the top of this file: the
+          # built-in token cannot write a package that is not linked to this repository, and these
+          # two were created by a laptop push so they are linked to nothing.
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - id: build
         uses: docker/build-push-action@v6
@@ -180,7 +206,10 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # GHCR_TOKEN when set, GITHUB_TOKEN otherwise. See the note at the top of this file: the
+          # built-in token cannot write a package that is not linked to this repository, and these
+          # two were created by a laptop push so they are linked to nothing.
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Stitch the per-arch digests into one manifest list
         working-directory: /tmp/digests
         run: |
@@ -225,7 +254,10 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # GHCR_TOKEN when set, GITHUB_TOKEN otherwise. See the note at the top of this file: the
+          # built-in token cannot write a package that is not linked to this repository, and these
+          # two were created by a laptop push so they are linked to nothing.
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
 
       - id: build
         uses: docker/build-push-action@v6
@@ -270,7 +302,10 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          # GHCR_TOKEN when set, GITHUB_TOKEN otherwise. See the note at the top of this file: the
+          # built-in token cannot write a package that is not linked to this repository, and these
+          # two were created by a laptop push so they are linked to nothing.
+          password: ${{ secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Stitch the per-arch digests into one manifest list
         working-directory: /tmp/digests
         run: |
