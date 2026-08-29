@@ -4,6 +4,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
 
 ## Unreleased
 
+## 2.2.0 — 2026-08-29
+
 ### Changed
 - **The stack is two containers, not four.** `vpn-sidecar` was an idle busybox waiting for a
   `VPN_IMAGE` nobody ever set; `ollama` sat behind a profile that never started. Run the tunnel on
@@ -27,6 +29,8 @@ All notable changes to `@eborja/synapse` are documented here. Follows [Keep a Ch
   rather than quietly accepted. See [[decision-0020-declarative-stack-bootstrap]].
 - **`.github/workflows/images.yml`** builds and pushes both images on a version tag, and refuses a
   tag whose version disagrees with `package.json`.
+
+Install: `npm install @eborja/synapse@^2.2.0`
 
 ## 2.1.0 — 2026-08-28
 
@@ -1329,8 +1333,8 @@ Initial distributable release of the context-vault engine as an npm package. The
 ### Upgrading
 
 ```jsonc
-"@eborja/synapse": "^2.1.0"
-// or: "github:eborjaa/synapse#v2.1.0"
+"@eborja/synapse": "^2.2.0"
+// or: "github:eborjaa/synapse#v2.2.0"
 ```
 
 ```sh
